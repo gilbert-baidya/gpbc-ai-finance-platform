@@ -1,0 +1,238 @@
+# PHASE 4 — AUTONOMOUS CHURCH INTELLIGENCE
+## Visual System Architecture
+
+```
+================================================================================
+                    GPBC FINANCIAL PLATFORM
+                  Phase 4: Autonomous Intelligence
+================================================================================
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                          USER INTERFACE LAYER                               │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  ┌─────────────────────┐  ┌─────────────────────┐  ┌───────────────────┐  │
+│  │   DASHBOARD         │  │   AI REPORTS        │  │   MEMBERS         │  │
+│  │                     │  │                     │  │                   │  │
+│  │  • Summary Cards    │  │  • Health Score     │  │  • Directory      │  │
+│  │  • Charts           │  │  • Forecast         │  │  • Details        │  │
+│  │  • Risk Banner ⚡    │  │  • Declining        │  │  • AI Insights ⚡  │  │
+│  └─────────────────────┘  └─────────────────────┘  └───────────────────┘  │
+│                                                                             │
+│  ┌───────────────────────────────────────────────────────────────────────┐ │
+│  │              🧠 PASTORAL INTELLIGENCE (Phase 4 NEW) ⚡                 │ │
+│  ├───────────────────────────────────────────────────────────────────────┤ │
+│  │                                                                       │ │
+│  │  ┌──────────────────────┐                                            │ │
+│  │  │  CHURCH MOMENTUM     │  ← Calculated from 3 data sources          │ │
+│  │  │       SCORE          │                                            │ │
+│  │  │         82           │  Ministry Health (35 pts)                  │ │
+│  │  └──────────────────────┘  Risk Level (25 pts)                       │ │
+│  │                             Engagement (25 pts)                       │ │
+│  │                             Base (15 pts)                             │ │
+│  │  ┌───────────────────────────────────────────────────────────────┐  │ │
+│  │  │ 🛡️ FINANCIAL RISK MONITOR                                      │  │ │
+│  │  │ Level: YELLOW | Narrative: "2 top donors silent 50+ days..."  │  │ │
+│  │  │ Alert: Donor M042 (avg $850/mo) → 52 days since last gift     │  │ │
+│  │  └───────────────────────────────────────────────────────────────┘  │ │
+│  │                                                                       │ │
+│  │  ┌────────────────────┐  ┌────────────────────┐                     │ │
+│  │  │ 📈 MINISTRY         │  │ 💡 AI MINISTRY     │                     │ │
+│  │  │    FORECAST         │  │    RECOMMENDATIONS │                     │ │
+│  │  │ 3-Mo: 85/100        │  │ • Re-engagement    │                     │ │
+│  │  │ 6-Mo: Low Risk      │  │ • Mission Focus    │                     │ │
+│  │  │ Momentum: Positive  │  │ • Budget Review    │                     │ │
+│  │  └────────────────────┘  └────────────────────┘                     │ │
+│  │                                                                       │ │
+│  │  ┌───────────────────────────────────────────────────────────────┐  │ │
+│  │  │ 📅 OUTREACH OPPORTUNITY CALENDAR                               │  │ │
+│  │  │ October 2026 (Score: 92) → Mission Push                        │  │ │
+│  │  │ December 2026 (Score: 88) → Year-End Giving                    │  │ │
+│  │  │ April 2027 (Score: 75) → Easter Outreach                       │  │ │
+│  │  └───────────────────────────────────────────────────────────────┘  │ │
+│  │                                                                       │ │
+│  └───────────────────────────────────────────────────────────────────────┘ │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                       MEMBER-LEVEL AI INSIGHTS ⚡                            │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  ┌────────────────────────────────────────────────────────────────────┐    │
+│  │  👤 John Doe (M001)                                                │    │
+│  │                                                                    │    │
+│  │  ┌──────────────────────────────────────────────────────────────┐ │    │
+│  │  │ DONOR JOURNEY                                                │ │    │
+│  │  │ Stage: [Faithful Giver] 💚  Momentum: ↑ Positive            │ │    │
+│  │  │ Insight: "Strong faithful giver with positive momentum..."  │ │    │
+│  │  └──────────────────────────────────────────────────────────────┘ │    │
+│  │                                                                    │    │
+│  │  ┌──────────────────────────────────────────────────────────────┐ │    │
+│  │  │ GIVING PREDICTION (Next 3 Months)                            │ │    │
+│  │  │                                                               │ │    │
+│  │  │ Decline Risk: 15% 🟢  |  Consistency: 85/100  |  Freq: Monthly│ │    │
+│  │  │                                                               │ │    │
+│  │  │ March 2026:  $150 ← $200 → $300  (85% confidence)           │ │    │
+│  │  │ April 2026:  $150 ← $200 → $300  (80% confidence)           │ │    │
+│  │  │ May 2026:    $150 ← $200 → $300  (75% confidence)           │ │    │
+│  │  │                                                               │ │    │
+│  │  │ Last Gift: $200 on Feb 1, 2026  |  Total Given: $12,450     │ │    │
+│  │  └──────────────────────────────────────────────────────────────┘ │    │
+│  └────────────────────────────────────────────────────────────────────┘    │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                      FRONTEND HOOKS LAYER (Phase 4) ⚡                       │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  usePredictiveGiving(memberId, months)  ────┐                              │
+│  useDonorJourney(memberId)  ────────────────┤                              │
+│  useMinistryForecast()  ─────────────────────┤                              │
+│  useOutreachOpportunities()  ────────────────┤──→ gasFetch() ──→ Backend  │
+│  useMinistryRecommendations()  ──────────────┤                              │
+│  useFinancialRiskMonitor()  ─────────────────┤                              │
+│  useEngagementIndicators()  ─────────────────┘                              │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                  BACKEND LAYER (Google Apps Script) ⏳                       │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  NEW ACTIONS (Phase 4 - To Be Implemented):                                │
+│                                                                             │
+│  ⏳ predictFutureGiving            → AI_GIVING_PREDICTIONS sheet            │
+│  ⏳ getDonorJourneyIntelligence    → DONOR_JOURNEY_STAGES sheet             │
+│  ⏳ getMinistryForecast            → MINISTRY_AI_FORECAST sheet             │
+│  ⏳ getOutreachOpportunities       → OUTREACH_OPPORTUNITIES sheet           │
+│  ⏳ generateMinistryRecommendations → AI_MINISTRY_RECOMMENDATIONS sheet     │
+│  ⏳ getFinancialRiskAlerts         → FINANCIAL_RISK_ALERTS sheet            │
+│  ⏳ getEngagementIndicators        → ENGAGEMENT_INDICATORS sheet            │
+│                                                                             │
+│  EXISTING ACTIONS (Already Working):                                       │
+│                                                                             │
+│  ✅ getMinistryHealthScore                                                  │
+│  ✅ forecastGivingTrend                                                     │
+│  ✅ detectDecliningGivers                                                   │
+│  ✅ getDashboardSummary                                                     │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                   DATA LAYER (Google Sheets) ⏳                              │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  CORE SHEETS (Existing):                                                   │
+│  ✅ MEMBERS                  ✅ CONTRIBUTIONS         ✅ EXPENSES            │
+│  ✅ AUDIT_LOGS               ✅ TAX_LETTERS                                 │
+│                                                                             │
+│  AI SHEETS (Phase 4 - To Be Created):                                      │
+│  ⏳ AI_GIVING_PREDICTIONS         ⏳ DONOR_JOURNEY_STAGES                   │
+│  ⏳ MINISTRY_AI_FORECAST           ⏳ OUTREACH_OPPORTUNITIES                │
+│  ⏳ AI_MINISTRY_RECOMMENDATIONS    ⏳ FINANCIAL_RISK_ALERTS                 │
+│  ⏳ ENGAGEMENT_INDICATORS          ⏳ AI_EXECUTIVE_SNAPSHOTS                │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    AUTOMATION LAYER (Time Triggers) ⏳                       │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  WEEKLY (Every Monday 2 AM):                                               │
+│    → Update giving predictions for all active members                      │
+│    → Refresh ministry forecast                                             │
+│    → Check financial risk alerts                                           │
+│    → Email alerts if risk level is YELLOW or RED                           │
+│                                                                             │
+│  MONTHLY (1st of Month 2 AM):                                              │
+│    → Calculate outreach opportunities (next 6 months)                      │
+│    → Generate ministry recommendations                                     │
+│    → Update all donor journey stages                                       │
+│    → Create executive AI snapshot report                                   │
+│    → Email leadership team                                                 │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                      DATA ETHICS LAYER (Guardrails) ✅                       │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  PROHIBITED:                           REQUIRED:                           │
+│  ❌ Score individual faith              ✅ Advisory only (no auto-actions)  │
+│  ❌ Personal spiritual judgement        ✅ Aggregate data for privacy       │
+│  ❌ Pressure tactics                    ✅ Stewardship planning focus       │
+│  ❌ Auto-send emails                    ✅ Human oversight required         │
+│  ❌ Auto-modify data                    ✅ Transparent calculations         │
+│  ❌ Auto-make decisions                 ✅ Ethical banner on dashboard      │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                          DONOR JOURNEY MODEL                                │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│   New Giver          Growing Giver       Faithful Giver      Champion      │
+│   ┌────────┐         ┌────────┐         ┌────────┐         ┌────────┐    │
+│   │ < 3 mo │  ────→  │ 3-12 mo│  ────→  │ 12+ mo │  ────→  │ Top 20%│    │
+│   │ < 3 gifts│        │ Increasing│       │ Consistent│      │ High $ │    │
+│   └────────┘         └────────┘         └────────┘         └────────┘    │
+│                                                ↓                            │
+│                                          ┌────────┐                         │
+│                                          │ At Risk│  ← 60+ days no gift    │
+│                                          └────────┘                         │
+│                                                ↓                            │
+│                                          ┌────────┐                         │
+│                                          │Inactive│  ← 90+ days no gift    │
+│                                          └────────┘                         │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    SYSTEM MATURITY PROGRESSION                              │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  Phase 1: MVP Core               → 7.5/10 ✅                                │
+│    • Basic CRUD operations                                                 │
+│    • Dashboard with real data                                              │
+│    • Tax letter generation                                                 │
+│                                                                             │
+│  Phase 2: Production Beta        → 8.5/10 ✅                                │
+│    • AI Reports dashboard (real data)                                      │
+│    • Security hardening (PII logs removed)                                 │
+│    • API client standardization                                            │
+│                                                                             │
+│  Phase 3: Enterprise Hardened    → 9.0/10 ✅                                │
+│    • Audit infrastructure (80% complete)                                   │
+│    • Role-based access control                                             │
+│    • Enterprise-level error handling                                       │
+│    • Production-safe gasFetch                                              │
+│                                                                             │
+│  Phase 4: Autonomous Intelligence → 9.5/10 ⚡ (CURRENT)                     │
+│    • Predictive giving engine                                              │
+│    • Donor journey intelligence                                            │
+│    • Ministry health forecasting                                           │
+│    • Financial risk early warning                                          │
+│    • Automated recommendations                                             │
+│    • Ethical AI guardrails                                                 │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+
+Legend:
+  ✅ Complete & Working
+  ⚡ Phase 4 New Feature
+  ⏳ Backend Implementation Pending
+  🟢 Low Risk / Positive
+  🟡 Medium Risk / Caution
+  🔴 High Risk / Alert
+```

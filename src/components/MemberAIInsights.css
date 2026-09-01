@@ -1,0 +1,302 @@
+/* ============================================================================
+   MEMBER AI INSIGHTS COMPONENT STYLES
+   Phase 4: Autonomous Church Intelligence
+   ============================================================================ */
+
+.member-ai-insights {
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 1.25rem;
+  margin-top: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.member-ai-insights.loading,
+.member-ai-insights.error {
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: 1.5rem;
+  font-size: 0.875rem;
+  color: #64748b;
+}
+
+.member-ai-insights.error {
+  background: #fef2f2;
+  border-color: #fecaca;
+  color: #dc2626;
+}
+
+/* INSIGHT SECTIONS */
+.ai-insight-section {
+  background: white;
+  border-radius: 8px;
+  padding: 1rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.ai-insight-section.compact {
+  padding: 0.75rem;
+}
+
+.ai-insight-title {
+  margin: 0 0 1rem 0;
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: #1e293b;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.ai-insight-text {
+  margin: 0.75rem 0 0 0;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: #475569;
+  font-style: italic;
+  padding: 0.75rem;
+  background: #f8fafc;
+  border-radius: 6px;
+  border-left: 3px solid #6366f1;
+}
+
+/* JOURNEY STAGE */
+.journey-stage-display {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.75rem;
+}
+
+.journey-stage-badge {
+  padding: 0.5rem 1rem;
+  border-radius: 20px;
+  font-weight: 600;
+  font-size: 0.875rem;
+  text-transform: capitalize;
+}
+
+.journey-stage-badge.stage-new-giver {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.journey-stage-badge.stage-growing-giver {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.journey-stage-badge.stage-faithful-giver {
+  background: #e0e7ff;
+  color: #4338ca;
+}
+
+.journey-stage-badge.stage-champion-giver {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.journey-stage-badge.stage-at-risk {
+  background: #fed7aa;
+  color: #9a3412;
+}
+
+.journey-stage-badge.stage-inactive {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.journey-momentum {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #475569;
+}
+
+.journey-momentum-label {
+  text-transform: capitalize;
+}
+
+/* PREDICTION METRICS */
+.prediction-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.prediction-metric {
+  text-align: center;
+  padding: 0.75rem;
+  background: #f8fafc;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+}
+
+.metric-label {
+  display: block;
+  font-size: 0.75rem;
+  color: #64748b;
+  margin-bottom: 0.25rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.metric-value {
+  display: block;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.metric-value.risk-low {
+  color: #059669;
+}
+
+.metric-value.risk-medium {
+  color: #d97706;
+}
+
+.metric-value.risk-high {
+  color: #dc2626;
+}
+
+/* PREDICTION TIMELINE */
+.prediction-timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.prediction-month {
+  background: #fafafa;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.prediction-month-label {
+  font-weight: 600;
+  color: #1e293b;
+  font-size: 0.875rem;
+  min-width: 100px;
+}
+
+.prediction-amount-range {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex: 1;
+  justify-content: center;
+}
+
+.prediction-amount-range span {
+  font-size: 0.875rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+}
+
+.amount-low {
+  color: #64748b;
+  background: #f1f5f9;
+}
+
+.amount-expected {
+  color: #059669;
+  background: #d1fae5;
+  font-weight: 700;
+  font-size: 1rem;
+}
+
+.amount-high {
+  color: #64748b;
+  background: #f1f5f9;
+}
+
+.prediction-probability {
+  font-size: 0.75rem;
+  color: #6366f1;
+  font-weight: 500;
+  min-width: 100px;
+  text-align: right;
+}
+
+/* LAST GIFT INFO */
+.last-gift-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  font-size: 0.875rem;
+  color: #475569;
+}
+
+.last-gift-info span {
+  flex: 1;
+}
+
+/* RESPONSIVE */
+@media (max-width: 768px) {
+  .member-ai-insights {
+    padding: 1rem;
+  }
+
+  .prediction-metrics {
+    grid-template-columns: 1fr;
+  }
+
+  .prediction-month {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+
+  .prediction-amount-range {
+    justify-content: flex-start;
+  }
+
+  .prediction-probability {
+    text-align: left;
+  }
+
+  .last-gift-info {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .journey-stage-display {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
+/* ANIMATIONS */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.member-ai-insights {
+  animation: fadeIn 0.3s ease-out;
+}
+
+.ai-insight-section {
+  animation: fadeIn 0.4s ease-out;
+}

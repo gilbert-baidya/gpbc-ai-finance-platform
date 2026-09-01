@@ -1,0 +1,119 @@
+.ai-panel {
+    width: 300px;
+    border-radius: var(--radius-lg);
+    padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    height: calc(100vh - 8rem);
+    /* Adjust based on header */
+    position: sticky;
+    top: 6rem;
+}
+
+.ai-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+}
+
+.ai-title {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--color-primary);
+}
+
+.ai-icon {
+    color: var(--color-gold-accent);
+}
+
+.badge {
+    background: linear-gradient(135deg, var(--color-primary), #6D1426);
+    color: white;
+    font-size: 0.65rem;
+    font-weight: 700;
+    padding: 0.2rem 0.5rem;
+    border-radius: 12px;
+    letter-spacing: 0.5px;
+}
+
+.ai-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    overflow-y: auto;
+    padding-right: 0.25rem;
+}
+
+.ai-card {
+    background: rgba(255, 255, 255, 0.6);
+    border: 1px solid rgba(255, 255, 255, 0.8);
+    border-radius: var(--radius-md);
+    padding: 1rem;
+    font-size: 0.875rem;
+    transition: var(--transition-smooth);
+}
+
+.ai-card:hover {
+    background: rgba(255, 255, 255, 0.9);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-soft);
+}
+
+.ai-card-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+    font-weight: 600;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.ai-card.insight .ai-card-header {
+    color: var(--color-secondary);
+}
+
+.ai-card.risk .ai-card-header {
+    color: var(--color-danger);
+}
+
+.ai-card.opportunity .ai-card-header {
+    color: var(--color-gold-accent);
+}
+
+.ai-card p {
+    color: var(--color-text-muted);
+    line-height: 1.5;
+    margin: 0;
+}
+
+.ai-card p strong {
+    color: var(--color-text-main);
+    font-weight: 600;
+}
+
+.ai-input-area {
+    margin-top: 1rem;
+}
+
+.ai-input-area input {
+    width: 100%;
+    padding: 0.75rem 1rem;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--color-glass-border);
+    background: rgba(255, 255, 255, 0.5);
+    font-family: inherit;
+    font-size: 0.875rem;
+    outline: none;
+    transition: var(--transition-fast);
+}
+
+.ai-input-area input:focus {
+    background: white;
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 3px rgba(74, 14, 26, 0.1);
+}

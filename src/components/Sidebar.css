@@ -1,0 +1,279 @@
+/* ========================================
+   PREMIUM FINTECH SIDEBAR
+   Floating glass panel with mini mode
+   ======================================== */
+
+.sidebar-premium {
+    width: 280px;
+    height: calc(100vh - 4rem);
+    position: sticky;
+    top: 2rem;
+    border-radius: 24px;
+    padding: 24px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    transition: all 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+    background: rgba(255, 255, 255, 0.8);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    box-shadow: 0 20px 60px rgba(74, 14, 26, 0.08),
+                0 8px 24px rgba(74, 14, 26, 0.04),
+                inset 0 1px 0 rgba(255, 255, 255, 0.6);
+}
+
+.sidebar-premium.collapsed {
+    width: 80px;
+}
+
+/* Sidebar Header */
+.sidebar-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+    margin-bottom: 8px;
+}
+
+.brand-container {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    overflow: hidden;
+}
+
+.brand-icon {
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, rgba(74, 14, 26, 0.1), rgba(31, 111, 84, 0.1));
+    border-radius: 10px;
+    flex-shrink: 0;
+}
+
+.brand-text {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--wine);
+    white-space: nowrap;
+    letter-spacing: -0.02em;
+}
+
+.sidebar-premium.collapsed .brand-text {
+    opacity: 0;
+    width: 0;
+}
+
+.collapse-toggle {
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(74, 14, 26, 0.05);
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    color: var(--wine);
+    transition: all 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+    flex-shrink: 0;
+}
+
+.collapse-toggle:hover {
+    background: rgba(74, 14, 26, 0.1);
+    transform: scale(1.1);
+}
+
+/* Navigation Menu */
+.nav-menu-premium {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 0 4px;
+}
+
+.nav-menu-premium::-webkit-scrollbar {
+    width: 4px;
+}
+
+.nav-menu-premium::-webkit-scrollbar-thumb {
+    background: rgba(74, 14, 26, 0.1);
+    border-radius: 2px;
+}
+
+/* Navigation Items */
+.nav-item-premium {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 12px 16px;
+    border: none;
+    background: transparent;
+    color: #757575;
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    border-radius: 14px;
+    width: 100%;
+    text-align: left;
+    position: relative;
+    transition: all 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+    text-decoration: none;
+    overflow: hidden;
+}
+
+.sidebar-premium.collapsed .nav-item-premium {
+    justify-content: center;
+    padding: 12px;
+}
+
+/* Icon Bubble */
+.icon-bubble {
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 10px;
+    background: transparent;
+    transition: all 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+    position: relative;
+    z-index: 2;
+    flex-shrink: 0;
+}
+
+.nav-item-premium:hover .icon-bubble {
+    background: linear-gradient(135deg, 
+        rgba(74, 14, 26, 0.08) 0%, 
+        rgba(31, 111, 84, 0.08) 100%);
+    transform: scale(1.1);
+    box-shadow: 0 4px 12px rgba(74, 14, 26, 0.1);
+}
+
+.nav-item-premium.active .icon-bubble {
+    background: linear-gradient(135deg, 
+        rgba(74, 14, 26, 0.12) 0%, 
+        rgba(31, 111, 84, 0.12) 100%);
+    box-shadow: 0 6px 16px rgba(74, 14, 26, 0.15),
+                inset 0 1px 0 rgba(255, 255, 255, 0.3);
+}
+
+/* Nav Label */
+.nav-label {
+    flex: 1;
+    white-space: nowrap;
+    transition: opacity 0.3s ease;
+}
+
+.sidebar-premium.collapsed .nav-label {
+    opacity: 0;
+    width: 0;
+}
+
+/* Active Glow Line */
+.active-glow-line {
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 4px;
+    height: 0;
+    background: linear-gradient(180deg, 
+        var(--wine) 0%, 
+        var(--green) 100%);
+    border-radius: 0 4px 4px 0;
+    transition: height 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+    box-shadow: 0 0 12px rgba(74, 14, 26, 0.4),
+                0 0 24px rgba(74, 14, 26, 0.2);
+    opacity: 0;
+}
+
+.nav-item-premium:hover .active-glow-line {
+    height: 60%;
+    opacity: 0.6;
+}
+
+.nav-item-premium.active .active-glow-line {
+    height: 70%;
+    opacity: 1;
+}
+
+/* Hover State */
+.nav-item-premium:hover {
+    background: rgba(255, 255, 255, 0.6);
+    color: var(--wine);
+    transform: translateX(4px);
+}
+
+/* Active State */
+.nav-item-premium.active {
+    background: rgba(255, 255, 255, 0.9);
+    color: var(--wine);
+    font-weight: 600;
+    box-shadow: 0 4px 16px rgba(74, 14, 26, 0.08),
+                inset 0 1px 0 rgba(255, 255, 255, 0.8);
+}
+
+/* Footer */
+.sidebar-footer-premium {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 12px 4px 0;
+    border-top: 1px solid rgba(74, 14, 26, 0.08);
+}
+
+.nav-item-premium.logout {
+    color: #DC2626;
+}
+
+.nav-item-premium.logout:hover {
+    background: rgba(220, 38, 38, 0.05);
+    color: #DC2626;
+}
+
+.nav-item-premium.logout .icon-bubble {
+    color: #DC2626;
+}
+
+.nav-item-premium.logout:hover .icon-bubble {
+    background: rgba(220, 38, 38, 0.1);
+}
+
+/* Tooltip for collapsed mode */
+.sidebar-premium.collapsed .nav-item-premium::after {
+    content: attr(title);
+    position: absolute;
+    left: calc(100% + 12px);
+    top: 50%;
+    transform: translateY(-50%);
+    background: rgba(0, 0, 0, 0.9);
+    color: white;
+    padding: 8px 12px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 500;
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+    z-index: 1000;
+}
+
+.sidebar-premium.collapsed .nav-item-premium:hover::after {
+    opacity: 1;
+}
+
+/* Responsive */
+@media (max-width: 1024px) {
+    .sidebar-premium {
+        display: none;
+    }
+}

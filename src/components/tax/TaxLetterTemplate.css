@@ -1,0 +1,174 @@
+.print-page {
+  width: 8.5in;
+  height: 11in;
+  position: relative;
+  background: white;
+  overflow: hidden;
+}
+
+.gpbc-letter-paper {
+  width: 8.5in;
+  height: 11in;
+  position: relative;
+  background: white;
+  overflow: hidden;
+  margin: 40px auto;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.letterhead-bg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  z-index: 0;
+}
+
+.print-safe-area {
+  position: absolute;
+  top: 2.2in;
+  left: 0.8in;
+  right: 0.8in;
+  bottom: 1.3in;
+  z-index: 2;
+  overflow: hidden;
+}
+
+.irs-text {
+  font-family: Inter, Arial, sans-serif;
+  font-size: 13px;
+  line-height: 1.42;
+  color: #222;
+}
+
+.irs-text p {
+  margin: 6px 0;
+}
+
+.gpbc-letter-body {
+  display: block;
+}
+
+.gpbc-letter-date {
+  margin: 0 0 10px;
+  font-size: 13px;
+  color: #374151;
+}
+
+.gpbc-letter-recipient {
+  margin: 0 0 10px;
+}
+
+.gpbc-letter-recipient p {
+  margin: 2px 0;
+}
+
+.gpbc-strong {
+  font-weight: 700;
+}
+
+.total-box {
+  margin: 14px 0;
+  padding: 14px;
+  border: 2px solid #2563eb;
+  border-radius: 10px;
+  text-align: center;
+  background: rgba(239, 246, 255, 0.95);
+}
+
+.total-box .label {
+  font-size: 12px;
+  font-weight: 700;
+  color: #1e40af;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  margin-bottom: 6px;
+}
+
+.total-box .amount {
+  font-size: 24px;
+  font-weight: 700;
+  color: #1e3a8a;
+}
+
+.gpbc-verse-box,
+.verse-box {
+  width: auto;
+  margin: 10px 8px;
+  padding: 10px 12px;
+  background: rgba(240, 253, 244, 0.95);
+  border: none;
+  border-radius: 8px;
+}
+
+.gpbc-verse-text {
+  font-style: italic;
+  margin: 0 0 6px;
+}
+
+.gpbc-verse-ref {
+  text-align: right;
+  font-weight: 700;
+  color: #166534;
+  margin: 0;
+}
+
+.gpbc-signature {
+  margin-top: 10px;
+}
+
+.gpbc-signature p {
+  margin: 3px 0;
+}
+
+.irs-tight-mode {
+  font-size: 12.4px;
+  line-height: 1.35;
+}
+
+.irs-tight-mode p {
+  margin: 4px 0;
+}
+
+.irs-tight-mode .gpbc-letter-recipient p {
+  margin: 1px 0;
+}
+
+.irs-tight-mode .total-box {
+  margin: 10px 0;
+  padding: 12px;
+}
+
+.irs-tight-mode .gpbc-verse-box,
+.irs-tight-mode .verse-box {
+  margin: 8px 6px;
+  padding: 8px 10px;
+}
+
+@media print {
+  body {
+    margin: 0;
+    background: white;
+  }
+
+  .app-header,
+  .app-global-header,
+  .role-switcher-dev,
+  .dev-only,
+  .no-print {
+    display: none !important;
+  }
+
+  .print-page,
+  .gpbc-letter-paper {
+    width: 8.5in;
+    height: 11in;
+    margin: 0;
+    border-radius: 0;
+    box-shadow: none;
+    page-break-after: avoid;
+    break-after: avoid;
+  }
+}

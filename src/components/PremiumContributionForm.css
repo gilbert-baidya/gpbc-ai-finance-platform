@@ -1,0 +1,242 @@
+.premium-contribution-form-container {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 24px;
+}
+
+/* Form Card */
+.form-card {
+    background: rgba(255, 255, 255, 0.9);
+    backdrop-filter: blur(10px);
+    border-radius: 16px;
+    padding: 40px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.08);
+    border: 1px solid rgba(74, 14, 26, 0.08);
+}
+
+/* Header */
+.form-header {
+    margin-bottom: 32px;
+    text-align: center;
+}
+
+.form-title {
+    font-size: 28px;
+    font-weight: 800;
+    color: var(--wine);
+    margin: 0 0 8px 0;
+}
+
+.form-subtitle {
+    font-size: 15px;
+    color: var(--text-muted);
+    margin: 0;
+}
+
+/* Form Layout */
+.contribution-form {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 24px;
+}
+
+/* Form Group */
+.form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.form-group.full-width {
+    grid-column: 1 / -1;
+}
+
+/* Form Label */
+.form-label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--wine);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* Form Inputs */
+.form-input,
+.form-select,
+.form-textarea {
+    padding: 12px 16px;
+    font-size: 15px;
+    color: var(--text);
+    background: rgba(255, 255, 255, 0.7);
+    border: 2px solid rgba(74, 14, 26, 0.1);
+    border-radius: 12px;
+    transition: all 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+    font-family: inherit;
+}
+
+.form-input:focus,
+.form-select:focus,
+.form-textarea:focus {
+    outline: none;
+    border-color: var(--wine);
+    background: rgba(255, 255, 255, 1);
+    box-shadow: 0 0 0 4px rgba(74, 14, 26, 0.08);
+}
+
+.form-input:disabled,
+.form-select:disabled,
+.form-textarea:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.form-select {
+    cursor: pointer;
+}
+
+.form-textarea {
+    resize: vertical;
+    min-height: 100px;
+}
+
+/* Currency Input */
+.currency-input-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.currency-symbol {
+    position: absolute;
+    left: 16px;
+    font-size: 18px;
+    font-weight: 800;
+    color: var(--wine);
+    pointer-events: none;
+}
+
+.currency-input {
+    padding-left: 36px;
+    font-size: 18px;
+    font-weight: 700;
+}
+
+.currency-display {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin: 0;
+    font-weight: 600;
+}
+
+/* Form Actions */
+.form-actions {
+    grid-column: 1 / -1;
+    display: flex;
+    justify-content: center;
+    margin-top: 16px;
+}
+
+/* Submit Button */
+.submit-button {
+    padding: 16px 48px;
+    font-size: 16px;
+    font-weight: 800;
+    color: white;
+    background: var(--wine);
+    border: none;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+    box-shadow: 0 8px 24px rgba(74, 14, 26, 0.2);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 220px;
+    justify-content: center;
+}
+
+.submit-button:hover:not(:disabled) {
+    background: #5A1020;
+    transform: translateY(-2px);
+    box-shadow: 0 12px 32px rgba(74, 14, 26, 0.3);
+}
+
+.submit-button:active:not(:disabled) {
+    transform: translateY(0);
+}
+
+.submit-button:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+}
+
+/* Spinner */
+.spinner {
+    width: 16px;
+    height: 16px;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-top-color: white;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .premium-contribution-form-container {
+        padding: 16px;
+    }
+
+    .form-card {
+        padding: 24px;
+        border-radius: 12px;
+    }
+
+    .form-title {
+        font-size: 24px;
+    }
+
+    .form-subtitle {
+        font-size: 14px;
+    }
+
+    .contribution-form {
+        grid-template-columns: 1fr;
+        gap: 20px;
+    }
+
+    .form-group.full-width {
+        grid-column: 1;
+    }
+
+    .submit-button {
+        width: 100%;
+        padding: 14px 24px;
+    }
+}
+
+@media (max-width: 480px) {
+    .form-card {
+        padding: 20px;
+    }
+
+    .form-header {
+        margin-bottom: 24px;
+    }
+
+    .form-title {
+        font-size: 20px;
+    }
+
+    .contribution-form {
+        gap: 16px;
+    }
+}

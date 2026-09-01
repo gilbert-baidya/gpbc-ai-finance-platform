@@ -1,0 +1,36 @@
+.chart-container {
+    padding: 1.5rem;
+    height: 400px;
+    display: flex;
+    flex-direction: column;
+}
+
+.chart-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+}
+
+.chart-header h3 {
+    font-size: 1.1rem;
+    margin: 0;
+}
+
+.chart-filter {
+    background: rgba(255, 255, 255, 0.5);
+    border: 1px solid var(--color-glass-border);
+    padding: 0.25rem 0.75rem;
+    border-radius: var(--radius-sm);
+    font-size: 0.875rem;
+    color: var(--color-text-main);
+    outline: none;
+    cursor: pointer;
+}
+
+.chart-wrapper {
+    flex: 1;
+    width: 100%;
+    min-height: 0;
+    /* important for flex items */
+}

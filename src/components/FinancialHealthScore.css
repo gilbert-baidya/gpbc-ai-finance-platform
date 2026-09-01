@@ -1,0 +1,152 @@
+.financial-health-score {
+    padding: 32px;
+    background: rgba(255, 255, 255, 0.7);
+    backdrop-filter: blur(10px);
+    border-radius: 20px;
+    border: 1px solid rgba(74, 14, 26, 0.1);
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.05);
+}
+
+.health-score-header {
+    margin-bottom: 32px;
+}
+
+.health-score-body {
+    display: grid;
+    grid-template-columns: 200px 1fr;
+    gap: 48px;
+    align-items: center;
+}
+
+/* Circular Score */
+.score-circle-container {
+    position: relative;
+    width: 160px;
+    height: 160px;
+}
+
+.score-circle {
+    width: 100%;
+    height: 100%;
+}
+
+.score-progress-ring {
+    transition: stroke-dashoffset 1.5s cubic-bezier(0.22, 1, 0.36, 1);
+    animation: drawCircle 1.5s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+@keyframes drawCircle {
+    from {
+        stroke-dashoffset: 440;
+    }
+}
+
+.score-center {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+}
+
+.score-number {
+    font-size: 48px;
+    font-weight: 800;
+    color: var(--wine);
+    line-height: 1;
+    margin-bottom: 4px;
+    animation: countUp 1.5s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes countUp {
+    from {
+        opacity: 0;
+        transform: scale(0.5);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+.score-grade {
+    font-size: 14px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* Health Factors */
+.health-factors {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.health-factor-item {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.factor-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.factor-icon {
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+}
+
+.factor-label {
+    flex: 1;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text);
+}
+
+.factor-score {
+    font-size: 16px;
+    font-weight: 800;
+    min-width: 40px;
+    text-align: right;
+}
+
+.factor-progress-bar {
+    height: 6px;
+    background: rgba(0, 0, 0, 0.05);
+    border-radius: 3px;
+    overflow: hidden;
+    margin-left: 44px;
+}
+
+.factor-progress-fill {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 1.2s cubic-bezier(0.22, 1, 0.36, 1);
+    animation: fillProgress 1.2s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+@keyframes fillProgress {
+    from {
+        width: 0 !important;
+    }
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .health-score-body {
+        grid-template-columns: 1fr;
+        gap: 32px;
+    }
+
+    .score-circle-container {
+        margin: 0 auto;
+    }
+}

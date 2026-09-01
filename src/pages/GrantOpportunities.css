@@ -1,0 +1,633 @@
+/* ============================================================================
+   GRANT OPPORTUNITIES DASHBOARD STYLES
+   Phase 6: Grant Discovery and Intelligence Engine
+   ============================================================================ */
+
+.grant-opportunities-dashboard {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+  padding: 2rem;
+}
+
+.grant-opportunities-loading,
+.grant-opportunities-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 80vh;
+  gap: 1rem;
+}
+
+.grant-opportunities-error h3 {
+  color: #0f172a;
+  margin: 0;
+}
+
+/* HEADER */
+.grant-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+  background: white;
+  padding: 1.5rem 2rem;
+  border-radius: 16px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.grant-header-content {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.grant-header-icon {
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  padding: 1rem;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);
+}
+
+.grant-title {
+  font-size: 1.875rem;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0;
+}
+
+.grant-subtitle {
+  font-size: 0.875rem;
+  color: #64748b;
+  margin: 0.25rem 0 0 0;
+}
+
+.grant-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.grant-btn-primary,
+.grant-btn-secondary,
+.grant-btn-link {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 0.875rem;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-decoration: none;
+}
+
+.grant-btn-primary {
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  color: white;
+  box-shadow: 0 2px 8px rgba(245, 158, 11, 0.3);
+}
+
+.grant-btn-primary:hover {
+  box-shadow: 0 4px 12px rgba(245, 158, 11, 0.4);
+  transform: translateY(-1px);
+}
+
+.grant-btn-secondary {
+  background: white;
+  color: #475569;
+  border: 1px solid #e2e8f0;
+}
+
+.grant-btn-secondary:hover {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+}
+
+.grant-btn-link {
+  background: #eff6ff;
+  color: #3b82f6;
+  border: 1px solid #3b82f6;
+}
+
+.grant-btn-link:hover {
+  background: #dbeafe;
+}
+
+/* STATISTICS BAR */
+.grant-stats-bar {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.grant-stat {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1.5rem;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.grant-stat svg {
+  color: #f59e0b;
+}
+
+.grant-stat-label {
+  font-size: 0.875rem;
+  color: #64748b;
+  margin-bottom: 0.25rem;
+}
+
+.grant-stat-value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+/* FILTERS */
+.grant-filters-container {
+  background: white;
+  padding: 1.5rem;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  margin-bottom: 2rem;
+}
+
+.grant-search-box {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  background: #f8fafc;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+}
+
+.grant-search-box svg {
+  color: #64748b;
+}
+
+.grant-search-input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  font-size: 1rem;
+  color: #0f172a;
+  outline: none;
+}
+
+.grant-search-input::placeholder {
+  color: #94a3b8;
+}
+
+.grant-filters {
+  display: flex;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.grant-filter-group {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  color: #64748b;
+}
+
+.grant-filter-group svg {
+  color: #f59e0b;
+}
+
+.grant-filter-select {
+  padding: 0.5rem 1rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  background: white;
+  color: #0f172a;
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
+.grant-filter-select:focus {
+  outline: none;
+  border-color: #f59e0b;
+}
+
+/* GRANT OPPORTUNITIES LIST */
+.grant-opportunities-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.grant-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 4rem;
+  background: white;
+  border-radius: 12px;
+  gap: 1rem;
+}
+
+/* GRANT OPPORTUNITY CARD */
+.grant-opportunity-card {
+  background: white;
+  border-radius: 12px;
+  padding: 1.5rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  transition: all 0.2s;
+}
+
+.grant-opportunity-card:hover {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+  transform: translateY(-2px);
+}
+
+.grant-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 1rem;
+}
+
+.grant-card-title {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex: 1;
+}
+
+.grant-card-title h3 {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.grant-new-badge {
+  padding: 0.25rem 0.75rem;
+  background: #dcfce7;
+  color: #166534;
+  font-size: 0.75rem;
+  font-weight: 700;
+  border-radius: 12px;
+  text-transform: uppercase;
+}
+
+.grant-success-badge {
+  padding: 0.5rem 1rem;
+  border-radius: 20px;
+  font-weight: 700;
+  font-size: 0.875rem;
+}
+
+.grant-success-badge.high {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.grant-success-badge.medium {
+  background: #fef3c7;
+  color: #78350f;
+}
+
+.grant-success-badge.low {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.grant-card-body {
+  margin-bottom: 1.5rem;
+}
+
+.grant-info-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.grant-info-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  color: #64748b;
+}
+
+.grant-info-item svg {
+  color: #f59e0b;
+}
+
+.grant-info-item strong {
+  color: #0f172a;
+}
+
+.deadline-urgent {
+  color: #dc2626 !important;
+  font-weight: 700 !important;
+}
+
+.deadline-soon {
+  color: #f59e0b !important;
+}
+
+.deadline-normal {
+  color: #10b981 !important;
+}
+
+.grant-description {
+  padding: 1rem;
+  background: #f8fafc;
+  border-radius: 8px;
+  color: #475569;
+  line-height: 1.6;
+  margin-bottom: 1rem;
+}
+
+.grant-match-reasons {
+  padding: 1rem;
+  background: #fef3c7;
+  border-radius: 8px;
+  border-left: 4px solid #f59e0b;
+}
+
+.grant-match-reasons h4 {
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: #78350f;
+  margin: 0 0 0.75rem 0;
+  text-transform: uppercase;
+}
+
+.grant-match-reasons ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.grant-match-reasons li {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  color: #78350f;
+}
+
+.grant-card-actions {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+/* MODAL */
+.grant-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 2rem;
+}
+
+.grant-modal-content {
+  background: white;
+  border-radius: 16px;
+  max-width: 800px;
+  width: 100%;
+  max-height: 90vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+}
+
+.grant-draft-modal {
+  max-width: 1000px;
+}
+
+.grant-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.5rem 2rem;
+  border-bottom: 2px solid #f1f5f9;
+}
+
+.grant-modal-header h2 {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.grant-modal-close {
+  font-size: 2rem;
+  background: none;
+  border: none;
+  color: #64748b;
+  cursor: pointer;
+  padding: 0;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+}
+
+.grant-modal-close:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+}
+
+.grant-modal-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 2rem;
+}
+
+.grant-detail-section {
+  margin-bottom: 2rem;
+}
+
+.grant-detail-section:last-child {
+  margin-bottom: 0;
+}
+
+.grant-detail-section h3 {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0 0 1rem 0;
+}
+
+.grant-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1rem;
+  padding: 1rem;
+  background: #f8fafc;
+  border-radius: 8px;
+}
+
+.grant-detail-section ul {
+  list-style: disc;
+  padding-left: 1.5rem;
+  color: #475569;
+  line-height: 1.8;
+}
+
+.grant-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  padding: 1.5rem 2rem;
+  border-top: 2px solid #f1f5f9;
+}
+
+/* DRAFT SPECIFIC STYLES */
+.grant-draft-warning {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem;
+  background: #fef3c7;
+  border: 2px solid #f59e0b;
+  border-radius: 8px;
+  color: #78350f;
+  font-weight: 600;
+  margin-bottom: 2rem;
+}
+
+.grant-draft-section {
+  margin-bottom: 2rem;
+}
+
+.grant-draft-section h3 {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0 0 1rem 0;
+}
+
+.grant-budget-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.grant-budget-table th,
+.grant-budget-table td {
+  padding: 0.75rem;
+  text-align: left;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.grant-budget-table th {
+  background: #f8fafc;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.grant-budget-table td {
+  color: #475569;
+}
+
+/* AI BANNER */
+.grant-ai-banner {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+  border: 2px solid #f59e0b;
+  border-radius: 12px;
+  padding: 1.25rem;
+  color: #78350f;
+  font-size: 0.875rem;
+  line-height: 1.6;
+}
+
+.grant-ai-banner strong {
+  font-weight: 700;
+}
+
+/* RESPONSIVE */
+@media (max-width: 1024px) {
+  .grant-stats-bar {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .grant-info-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .grant-filters {
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .grant-filter-group {
+    width: 100%;
+    justify-content: space-between;
+  }
+}
+
+@media (max-width: 768px) {
+  .grant-opportunities-dashboard {
+    padding: 1rem;
+  }
+
+  .grant-header {
+    flex-direction: column;
+    gap: 1rem;
+    align-items: flex-start;
+  }
+
+  .grant-stats-bar {
+    grid-template-columns: 1fr;
+  }
+
+  .grant-card-header {
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .grant-card-actions {
+    flex-direction: column;
+  }
+
+  .grant-card-actions button,
+  .grant-card-actions a {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .grant-modal-content {
+    max-width: 100%;
+    margin: 1rem;
+  }
+
+  .grant-detail-grid {
+    grid-template-columns: 1fr;
+  }
+}

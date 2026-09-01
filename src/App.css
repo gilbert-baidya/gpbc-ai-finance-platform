@@ -1,0 +1,132 @@
+/* ============================================
+   APP LAYOUT - PREMIUM ENTERPRISE
+   ============================================ */
+
+.app-container {
+  min-height: 100vh;
+  position: relative;
+  overflow-x: hidden;
+  padding: var(--space-4);
+}
+
+/* Background Decorations - Subtle Sacred Gradients */
+.background-decor-1 {
+  position: fixed;
+  top: -20%;
+  left: -10%;
+  width: 50vw;
+  height: 50vw;
+  background: radial-gradient(circle, rgba(74, 14, 26, 0.08) 0%, rgba(255, 255, 255, 0) 70%);
+  border-radius: 50%;
+  z-index: -1;
+  pointer-events: none;
+}
+
+.background-decor-2 {
+  position: fixed;
+  bottom: -20%;
+  right: -10%;
+  width: 60vw;
+  height: 60vw;
+  background: radial-gradient(circle, rgba(31, 111, 84, 0.05) 0%, rgba(255, 255, 255, 0) 70%);
+  border-radius: 50%;
+  z-index: -1;
+  pointer-events: none;
+}
+
+/* Main Layout Grid */
+.main-layout {
+  display: flex;
+  gap: var(--space-8);
+  max-width: 1600px;
+  margin: 0 auto;
+}
+
+.sidebar-column {
+  flex: 0 0 260px;
+  display: none;
+  /* Hidden on mobile by default */
+}
+
+.content-column {
+  flex: 1;
+  min-width: 0;
+  /* Prevents overflow issues */
+}
+
+.panel-column {
+  flex: 0 0 300px;
+  display: none;
+}
+
+/* Executive Dashboard Content Area */
+.dashboard-content {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: var(--space-12) var(--space-6);
+}
+
+.metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: var(--space-6);
+  margin-bottom: var(--space-12);
+}
+
+.charts-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--space-6);
+}
+
+/* Responsive Breakpoints */
+@media (min-width: 768px) {
+  .app-container {
+    padding: var(--space-6);
+  }
+  
+  .dashboard-content {
+    padding: var(--space-16) var(--space-8);
+  }
+}
+
+@media (min-width: 1024px) {
+  .sidebar-column {
+    display: block;
+  }
+
+  .charts-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (min-width: 1280px) {
+  .panel-column {
+    display: block;
+  }
+  
+  .app-container {
+    padding: var(--space-8);
+  }
+}
+
+/* Mobile Adjustments */
+@media (max-width: 768px) {
+  .app-container {
+    padding: var(--space-2);
+  }
+  
+  .main-layout {
+    gap: var(--space-4);
+  }
+  
+  .metrics-grid,
+  .charts-grid {
+    grid-template-columns: 1fr;
+    gap: var(--space-4);
+  }
+  
+  .dashboard-content {
+    padding: var(--space-8) var(--space-4);
+  }
+}

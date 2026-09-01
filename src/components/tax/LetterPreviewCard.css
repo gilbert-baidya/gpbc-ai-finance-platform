@@ -1,0 +1,147 @@
+/* ============================================
+   Letter Preview Card - Live Preview
+   ============================================ */
+
+.letter-preview-card {
+  background: var(--white);
+  border-radius: var(--radius-xl);
+  border: 2px solid var(--border);
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+}
+
+/* Church Header */
+.letter-preview-header {
+  background: linear-gradient(135deg, #FEF3C7, #FDE68A);
+  padding: var(--space-4);
+  border-bottom: 2px solid #FCD34D;
+  height: 220px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.letter-preview-letterhead-image {
+  width: auto;
+  max-width: 100%;
+  max-height: 170px;
+  height: auto;
+  object-fit: contain;
+  display: block;
+}
+
+/* IRS Trust Section */
+.letter-irs-section {
+  background: #ECFDF5;
+  border-bottom: 1px solid #6EE7B7;
+  padding: var(--space-4);
+}
+
+.letter-irs-content {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.letter-irs-badge {
+  width: 40px;
+  height: 40px;
+  background: var(--green);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.letter-irs-verified {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.letter-irs-text {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: #065F46;
+}
+
+.letter-irs-ein {
+  font-size: var(--text-xs);
+  color: #047857;
+  margin-top: var(--space-1);
+}
+
+/* Preview Body */
+.letter-preview-body {
+  padding: var(--space-6);
+}
+
+.letter-preview-year {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--text);
+  font-weight: 600;
+  margin-bottom: var(--space-4);
+}
+
+.letter-total-box {
+  background: #EFF6FF;
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
+  border: 2px solid #BFDBFE;
+}
+
+.letter-total-label {
+  font-size: var(--text-sm);
+  color: #1E40AF;
+  margin-bottom: var(--space-1);
+}
+
+.letter-total-amount {
+  font-size: var(--text-3xl);
+  font-weight: 700;
+  color: #1E3A8A;
+}
+
+.letter-features-list {
+  font-size: var(--text-xs);
+  color: var(--text-light);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border);
+  margin-top: var(--space-4);
+}
+
+.letter-features-list p {
+  margin: var(--space-1) 0;
+}
+
+/* Empty State */
+.letter-empty-state {
+  text-align: center;
+  padding: var(--space-8) var(--space-6);
+}
+
+.letter-empty-icon {
+  width: 64px;
+  height: 64px;
+  color: var(--border);
+  margin: 0 auto var(--space-4);
+}
+
+.letter-empty-text {
+  color: var(--text-light);
+  font-size: var(--text-sm);
+}
+
+@media (max-width: 768px) {
+  .letter-preview-header {
+    height: 160px;
+    padding: var(--space-3);
+  }
+
+  .letter-preview-letterhead-image {
+    max-height: 120px;
+  }
+}

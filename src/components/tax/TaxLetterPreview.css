@@ -1,0 +1,115 @@
+/* ============================================
+   Tax Letter Preview Shell
+   ============================================ */
+
+.tax-letter-preview-container {
+  width: 100%;
+  max-width: 920px;
+  margin: 0 auto;
+  padding: var(--space-6);
+}
+
+.tax-letter-actions {
+  display: flex;
+  justify-content: center;
+  gap: var(--space-3);
+  margin-bottom: var(--space-6);
+}
+
+.tax-letter-print-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding: 12px 24px;
+  background: var(--green);
+  color: var(--white);
+  font-weight: 700;
+  border: none;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  box-shadow: var(--shadow-md);
+  transition: all var(--duration-base) var(--ease-out);
+}
+
+.tax-letter-print-btn:hover {
+  background: var(--green-dark);
+  box-shadow: var(--shadow-lg);
+  transform: translateY(-1px);
+}
+
+.tax-letter-close-btn {
+  padding: 12px 24px;
+  background: var(--beige-dark);
+  color: var(--text);
+  font-weight: 700;
+  border: none;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: background var(--duration-base) var(--ease-out);
+}
+
+.tax-letter-close-btn:hover {
+  background: var(--border);
+}
+
+.tax-letter-warning {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  background: #fef3c7;
+  border: 2px solid #fcd34d;
+  border-radius: var(--radius-md);
+  margin-bottom: var(--space-6);
+  color: #78350f;
+  font-weight: 600;
+}
+
+.tax-letter-loading,
+.tax-letter-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-20);
+  gap: var(--space-4);
+  text-align: center;
+}
+
+.tax-letter-loading p,
+.tax-letter-error p {
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.tax-letter-error h3 {
+  margin: 0;
+  color: #dc2626;
+}
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+
+  .tax-letter-preview-container {
+    padding: 0;
+    max-width: 100%;
+  }
+}
+
+@media (max-width: 768px) {
+  .tax-letter-preview-container {
+    padding: var(--space-4);
+  }
+
+  .tax-letter-actions {
+    flex-direction: column;
+  }
+
+  .tax-letter-print-btn,
+  .tax-letter-close-btn {
+    width: 100%;
+  }
+}

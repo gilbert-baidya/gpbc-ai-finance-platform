@@ -1,0 +1,118 @@
+metadata:
+  generated: "2026-09-01"
+  source_specs:
+    - "MD/GPBC_Finance_Control_Book_Build_Handoff.md"
+    - "MD/GPBC_Finance_Desk_Simplified_Architecture.md"
+  architectural_authority: "MD/GPBC_Finance_Desk_Simplified_Architecture.md"
+  target_plan: "MD/implementation-plan/plan.md"
+
+summary:
+  total_requirements: 24
+  covered_requirements: 24
+  missing_requirements: 0
+  coverage_percentage: 100.0
+
+requirements:
+  - req_id: "REQ-001"
+    req_description: "Refactor and preserve useful existing functionality."
+    priority: "P1"
+    plan_items: ["0.1", "0.3", "1.1", "1.5"]
+  - req_id: "REQ-002"
+    req_description: "Keep the approved Google-native architecture without a traditional backend."
+    priority: "P1"
+    plan_items: ["1.5", "5.2"]
+  - req_id: "REQ-003"
+    req_description: "Use one master Sheet and preserve historical and audit tabs."
+    priority: "P1"
+    plan_items: ["1.4", "2.1", "5.2"]
+  - req_id: "REQ-004"
+    req_description: "Use Google Sign-In with frontend and backend role enforcement."
+    priority: "P1"
+    plan_items: ["1.2", "1.3", "5.2"]
+  - req_id: "REQ-005"
+    req_description: "Remove shared browser-key primary auth and prevent secret exposure."
+    priority: "P1"
+    plan_items: ["0.2", "1.2", "1.3", "1.5", "5.2"]
+  - req_id: "REQ-006"
+    req_description: "Provide a unified and non-destructive Transactions model."
+    priority: "P1"
+    plan_items: ["2.1", "2.2"]
+  - req_id: "REQ-007"
+    req_description: "Track income and designated/capital funding by purpose."
+    priority: "P1"
+    plan_items: ["2.1", "2.4"]
+  - req_id: "REQ-008"
+    req_description: "Track expenses and checks with classification, evidence, and reconciliation."
+    priority: "P1"
+    plan_items: ["2.1", "2.3", "3.1", "3.3"]
+  - req_id: "REQ-009"
+    req_description: "Support many-to-many and partial reimbursement allocations."
+    priority: "P1"
+    plan_items: ["2.2", "3.1"]
+  - req_id: "REQ-010"
+    req_description: "Provide a Receipt Register backed by private Drive evidence."
+    priority: "P1"
+    plan_items: ["2.3", "3.1", "5.1"]
+  - req_id: "REQ-011"
+    req_description: "Preserve personal-card purchase, reimbursement, and absorbed values."
+    priority: "P1"
+    plan_items: ["2.2"]
+  - req_id: "REQ-012"
+    req_description: "Track capital-project budgets, funding, costs, commitments, and status."
+    priority: "P2"
+    plan_items: ["2.4", "4.1"]
+  - req_id: "REQ-013"
+    req_description: "Provide an explainable deterministic Audit Center."
+    priority: "P1"
+    plan_items: ["3.1", "3.2", "4.1", "4.2"]
+  - req_id: "REQ-014"
+    req_description: "Calculate an explainable deterministic Audit Health Score."
+    priority: "P2"
+    plan_items: ["3.2"]
+  - req_id: "REQ-015"
+    req_description: "Support manually imported bank and card reconciliation."
+    priority: "P2"
+    plan_items: ["3.3"]
+  - req_id: "REQ-016"
+    req_description: "Provide the focused finance dashboard."
+    priority: "P2"
+    plan_items: ["1.1", "2.4", "3.2"]
+  - req_id: "REQ-017"
+    req_description: "Provide Monthly Close and audited post-close amendments."
+    priority: "P1"
+    plan_items: ["3.1", "4.2"]
+  - req_id: "REQ-018"
+    req_description: "Generate privacy-conscious Presbyter PDFs and save them privately."
+    priority: "P1"
+    plan_items: ["4.1", "4.2"]
+  - req_id: "REQ-019"
+    req_description: "Ingest Gmail receipts later with mandatory human confirmation."
+    priority: "P3"
+    plan_items: ["5.1"]
+  - req_id: "REQ-020"
+    req_description: "Apply the approved calm visual direction responsively."
+    priority: "P2"
+    plan_items: ["1.1", "5.2"]
+  - req_id: "REQ-021"
+    req_description: "Migrate to TypeScript incrementally without folder churn."
+    priority: "P2"
+    plan_items: ["0.3", "1.5", "2.1"]
+  - req_id: "REQ-022"
+    req_description: "Keep evidence private, logs redacted, and actions traceable."
+    priority: "P1"
+    plan_items: ["0.2", "1.2", "1.3", "1.4", "2.2", "2.3", "3.1", "4.1", "4.2", "5.1", "5.2"]
+  - req_id: "REQ-023"
+    req_description: "Isolate production data and use controlled reversible migrations."
+    priority: "P1"
+    plan_items: ["0.1", "0.2", "1.4", "2.1", "3.3", "5.2"]
+  - req_id: "REQ-024"
+    req_description: "Pass build, lint, tests, and security checks before production."
+    priority: "P1"
+    plan_items: ["0.1", "0.3", "1.5", "5.2"]
+
+missing_requirements: []
+orphan_plan_items: []
+validation:
+  passed: true
+  errors: []
+  warnings: []

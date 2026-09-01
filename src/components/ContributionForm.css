@@ -1,0 +1,71 @@
+/* ============================================
+   CONTRIBUTION FORM - PREMIUM STYLE
+   ============================================ */
+
+.contribution-form-container {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: var(--space-8);
+}
+
+.contribution-form {
+  background: var(--glass);
+  backdrop-filter: blur(20px);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-xl);
+  padding: var(--space-8);
+  box-shadow: var(--shadow-lg);
+}
+
+/* Input with Icon */
+.input-with-icon {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.input-icon {
+  position: absolute;
+  left: var(--space-4);
+  font-size: var(--text-lg);
+  font-weight: 700;
+  color: var(--wine);
+  pointer-events: none;
+  z-index: 1;
+}
+
+.input-with-icon-field {
+  padding-left: var(--space-8) !important;
+}
+
+/* Form Hint */
+.form-hint {
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+  margin-top: var(--space-2);
+}
+
+.form-hint.error {
+  color: #dc2626;
+}
+
+/* Skeleton Loading */
+.skeleton-input {
+  height: 48px;
+  border-radius: var(--radius-md);
+}
+
+/* Mobile Responsive */
+@media (max-width: 768px) {
+  .contribution-form-container {
+    padding: var(--space-4);
+  }
+
+  .contribution-form {
+    padding: var(--space-6);
+  }
+
+  .form-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
