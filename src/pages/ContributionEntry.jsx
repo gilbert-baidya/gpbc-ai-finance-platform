@@ -5,6 +5,7 @@ import { useDashboardData } from '../hooks/useDashboardData';
 import { successToast, errorToast } from '../utils/toast';
 import { Calendar, User, DollarSign, FileText, CheckCircle, Loader } from 'lucide-react';
 import { gasFetch } from '../api/gasFetch';
+import { log, error } from '../utils/logger';
 
 const contributionTypeOptions = [
     { label: "General Offering", value: "General Offering" },

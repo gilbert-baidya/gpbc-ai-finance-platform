@@ -1,11 +1,10 @@
 import React from 'react';
-import { User, Calendar } from 'lucide-react';
-import { useTenant } from '../tenants/TenantContext';
-import TenantSwitcher from './TenantSwitcher';
+import { User, Calendar, LogOut, Shield } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 import './Header.css';
 
 const Header = () => {
-  const { tenant } = useTenant();
+  const { user, signOut } = useAuth();
   
   const currentDate = new Date().toLocaleDateString('en-US', {
     weekday: 'long',
@@ -21,37 +20,54 @@ const Header = () => {
           src="/Logo-gpbc.png" 
           alt="GPBC Church Logo" 
           style={{ 
-            width: '96px', 
-            height: '96px', 
+            width: '64px', 
+            height: '64px', 
             objectFit: 'contain',
-            marginRight: '16px'
+            marginRight: '12px'
           }}
           onError={(e) => {
-            // Fallback to cross symbol if logo not found
-            e.target.outerHTML = '<div style="font-size: 32px; color: var(--wine); margin-right: 16px;">✝</div>';
+            e.target.style.display = 'none';
           }}
         />
         <div className="church-info">
-          <h1>{tenant?.short || 'GPBC'}</h1>
-          <span className="subtitle">{tenant?.name || 'Grace and Praise Bangladeshi Church'}</span>
+          <h1>GPBC Finance Desk</h1>
+          <span className="subtitle">Finance • Audit • Reporting</span>
         </div>
       </div>
 
       <div className="header-right">
-        <TenantSwitcher />
         <div className="date-display">
           <Calendar size={16} />
           <span>{currentDate}</span>
         </div>
-        <div className="user-profile glass-card">
-          <div className="avatar">
-            <User size={20} />
+
+        {user && (
+          <div className="user-profile glass-card">
+            <div className="avatar">
+              {user.picture ? (
+                <img src={user.picture} alt={user.name} style={{ width: '100%', height: '100%', borderRadius: '50%' }} />
+              ) : (
+                <User size={18} />
+              )}
+            </div>
+            <div className="user-info">
+              <span className="name">{user.name}</span>
+              <span className="role">
+                <Shield size={10} style={{ display: 'inline', marginRight: '3px' }} />
+                {user.role}
+              </span>
+            </div>
+            <button
+              type="button"
+              className="header-logout-btn"
+              onClick={signOut}
+              title="Sign Out"
+              aria-label="Sign Out"
+            >
+              <LogOut size={16} />
+            </button>
           </div>
-          <div className="user-info">
-            <span className="name">Treasurer Admin</span>
-            <span className="role">Finance Ministry</span>
-          </div>
-        </div>
+        )}
       </div>
     </header>
   );

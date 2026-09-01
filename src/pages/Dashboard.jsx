@@ -14,16 +14,9 @@ import { errorToast } from '../utils/toast';
 import { gasFetch } from '../api/gasFetch';
 
 const Dashboard = () => {
-    const { totals, loading, error } = useDashboardData();
+    const { error } = useDashboardData();
     const { tenant, tenantKey } = useTenant();
     const { isAdmin } = useRoleGuard();
-
-    const [summary, setSummary] = useState({
-        tithe: 0,
-        offering: 0,
-        expenses: 0,
-        netBalance: 0
-    });
 
     const [healthScore, setHealthScore] = useState(0);
 
@@ -38,11 +31,9 @@ const Dashboard = () => {
             });
 
             if (data.success !== false) {
-                setSummary(data.totals);
-                
                 // Calculate health score from real data
-                const totalIncome = (data.totals.tithe || 0) + (data.totals.offering || 0);
-                const totalExpense = data.totals.expenses || 0;
+                const totalIncome = (data.totals?.tithe || 0) + (data.totals?.offering || 0);
+                const totalExpense = data.totals?.expenses || 0;
                 const calculatedScore = Math.min(
                     100,
                     Math.round(((totalIncome - totalExpense) / Math.max(totalIncome, 1)) * 100 + 50)

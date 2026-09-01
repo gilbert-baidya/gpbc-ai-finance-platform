@@ -1,97 +1,109 @@
 .app-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 1rem 2rem;
-    border-radius: var(--radius-md);
-    margin-bottom: 2rem;
-    position: sticky;
-    top: 1rem;
-    z-index: 100;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.85rem 1.75rem;
+  border-radius: var(--radius-lg);
+  margin-bottom: 1.5rem;
+  position: sticky;
+  top: 1rem;
+  z-index: 100;
+  background: rgba(253, 251, 247, 0.92);
+  border: 1px solid var(--mist-blue-dark);
+  box-shadow: 0 4px 16px rgba(44, 62, 80, 0.05);
 }
 
 .header-left {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-}
-
-.logo-container {
-    width: 48px;
-    height: 48px;
-    background: linear-gradient(135deg, var(--color-primary), #6D1426);
-    border-radius: 12px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: white;
-    font-size: 24px;
-    box-shadow: 0 4px 10px rgba(74, 14, 26, 0.3);
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
 }
 
 .church-info h1 {
-    font-size: 1.25rem;
-    margin: 0;
-    line-height: 1.2;
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--slate-blue);
+  margin: 0;
+  line-height: 1.2;
 }
 
 .church-info .subtitle {
-    font-size: 0.875rem;
-    color: var(--color-text-muted);
-    font-weight: 500;
+  font-size: 0.8rem;
+  color: var(--gold);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
 .header-right {
-    display: flex;
-    align-items: center;
-    gap: 2rem;
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
 }
 
 .date-display {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    color: var(--color-text-muted);
-    font-size: 0.9rem;
-    font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--warm-gray);
+  font-size: 0.85rem;
+  font-weight: 500;
 }
 
 .user-profile {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    padding: 0.5rem 1rem;
-    cursor: pointer;
-    border: 1px solid transparent;
-}
-
-.user-profile:hover {
-    border-color: var(--color-primary);
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.4rem 0.85rem;
+  border-radius: var(--radius-md);
+  background: #FFFFFF;
+  border: 1px solid var(--mist-blue-dark);
 }
 
 .avatar {
-    width: 36px;
-    height: 36px;
-    background: var(--color-bg);
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: var(--color-primary);
+  width: 32px;
+  height: 32px;
+  background: var(--mist-blue);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--slate-blue);
+  overflow: hidden;
 }
 
 .user-info {
-    display: flex;
-    flex-direction: column;
+  display: flex;
+  flex-direction: column;
 }
 
 .user-info .name {
-    font-size: 0.875rem;
-    font-weight: 600;
-    color: var(--color-text-main);
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--slate-blue-dark);
 }
 
 .user-info .role {
-    font-size: 0.75rem;
-    color: var(--color-text-muted);
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--mist-blue-accent);
+}
+
+.header-logout-btn {
+  background: transparent;
+  border: none;
+  color: var(--warm-gray);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 4px;
+  transition: all 0.15s ease;
+}
+
+.header-logout-btn:hover {
+  color: var(--terracotta);
+  background: var(--ivory-warm);
 }

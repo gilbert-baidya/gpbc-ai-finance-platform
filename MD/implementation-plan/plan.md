@@ -186,41 +186,41 @@ No constitution exception is required.
 
 ### Phase 0 — Safety and Baseline
 
-- [ ] T001 [Plan:0.1] Review untracked files and establish an owner-approved baseline commit without modifying or discarding existing work.
-- [ ] T002 [Plan:0.1] Create `feature/gpbc-finance-desk-refactor` only after T001 and record the baseline SHA in `MD/implementation-plan/execution-log.md`.
-- [ ] T003 [P] [Plan:0.1] Record current build success, 2.27 MB main-bundle warning, and lint baseline in `MD/implementation-plan/execution-log.md`.
-- [ ] T004 [P] [Plan:0.2] Audit tracked file names and built assets for secret identifiers without printing values; record remediation status in `SECURITY_HARDENING_REPORT.md`.
-- [ ] T005 [Plan:0.2] Replace `VITE_GPBC_API_KEY` guidance with Google client configuration placeholders in `.env.example` and keep all local environment files ignored in `.gitignore`.
-- [ ] T006 [Plan:0.2] Document key rotation, OAuth client setup, allowed origins, Apps Script Script Properties, Firebase domains, and owner-only manual steps in `MD/implementation-plan/deployment-prerequisites.md`.
-- [ ] T007 [P] [Plan:0.3] Add Vitest and React Testing Library scripts/configuration in `package.json` and `vite.config.js`.
-- [ ] T008 [P] [Plan:0.3] Add Apps Script pure-function test conventions and sandbox smoke checklist in `apps-script/README.md`.
-- [ ] T009 [Plan:0.3] Fix touched-path baseline lint blockers in `src/api/gasFetch.js` and document unrelated existing failures in `MD/implementation-plan/execution-log.md`.
+- [x] T001 [Plan:0.1] Review untracked files and establish an owner-approved baseline commit without modifying or discarding existing work.
+- [x] T002 [Plan:0.1] Create `feature/gpbc-finance-desk-refactor` only after T001 and record the baseline SHA in `MD/implementation-plan/execution-log.md`.
+- [x] T003 [P] [Plan:0.1] Record current build success, 2.27 MB main-bundle warning, and lint baseline in `MD/implementation-plan/execution-log.md`.
+- [x] T004 [P] [Plan:0.2] Audit tracked file names and built assets for secret identifiers without printing values; record remediation status in `SECURITY_HARDENING_REPORT.md`.
+- [x] T005 [Plan:0.2] Replace `VITE_GPBC_API_KEY` guidance with Google client configuration placeholders in `.env.example` and keep all local environment files ignored in `.gitignore`.
+- [x] T006 [Plan:0.2] Document key rotation, OAuth client setup, allowed origins, Apps Script Script Properties, Firebase domains, and owner-only manual steps in `MD/implementation-plan/deployment-prerequisites.md`.
+- [x] T007 [P] [Plan:0.3] Add Vitest and React Testing Library scripts/configuration in `package.json` and `vite.config.js`.
+- [x] T008 [P] [Plan:0.3] Add Apps Script pure-function test conventions and sandbox smoke checklist in `apps-script/README.md`.
+- [x] T009 [Plan:0.3] Fix touched-path baseline lint blockers in `src/api/gasFetch.js` and document unrelated existing failures in `MD/implementation-plan/execution-log.md`.
 
 **Phase 0 exit gate**: baseline is preserved on a feature branch; no secret is tracked; shared-key rotation is assigned; build passes; touched security paths lint; tests can run; no production data or deployment was changed.
 
 ### Phase 1 — Foundation
 
-- [ ] T010 [P] [Plan:1.1] Rename the HTML title and metadata in `index.html` to GPBC Finance Desk.
-- [ ] T011 [P] [Plan:1.1] Update product title/subtitle and logout wiring in `src/components/Header.jsx` and `src/components/Sidebar.jsx`.
-- [ ] T012 [Plan:1.1] Replace primary navigation entries and route registration in `src/App.jsx`, `src/pages/index.jsx`, and `src/components/Sidebar.jsx` with the approved finance screen map while preserving legacy routes for review.
-- [ ] T013 [P] [Plan:1.1] Introduce approved color/type/layout tokens in `src/index.css`, `src/App.css`, `src/components/Header.css`, and `src/components/Sidebar.css` without nested-card or dominant-dark styling.
-- [ ] T014 [Plan:1.2] Add the Google Identity Services provider and sign-in screen in `src/auth/GoogleSignIn.jsx` and `src/main.jsx`.
-- [ ] T015 [Plan:1.2] Replace trusted local role state with explicit loading/authenticated/unauthenticated session state in `src/context/AuthContext.tsx` and `src/auth/authTypes.ts`.
-- [ ] T016 [Plan:1.2] Gate authenticated routes and remove unconditional `DevRoleSwitcher` rendering in `src/App.jsx`; keep any role simulator development-only and excluded from production behavior.
-- [ ] T017 [P] [Plan:1.2] Add sign-in, sign-out, expiry, denied-user, and route-guard tests in `src/auth/AuthContext.test.jsx` and `src/components/RoleProtectedRoute.test.jsx`.
-- [ ] T018 [Plan:1.3] Extract Script Property/config access from `apps-script/Code.gs` into `apps-script/Config.gs` without embedding production identifiers.
-- [ ] T019 [Plan:1.3] Implement issuer/audience/expiry/email verification and short-lived validation caching in `apps-script/Auth.gs#validateGoogleIdentity`.
-- [ ] T020 [Plan:1.3] Implement canonical roles and action-to-permission policy in `apps-script/Auth.gs#authorizeAction`, including Primary Admin, Backup Admin, Finance Editor, Viewer, and Presbyter Read-Only.
-- [ ] T021 [Plan:1.3] Refactor `apps-script/Code.gs#doPost` to authenticate and authorize before dispatch, deny unknown actions, and return stable redacted error codes.
-- [ ] T022 [Plan:1.3] Add append-only security/audit events in `apps-script/Audit.gs#logAuditEvent` without tokens, account numbers, or finance payload dumps.
-- [ ] T023 [P] [Plan:1.3] Add unit tests for token-claim validation, permission mapping, denied actions, and redaction in `apps-script/tests/Auth.test.js` and `apps-script/tests/Audit.test.js`.
-- [ ] T024 [Plan:1.4] Add read-only tab/header inventory in `apps-script/Config.gs#getSchemaInventory` that returns no financial row values.
-- [ ] T025 [Plan:1.4] Add sandbox/production environment guards and spreadsheet identity checks in `apps-script/Config.gs#assertEnvironment`.
-- [ ] T026 [Plan:1.4] Run the owner-controlled backup/sandbox procedure from `MD/implementation-plan/deployment-prerequisites.md` and attach only non-sensitive verification evidence to `MD/implementation-plan/execution-log.md`.
-- [ ] T027 [Plan:1.5] Create typed action envelopes, responses, and auth errors in `src/api/types.ts` and `src/types/auth.ts`.
-- [ ] T028 [Plan:1.5] Replace shared-key request bodies with short-lived ID-token request bodies and redacted diagnostics in `src/api/gasFetch.ts`.
-- [ ] T029 [Plan:1.5] Migrate callers to the single client and retire duplicate auth transport from `src/api/http.js`, `src/api/httpClient.js`, and `src/config/env.js` after usage checks.
-- [ ] T030 [P] [Plan:1.5] Add API tests for request shape, timeout, token absence/expiry, denied actions, invalid JSON, and redacted errors in `src/api/gasFetch.test.ts`.
+- [x] T010 [P] [Plan:1.1] Rename the HTML title and metadata in `index.html` to GPBC Finance Desk.
+- [x] T011 [P] [Plan:1.1] Update product title/subtitle and logout wiring in `src/components/Header.jsx` and `src/components/Sidebar.jsx`.
+- [x] T012 [Plan:1.1] Replace primary navigation entries and route registration in `src/App.jsx`, `src/pages/index.jsx`, and `src/components/Sidebar.jsx` with the approved finance screen map while preserving legacy routes for review.
+- [x] T013 [P] [Plan:1.1] Introduce approved color/type/layout tokens in `src/index.css`, `src/App.css`, `src/components/Header.css`, and `src/components/Sidebar.css` without nested-card or dominant-dark styling.
+- [x] T014 [Plan:1.2] Add the Google Identity Services provider and sign-in screen in `src/auth/GoogleSignIn.jsx` and `src/main.jsx`.
+- [x] T015 [Plan:1.2] Replace trusted local role state with explicit loading/authenticated/unauthenticated session state in `src/context/AuthContext.tsx` and `src/auth/authTypes.ts`.
+- [x] T016 [Plan:1.2] Gate authenticated routes and remove unconditional `DevRoleSwitcher` rendering in `src/App.jsx`; keep any role simulator development-only and excluded from production behavior.
+- [x] T017 [P] [Plan:1.2] Add sign-in, sign-out, expiry, denied-user, and route-guard tests in `src/auth/AuthContext.test.jsx` and `src/components/RoleProtectedRoute.test.jsx`.
+- [x] T018 [Plan:1.3] Extract Script Property/config access from `apps-script/Code.gs` into `apps-script/Config.gs` without embedding production identifiers.
+- [x] T019 [Plan:1.3] Implement issuer/audience/expiry/email verification and short-lived validation caching in `apps-script/Auth.gs#validateGoogleIdentity`.
+- [x] T020 [Plan:1.3] Implement canonical roles and action-to-permission policy in `apps-script/Auth.gs#authorizeAction`, including Primary Admin, Backup Admin, Finance Editor, Viewer, and Presbyter Read-Only.
+- [x] T021 [Plan:1.3] Refactor `apps-script/Code.gs#doPost` to authenticate and authorize before dispatch, deny unknown actions, and return stable redacted error codes.
+- [x] T022 [Plan:1.3] Add append-only security/audit events in `apps-script/Audit.gs#logAuditEvent` without tokens, account numbers, or finance payload dumps.
+- [x] T023 [P] [Plan:1.3] Add unit tests for token-claim validation, permission mapping, denied actions, and redaction in `apps-script/tests/Auth.test.js` and `apps-script/tests/Audit.test.js`.
+- [x] T024 [Plan:1.4] Add read-only tab/header inventory in `apps-script/Config.gs#getSchemaInventory` that returns no financial row values.
+- [x] T025 [Plan:1.4] Add sandbox/production environment guards and spreadsheet identity checks in `apps-script/Config.gs#assertEnvironment`.
+- [x] T026 [Plan:1.4] Run the owner-controlled backup/sandbox procedure from `MD/implementation-plan/deployment-prerequisites.md` and attach only non-sensitive verification evidence to `MD/implementation-plan/execution-log.md`.
+- [x] T027 [Plan:1.5] Create typed action envelopes, responses, and auth errors in `src/api/types.ts` and `src/types/auth.ts`.
+- [x] T028 [Plan:1.5] Replace shared-key request bodies with short-lived ID-token request bodies and redacted diagnostics in `src/api/gasFetch.ts`.
+- [x] T029 [Plan:1.5] Migrate callers to the single client and retire duplicate auth transport from `src/api/http.js`, `src/api/httpClient.js`, and `src/config/env.js` after usage checks.
+- [x] T030 [P] [Plan:1.5] Add API tests for request shape, timeout, token absence/expiry, denied actions, invalid JSON, and redacted errors in `src/api/gasFetch.test.ts`.
 
 **Phase 1 exit gate**: product shell is renamed and responsive; production builds cannot use the dev role switcher or shared API key; Apps Script validates identity and permissions for every action; role tests pass; Sheet inventory is read-only; sandbox exists; production data remains unchanged. Obtain explicit approval before Phase 2.
 

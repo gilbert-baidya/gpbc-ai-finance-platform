@@ -1,99 +1,177 @@
 import React, { useState } from 'react';
 import { NavLink } from 'react-router-dom';
-import { Users, DollarSign, FileText, Mail, BrainCircuit, Brain, Command, Globe, Award, Settings, LayoutDashboard, LogOut, ChevronLeft, ChevronRight } from 'lucide-react';
+import {
+  LayoutDashboard,
+  Receipt,
+  DollarSign,
+  TrendingUp,
+  FileCheck2,
+  FolderGit2,
+  ShieldCheck,
+  CalendarCheck,
+  FileSpreadsheet,
+  Settings,
+  CreditCard,
+  CheckSquare,
+  Users,
+  Mail,
+  ChevronLeft,
+  ChevronRight,
+  Sparkles,
+  ChevronDown
+} from 'lucide-react';
 import './Sidebar.css';
 
 const Sidebar = () => {
-    const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [legacyOpen, setLegacyOpen] = useState(false);
 
-    const menuItems = [
-        { icon: <LayoutDashboard size={20} />, label: 'Dashboard', path: '/dashboard' },
-        { icon: <Users size={20} />, label: 'Members', path: '/members' },
-        { icon: <FileText size={20} />, label: 'Contributions', path: '/contributions' },
-        { icon: <DollarSign size={20} />, label: 'Expenses', path: '/expenses' },
-        { icon: <Mail size={20} />, label: 'Letters', path: '/letters' },
-        { icon: <BrainCircuit size={20} />, label: 'AI Reports', path: '/ai-reports' },
-        { icon: <Brain size={20} />, label: 'Pastoral AI', path: '/pastoral-intelligence' },
-        { icon: <Command size={20} />, label: 'Operations', path: '/operations-command-center' },
-        { icon: <Globe size={20} />, label: 'Kingdom Network', path: '/kingdom-intelligence' },
-        { icon: <Award size={20} />, label: 'Grants', path: '/grant-opportunities' },
-    ];
+  const mainNavGroups = [
+    {
+      group: 'Overview',
+      items: [
+        { icon: <LayoutDashboard size={18} />, label: 'Dashboard', path: '/dashboard' },
+      ],
+    },
+    {
+      group: 'Finance',
+      items: [
+        { icon: <FileSpreadsheet size={18} />, label: 'Transactions', path: '/transactions' },
+        { icon: <TrendingUp size={18} />, label: 'Income', path: '/income' },
+        { icon: <DollarSign size={18} />, label: 'Expenses', path: '/expenses' },
+        { icon: <CreditCard size={18} />, label: 'Reimbursements', path: '/reimbursements' },
+        { icon: <Receipt size={18} />, label: 'Receipt Register', path: '/receipts' },
+        { icon: <CheckSquare size={18} />, label: 'Check Details', path: '/checks' },
+      ],
+    },
+    {
+      group: 'Projects',
+      items: [
+        { icon: <FolderGit2 size={18} />, label: 'Capital Projects', path: '/capital-projects' },
+      ],
+    },
+    {
+      group: 'Control & Audit',
+      items: [
+        { icon: <ShieldCheck size={18} />, label: 'Audit Center', path: '/audit' },
+        { icon: <CalendarCheck size={18} />, label: 'Monthly Close', path: '/monthly-close' },
+        { icon: <FileCheck2 size={18} />, label: 'Presbyter Reports', path: '/presbyter-reports' },
+      ],
+    },
+  ];
 
-    return (
-        <aside className={`sidebar-premium navigation-sidebar glass-panel ${isCollapsed ? 'collapsed' : ''}`}>
-            {/* Sidebar Header with Logo/Brand */}
-            <div className="sidebar-header">
-                <div className="brand-container">
-                    <div className="brand-icon">
-                        <img 
-                            src="/Logo-gpbc.png" 
-                            alt="GPBC Logo" 
-                            style={{ 
-                                width: '40px', 
-                                height: '40px', 
-                                objectFit: 'contain',
-                                filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.1))'
-                            }}
-                            onError={(e) => {
-                                // Fallback to SVG if logo not found
-                                e.target.outerHTML = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                    <path d="M12 2L2 7L12 12L22 7L12 2Z" fill="var(--wine)" fillOpacity="0.8"/>
-                                    <path d="M2 17L12 22L22 17V7L12 12L2 7V17Z" fill="var(--green)" fillOpacity="0.6"/>
-                                </svg>`;
-                            }}
-                        />
-                    </div>
-                    {!isCollapsed && <span className="brand-text">GPBC Finance</span>}
-                </div>
-                <button 
-                    className="collapse-toggle"
-                    onClick={() => setIsCollapsed(!isCollapsed)}
-                    aria-label={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-                >
-                    {isCollapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
-                </button>
+  const legacyItems = [
+    { icon: <Users size={16} />, label: 'Members', path: '/members' },
+    { icon: <TrendingUp size={16} />, label: 'Contributions (Legacy)', path: '/contributions' },
+    { icon: <Mail size={16} />, label: 'Tax Letters', path: '/letters' },
+    { icon: <Sparkles size={16} />, label: 'AI Reports', path: '/ai-reports' },
+    { icon: <Sparkles size={16} />, label: 'Pastoral AI', path: '/pastoral-intelligence' },
+    { icon: <Sparkles size={16} />, label: 'Operations Center', path: '/operations-command-center' },
+  ];
+
+  return (
+    <aside className={`sidebar-premium navigation-sidebar ${isCollapsed ? 'collapsed' : ''}`}>
+      {/* Sidebar Header with Logo/Brand */}
+      <div className="sidebar-header">
+        <div className="brand-container">
+          <div className="brand-icon">
+            <img
+              src="/Logo-gpbc.png"
+              alt="GPBC Logo"
+              style={{
+                width: '32px',
+                height: '32px',
+                objectFit: 'contain',
+              }}
+              onError={(e) => {
+                e.target.style.display = 'none';
+              }}
+            />
+          </div>
+          {!isCollapsed && (
+            <div className="brand-text-block">
+              <span className="brand-title">Finance Desk</span>
+              <span className="brand-badge">GPBC</span>
             </div>
+          )}
+        </div>
+        <button
+          type="button"
+          className="collapse-toggle"
+          onClick={() => setIsCollapsed(!isCollapsed)}
+          aria-label={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+        >
+          {isCollapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
+        </button>
+      </div>
 
-            {/* Main Navigation */}
-            <nav className="nav-menu-premium">
-                {menuItems.map((item, index) => (
-                    <NavLink
-                        key={index}
-                        to={item.path}
-                        className={({ isActive }) => `nav-item-premium ${isActive ? 'active' : ''}`}
-                        title={isCollapsed ? item.label : ''}
-                    >
-                        <div className="icon-bubble">
-                            {item.icon}
-                        </div>
-                        {!isCollapsed && <span className="nav-label">{item.label}</span>}
-                        <div className="active-glow-line" />
-                    </NavLink>
-                ))}
-            </nav>
+      {/* Main Navigation */}
+      <nav className="nav-menu-scrollable">
+        {mainNavGroups.map((group, gIdx) => (
+          <div key={gIdx} className="nav-group">
+            {!isCollapsed && <div className="nav-group-title">{group.group}</div>}
+            {group.items.map((item, iIdx) => (
+              <NavLink
+                key={iIdx}
+                to={item.path}
+                className={({ isActive }) => `nav-item-premium ${isActive ? 'active' : ''}`}
+                title={isCollapsed ? item.label : ''}
+              >
+                <div className="icon-bubble">{item.icon}</div>
+                {!isCollapsed && <span className="nav-label">{item.label}</span>}
+              </NavLink>
+            ))}
+          </div>
+        ))}
 
-            {/* Footer Actions */}
-            <div className="sidebar-footer-premium">
-                <NavLink 
-                    to="/settings" 
-                    className={({ isActive }) => `nav-item-premium ${isActive ? 'active' : ''}`}
-                    title={isCollapsed ? 'Settings' : ''}
-                >
-                    <div className="icon-bubble">
-                        <Settings size={20} />
-                    </div>
-                    {!isCollapsed && <span className="nav-label">Settings</span>}
-                    <div className="active-glow-line" />
-                </NavLink>
-                <button className="nav-item-premium logout" title={isCollapsed ? 'Logout' : ''}>
-                    <div className="icon-bubble">
-                        <LogOut size={20} />
-                    </div>
-                    {!isCollapsed && <span className="nav-label">Logout</span>}
-                </button>
-            </div>
-        </aside>
-    );
+        {/* Preserved Legacy Features Dropdown */}
+        <div className="nav-group legacy-group">
+          {!isCollapsed ? (
+            <button
+              type="button"
+              className="legacy-toggle-btn"
+              onClick={() => setLegacyOpen(!legacyOpen)}
+            >
+              <span>Ministry & Intelligence</span>
+              <ChevronDown
+                size={14}
+                style={{ transform: legacyOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}
+              />
+            </button>
+          ) : (
+            <div className="nav-group-divider" />
+          )}
+
+          {(legacyOpen || isCollapsed) &&
+            legacyItems.map((item, lIdx) => (
+              <NavLink
+                key={lIdx}
+                to={item.path}
+                className={({ isActive }) => `nav-item-premium legacy-item ${isActive ? 'active' : ''}`}
+                title={isCollapsed ? item.label : ''}
+              >
+                <div className="icon-bubble">{item.icon}</div>
+                {!isCollapsed && <span className="nav-label">{item.label}</span>}
+              </NavLink>
+            ))}
+        </div>
+      </nav>
+
+      {/* Footer Actions */}
+      <div className="sidebar-footer-premium">
+        <NavLink
+          to="/settings"
+          className={({ isActive }) => `nav-item-premium ${isActive ? 'active' : ''}`}
+          title={isCollapsed ? 'Settings' : ''}
+        >
+          <div className="icon-bubble">
+            <Settings size={18} />
+          </div>
+          {!isCollapsed && <span className="nav-label">Settings</span>}
+        </NavLink>
+      </div>
+    </aside>
+  );
 };
 
 export default Sidebar;

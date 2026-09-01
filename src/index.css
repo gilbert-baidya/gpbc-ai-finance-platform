@@ -6,23 +6,53 @@
    ============================================ */
 
 :root {
-  /* Sacred Ministry Colors */
-  --wine: #4A0E1A;
-  --wine-dark: #2D0810;
-  --wine-light: #6B1525;
-  --green: #1F6F54;
-  --green-dark: #165940;
-  --green-light: #2D8B6E;
-  --beige: #F5F3F0;
-  --beige-dark: #E8E6E3;
+  /* GPBC Finance Desk Approved Palette */
+  --ivory: #FDFBF7;
+  --ivory-warm: #FAF6F0;
+  --mist-blue: #EBF3F5;
+  --mist-blue-dark: #D9E8EC;
+  --mist-blue-accent: #7B9EA8;
+  --slate-blue: #2C3E50;
+  --slate-blue-light: #3D5A6C;
+  --slate-blue-dark: #1F2D38;
+  --soft-sand: #EFEBE4;
+  --sand-dark: #E5DFC5;
+  --gold: #C5A880;
+  --gold-accent: #D4AF37;
+  --gold-dark: #B39260;
+  --warm-gray: #6B7280;
+  --warm-gray-light: #9CA3AF;
+  --warm-gray-dark: #4B5563;
+  --terracotta: #C05621;
+  --terracotta-light: #DD6B20;
+  --terracotta-bg: #FEF3C7;
+
+  /* Theme mappings */
+  --color-primary: var(--slate-blue);
+  --color-secondary: var(--mist-blue-accent);
+  --color-accent: var(--gold);
+  --color-bg: var(--ivory-warm);
+  --color-text-main: var(--slate-blue-dark);
+  --color-text-muted: var(--warm-gray);
+  --color-border: var(--mist-blue-dark);
+  
+  /* Legacy token compatibility */
+  --wine: var(--slate-blue);
+  --wine-dark: var(--slate-blue-dark);
+  --wine-light: var(--slate-blue-light);
+  --green: var(--mist-blue-accent);
+  --green-dark: var(--slate-blue-light);
+  --green-light: var(--mist-blue-dark);
+  --beige: var(--ivory-warm);
+  --beige-dark: var(--soft-sand);
   --white: #FFFFFF;
   
   /* Enterprise Neutrals */
-  --text: #1A1A1A;
-  --text-muted: #6B7280;
-  --text-light: #9CA3AF;
-  --border: rgba(0, 0, 0, 0.08);
-  --border-light: rgba(0, 0, 0, 0.04);
+  --text: var(--slate-blue-dark);
+  --text-muted: var(--warm-gray);
+  --text-light: var(--warm-gray-light);
+  --border: rgba(44, 62, 80, 0.12);
+  --border-light: rgba(44, 62, 80, 0.06);
   
   /* Glass Morphism */
   --glass: rgba(255, 255, 255, 0.85);

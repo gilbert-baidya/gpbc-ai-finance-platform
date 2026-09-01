@@ -1,38 +1,75 @@
 import React from 'react';
-import { Navigate, useLocation } from 'react-router-dom';
-import { useRoleGuard } from '../hooks/useRoleGuard';
-import { AlertCircle } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
+import { GoogleSignIn } from '../auth/GoogleSignIn';
+import { ShieldAlert, ArrowLeft } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
-/**
- * Route level protection component
- */
-export const RoleProtectedRoute = ({ children, permission }) => {
-    const { hasPermission } = useRoleGuard();
-    const location = useLocation();
+export const RoleProtectedRoute = ({ children, allowedRoles }) => {
+  const { isAuthenticated, isAuthorized, user, loading } = useAuth();
+  const navigate = useNavigate();
 
-    if (!hasPermission(permission)) {
-        // Redirect to unauthorized page or show access denied
-        return (
-            <div className="flex flex-col items-center justify-center min-h-[60vh] text-center space-y-4">
-                <div className="p-4 bg-red-50 rounded-full text-red-500">
-                    <AlertCircle size={48} />
-                </div>
-                <div>
-                    <h2 className="text-2xl font-bold text-wine">Access Denied</h2>
-                    <p className="text-muted max-w-sm mx-auto">
-                        Your account role does not have permission to access this module.
-                        Please contact the Church Administrator if this is an error.
-                    </p>
-                </div>
-                <button
-                    onClick={() => window.history.back()}
-                    className="btn btn-primary"
-                >
-                    Return to Safe Page
-                </button>
-            </div>
-        );
-    }
+  if (loading) {
+    return (
+      <div style={{ padding: '48px', textAlign: 'center', color: '#6B7280' }}>
+        <div className="spinner" style={{ margin: '0 auto 16px auto' }} />
+        <span>Loading session...</span>
+      </div>
+    );
+  }
 
-    return children;
+  if (!isAuthenticated) {
+    return <GoogleSignIn />;
+  }
+
+  if (allowedRoles && allowedRoles.length > 0 && !isAuthorized(allowedRoles)) {
+    return (
+      <div style={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        minHeight: '50vh',
+        textAlign: 'center',
+        padding: '32px'
+      }}>
+        <div style={{
+          padding: '16px',
+          background: '#FEE2E2',
+          borderRadius: '50%',
+          color: '#991B1B',
+          marginBottom: '16px'
+        }}>
+          <ShieldAlert size={48} />
+        </div>
+        <h2 style={{ color: '#2C3E50', margin: '0 0 8px 0', fontSize: '1.5rem' }}>Access Denied</h2>
+        <p style={{ color: '#6B7280', maxWidth: '420px', lineHeight: '1.5', margin: '0 0 20px 0' }}>
+          Your current role (<strong>{user?.role || 'None'}</strong>) does not have permission to access this module.
+          Please contact the Pastor or Church Administrator if this is unexpected.
+        </p>
+        <button
+          type="button"
+          onClick={() => navigate('/dashboard')}
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '8px',
+            padding: '10px 18px',
+            background: '#2C3E50',
+            color: '#FFFFFF',
+            border: 'none',
+            borderRadius: '8px',
+            cursor: 'pointer',
+            fontWeight: '500'
+          }}
+        >
+          <ArrowLeft size={16} />
+          Return to Dashboard
+        </button>
+      </div>
+    );
+  }
+
+  return <>{children}</>;
 };
+
+export default RoleProtectedRoute;

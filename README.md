@@ -1,37 +1,55 @@
-# 🏛️ GPBC AI Finance Platform
+# 🏛️ GPBC Finance Desk
 
-**Grace and Praise Bangladeshi Church - Enterprise Finance Management System**
+**Finance • Audit • Reporting**  
+*Grace and Praise Bangladeshi Church*
 
-A premium, modern church finance management platform built with React, Vite, and Google Apps Script. Designed for ministry leaders to manage members, track contributions, generate reports, and maintain financial transparency with ease.
+A simple, low-maintenance, secure finance, audit, receipt, reimbursement, dashboard, and PDF-reporting application built with React, TypeScript, Vite, Google Sign-In, and Google Apps Script.
 
 ---
 
 ## 📖 Table of Contents
 
 - [Overview](#overview)
+- [Target Architecture](#target-architecture)
 - [Features](#features)
 - [Technology Stack](#technology-stack)
 - [Getting Started](#getting-started)
 - [Application Structure](#application-structure)
 - [User Roles & Permissions](#user-roles--permissions)
-- [Core Modules](#core-modules)
-- [API Integration](#api-integration)
-- [Security Features](#security-features)
+- [Security & Authentication](#security--authentication)
 - [Design System](#design-system)
 
 ---
 
 ## 🌟 Overview
 
-GPBC AI Finance Platform is a comprehensive church management system that empowers ministry leaders to:
+GPBC Finance Desk empowers Grace and Praise Bangladeshi Church leadership to:
 
-- **Manage Members** - Complete member database with contact info, family details, and membership status
-- **Track Contributions** - Record tithes, offerings, and donations with detailed categorization
-- **Generate Statements** - Automated tax-ready contribution statements (PDF, bulk ZIP exports)
-- **Financial Reports** - Excel exports of all financial data for accounting and auditing
-- **Role-Based Access** - Admin, Treasurer, and Reverend roles with appropriate permissions
-- **Audit Trail** - Complete logging of all sensitive operations for accountability
-- **Multi-Tenant Ready** - Infrastructure to support multiple churches in one platform
+- **Track Income & Giving** - Offerings, general giving, special donations, and designated project funds
+- **Manage Expenses & Reimbursements** - Track personal-card purchases and many-to-many reimbursements without false matches
+- **Receipt Register** - Maintain primary audit evidence stored securely in private Google Drive folders
+- **Check Details** - Track check disbursements, payees, purpose, and supporting check vouchers
+- **Audit Center** - Deterministic rule-based audit engine detecting missing receipts, duplicate entries, and discrepancies
+- **Monthly Close** - Formal monthly reconciliation checklist with period locking and audited amendments
+- **Presbyter Reports** - Polished, privacy-filtered PDF financial reports for church oversight
+
+---
+
+## 🏗️ Target Architecture
+
+```text
+React + TypeScript + Vite
+        |
+        v
+  Google Sign-In (GIS)
+        |
+        v
+Google Apps Script Web App (text/plain JSON)
+      /     |      \
+     v      v       v
+Google   Google    Gmail
+Sheets   Drive     / Workspace
+```
 
 ---
 
