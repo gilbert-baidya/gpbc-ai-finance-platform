@@ -226,16 +226,16 @@ No constitution exception is required.
 
 ### Phase 2 — Finance Model
 
-- [ ] T031 [Plan:2.1] Define transaction, income, expense, check, fund, and migration types in `src/types/finance.ts` and tab schemas in `apps-script/Config.gs`.
-- [ ] T032 [Plan:2.1] Implement idempotent sandbox-first schema creation and legacy read adapters in `apps-script/Transactions.gs` without rewriting historical rows.
-- [ ] T033 [Plan:2.1] Add permission-checked transaction CRUD and immutable audit fields in `apps-script/Transactions.gs` and dispatch actions in `apps-script/Code.gs`.
-- [ ] T034 [P] [Plan:2.1] Build `src/pages/Transactions.tsx`, `src/pages/Income.tsx`, `src/pages/Expenses.tsx`, and `src/pages/CheckDetails.tsx` using existing form/chart primitives.
-- [ ] T035 [Plan:2.2] Implement reimbursement and allocation schemas/invariants in `apps-script/Reimbursements.gs`.
-- [ ] T036 [P] [Plan:2.2] Build allocation and personal-card status flows in `src/pages/Reimbursements.tsx` and `src/components/ReimbursementAllocationForm.tsx`.
-- [ ] T037 [Plan:2.3] Implement private Drive folder/file handling and Receipt Register metadata in `apps-script/Receipts.gs`.
-- [ ] T038 [P] [Plan:2.3] Build searchable receipt matching and check-evidence UI in `src/pages/ReceiptRegister.tsx` and `src/components/ReceiptMatchDialog.tsx`.
-- [ ] T039 [Plan:2.4] Implement capital-project records and balances in `apps-script/Transactions.gs` and `src/pages/CapitalProjects.tsx`.
-- [ ] T040 [Plan:2.1,2.2,2.3,2.4] Add finance invariant, permission, migration-idempotency, and UI workflow tests under `apps-script/tests/` and `src/pages/__tests__/`.
+- [x] T031 [Plan:2.1] Define transaction, income, expense, check, fund, and migration types in `src/types/finance.ts` and tab schemas in `apps-script/Config.gs`.
+- [x] T032 [Plan:2.1] Implement idempotent sandbox-first schema creation and legacy read adapters in `apps-script/Transactions.gs` without rewriting historical rows.
+- [x] T033 [Plan:2.1] Add permission-checked transaction CRUD and immutable audit fields in `apps-script/Transactions.gs` and dispatch actions in `apps-script/Code.gs`.
+- [x] T034 [P] [Plan:2.1] Build `src/pages/Transactions.tsx`, `src/pages/Income.tsx`, `src/pages/Expenses.tsx`, and `src/pages/CheckDetails.tsx` using existing form/chart primitives.
+- [x] T035 [Plan:2.2] Implement reimbursement and allocation schemas/invariants in `apps-script/Reimbursements.gs`.
+- [x] T036 [P] [Plan:2.2] Build allocation and personal-card status flows in `src/pages/Reimbursements.tsx` and `src/components/ReimbursementAllocationForm.tsx`.
+- [x] T037 [Plan:2.3] Implement private Drive folder/file handling and Receipt Register metadata in `apps-script/Receipts.gs`.
+- [x] T038 [P] [Plan:2.3] Build searchable receipt matching and check-evidence UI in `src/pages/ReceiptRegister.tsx` and `src/components/ReceiptMatchDialog.tsx`.
+- [x] T039 [Plan:2.4] Implement capital-project records and balances in `apps-script/Transactions.gs` and `src/pages/CapitalProjects.tsx`.
+- [x] T040 [Plan:2.1,2.2,2.3,2.4] Add finance invariant, permission, migration-idempotency, and UI workflow tests under `apps-script/tests/` and `src/pages/__tests__/`.
 
 ### Phase 3 — Audit and Reconciliation
 

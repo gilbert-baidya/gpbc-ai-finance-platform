@@ -1,11 +1,6 @@
 import React from 'react';
 import TaxLetterLayout from '../components/tax/TaxLetterLayout';
 import {
-  FileSpreadsheet,
-  Receipt,
-  CreditCard,
-  CheckSquare,
-  FolderGit2,
   ShieldCheck,
   CalendarCheck,
   FileCheck2,
@@ -13,12 +8,19 @@ import {
   Lock
 } from 'lucide-react';
 
-// Export implemented existing pages
+// Phase 0/1/2 Implemented Pages
 export { default as Dashboard } from './Dashboard';
 export { default as Members } from './Members';
 export { default as Contributions } from './Contributions';
 export { default as Income } from './Contributions';
 export { default as Expenses } from './Expenses';
+export { default as Transactions } from './Transactions';
+export { default as Reimbursements } from './Reimbursements';
+export { default as ReceiptRegister } from './ReceiptRegister';
+export { default as CheckDetails } from './CheckDetails';
+export { default as CapitalProjects } from './CapitalProjects';
+
+// Legacy & Ministry Pages
 export { default as AIReports } from './AIReports';
 export { default as PastoralIntelligence } from './PastoralIntelligence';
 export { default as OperationsCommandCenter } from './OperationsCommandCenter';
@@ -81,82 +83,9 @@ const PhaseCard = ({ icon: IconComponent, title, phase, subtitle, features }) =>
 
     <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem', color: 'var(--warm-gray-light)' }}>
       <Lock size={14} />
-      <span>Phase 0/1 security baseline and read-only foundation active. Schema writes will unlock upon Phase 2 rollout.</span>
+      <span>Phase 2 financial data model active. Full rule engine and PDF automation unlock in Phase 3/4.</span>
     </div>
   </div>
-);
-
-export const Transactions = () => (
-  <PhaseCard
-    icon={FileSpreadsheet}
-    title="Master Transactions"
-    phase="Phase 2"
-    subtitle="Unified financial ledger tracking all income, expenses, check disbursements, and transfers."
-    features={[
-      "Unified traceable transaction model (Offering, Donation, Expense, Reimbursement, Check, Transfer)",
-      "Non-destructive historical adapters preserving existing Sheets data",
-      "Fund-level and purpose-level traceability",
-      "Directional income/expense flows with reconciliation state"
-    ]}
-  />
-);
-
-export const Reimbursements = () => (
-  <PhaseCard
-    icon={CreditCard}
-    title="Reimbursements & Personal Card Accounting"
-    phase="Phase 2"
-    subtitle="Accurate tracking of church purchases made with personal cards and multi-allocation reimbursements."
-    features={[
-      "Many-to-many allocations: one reimbursement covering multiple purchases or vice-versa",
-      "Preservation of purchase cost, reimbursed amount, and personally absorbed amounts",
-      "Delayed and cross-month reimbursement support without artificial balance forcing",
-      "Support for merchant refunds and card credits"
-    ]}
-  />
-);
-
-export const ReceiptRegister = () => (
-  <PhaseCard
-    icon={Receipt}
-    title="Receipt Register"
-    phase="Phase 2"
-    subtitle="Central evidence register linked to private Google Drive storage and ledger transactions."
-    features={[
-      "Secure Google Drive document storage (receipts, invoices, screenshots, statements)",
-      "Document metadata and Drive link storage in master Sheet",
-      "Explicit match states: Unmatched, Pending Review, Matched",
-      "Audit trail linking transactions to verifiable primary evidence"
-    ]}
-  />
-);
-
-export const CheckDetails = () => (
-  <PhaseCard
-    icon={CheckSquare}
-    title="Check Details"
-    phase="Phase 2"
-    subtitle="Complete check disbursement records, payee details, and evidence linking."
-    features={[
-      "Check number, date, payee, amount, purpose, and linked transaction",
-      "Check image / voucher attachment in private Google Drive",
-      "Audit verification for check numbers without payee/purpose documentation"
-    ]}
-  />
-);
-
-export const CapitalProjects = () => (
-  <PhaseCard
-    icon={FolderGit2}
-    title="Capital Projects"
-    phase="Phase 2"
-    subtitle="Designated funds, project budgets, donor commitments, and capital expenditure tracking."
-    features={[
-      "Project budget, designated donations received, expenses paid, and commitments",
-      "Remaining designated fund balance calculations",
-      "Project status and financial milestone transparency"
-    ]}
-  />
 );
 
 export const AuditCenter = () => (

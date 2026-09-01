@@ -73,3 +73,29 @@
 - Existing Production Sheet ID: `1zLercJPwPvdl7YEU31Hbu4zcmakulOYrNrpnddxNC6s`.
 - Documented backup and sandbox strategy in `MD/implementation-plan/deployment-prerequisites.md`.
 - Read-only schema inventory helper (`getSchemaInventory`) returns tab names and header columns only without returning confidential row values.
+
+---
+
+## 3. Phase 2 Execution Summary (Tasks T031–T040)
+
+- **Date Completed**: 2026-09-01
+- **Feature Branch**: `feature/gpbc-finance-desk-refactor`
+- **Sandbox Safety Assertion**: `apps-script/Config.gs#assertSandboxSheet` enforces rejection of writes targeting production ID `1zLercJPwPvdl7YEU31Hbu4zcmakulOYrNrpnddxNC6s`.
+- **Identity Verification Hardening**: `apps-script/Auth.gs#validateGoogleIdentity` verifies signature against Google tokeninfo endpoint and validates `iss`, `aud`, `exp`, `email_verified`, and `sub` claims.
+- **Master Transactions Model**:
+  - Defined canonical schema in `SCHEMA_DEFINITIONS` across 8 tabs.
+  - Built `apps-script/Transactions.gs` with transaction CRUD and transparent read adapters for legacy `CONTRIBUTIONS` and `EXPENSES`.
+  - Built `src/pages/Transactions.jsx` with filters, metrics, quick add modal, and personal card badges.
+- **Many-to-Many Reimbursements & Allocations**:
+  - Built `apps-script/Reimbursements.gs` enforcing allocation invariants (`reimbursed + absorbed <= purchase`).
+  - Built `src/pages/Reimbursements.jsx` with multi-purchase allocation rows, personally absorbed gift tracking, and status calculations.
+- **Receipt Register & Check Details**:
+  - Built `apps-script/Receipts.gs` and `src/pages/ReceiptRegister.jsx` with Drive links, document types, and manual matching dialog.
+  - Built `src/pages/CheckDetails.jsx` with check numbers, vouchers, payee tracking, and reconciliation states.
+- **Capital Projects & Designated Funds**:
+  - Built `apps-script/Transactions.gs#getCapitalProjects` and `src/pages/CapitalProjects.jsx` with campaign fundraising progress and available balances.
+- **Validation Results**:
+  - `vitest`: 29/29 tests pass across 5 suites.
+  - `tsc --noEmit`: 0 errors.
+  - `npm run build`: Vite build passes cleanly.
+  - Production data: 100% untouched.

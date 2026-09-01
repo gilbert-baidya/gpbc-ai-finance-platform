@@ -89,9 +89,51 @@ function doPost(e) {
 
     // Action Dispatcher
     switch (action) {
-      // SCHEMA INVENTORY (Read-only, no row values)
+      // SCHEMA INVENTORY & INITIALIZATION
       case "getSchemaInventory":
         return jsonResponse(getSchemaInventory());
+      case "initializeSandboxSchema":
+        return jsonResponse(initializeSandboxSchema());
+
+      // PHASE 2: MASTER TRANSACTIONS, INCOME, EXPENSES
+      case "getTransactions":
+        return jsonResponse(getTransactions(p));
+      case "addTransaction":
+        return jsonResponse(addTransaction(p, userEmail));
+      case "addIncome":
+        return jsonResponse(addIncome(p, userEmail));
+      case "addExpense":
+        return jsonResponse(addExpense(p, userEmail));
+      case "getDesignatedFundsSummary":
+        return jsonResponse(getDesignatedFundsSummary());
+
+      // PHASE 2: REIMBURSEMENTS & ALLOCATIONS
+      case "getReimbursements":
+        return jsonResponse(getReimbursements());
+      case "addReimbursement":
+        return jsonResponse(addReimbursement(p, userEmail));
+      case "addReimbursementAllocation":
+        return jsonResponse(addReimbursementAllocation(p, userEmail));
+
+      // PHASE 2: RECEIPTS & CHECKS
+      case "getReceipts":
+        return jsonResponse(getReceipts(p));
+      case "addReceipt":
+        return jsonResponse(addReceipt(p, userEmail));
+      case "matchReceiptToTransaction":
+        return jsonResponse(matchReceiptToTransaction(p, userEmail));
+      case "getCheckDetails":
+        return jsonResponse(getCheckDetails());
+      case "addCheckDetail":
+        return jsonResponse(addCheckDetail(p, userEmail));
+
+      // PHASE 2: CAPITAL PROJECTS
+      case "getCapitalProjects":
+        return jsonResponse(getCapitalProjects());
+      case "addCapitalProject":
+        return jsonResponse(addCapitalProject(p, userEmail));
+      case "updateCapitalProject":
+        return jsonResponse(updateCapitalProject(p, userEmail));
 
       // MEMBERS
       case "addMember":

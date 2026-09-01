@@ -1,0 +1,199 @@
+/*************************************************
+ * GPBC Finance Desk — Receipts.gs
+ * Receipt Register & Check Details Engine
+ *************************************************/
+
+/**
+ * Retrieves receipts from Receipt Register
+ */
+function getReceipts(p) {
+  p = p || {};
+  const db = getDB(false, "getReceipts");
+  const sheet = db.getSheetByName("Receipt_Register");
+  let receipts = [];
+
+  if (sheet && sheet.getLastRow() > 1) {
+    const data = sheet.getDataRange().getValues();
+    const headers = data.shift();
+
+    receipts = data.map(function(row) {
+      const obj = {};
+      headers.forEach(function(h, i) { obj[h] = row[i]; });
+      obj.amount = Number(obj.amount || 0);
+      return obj;
+    });
+  }
+
+  if (p.matchStatus) {
+    receipts = receipts.filter(function(r) { return r.matchStatus === p.matchStatus; });
+  }
+  if (p.search) {
+    const q = String(p.search).toLowerCase();
+    receipts = receipts.filter(function(r) {
+      return (r.merchant && r.merchant.toLowerCase().includes(q)) ||
+             (r.receiptId && r.receiptId.toLowerCase().includes(q)) ||
+             (r.notes && r.notes.toLowerCase().includes(q));
+    });
+  }
+
+  // Sort descending by date
+  receipts.sort(function(a, b) {
+    return (b.receiptDate || "").localeCompare(a.receiptDate || "");
+  });
+
+  return { success: true, count: receipts.length, receipts: receipts };
+}
+
+/**
+ * Adds a receipt entry to the Receipt Register
+ */
+function addReceipt(p, userEmail) {
+  p = p || {};
+  if (!p.merchant) throw new Error("Merchant/Vendor name is required");
+  const amount = Number(p.amount || 0);
+  if (amount <= 0) throw new Error("Receipt amount must be a positive number");
+
+  const db = getDB(true, "addReceipt");
+  let sheet = db.getSheetByName("Receipt_Register");
+  if (!sheet) {
+    initializeSandboxSchema();
+    sheet = db.getSheetByName("Receipt_Register");
+  }
+
+  const receiptId = "RCP-" + Utilities.formatDate(new Date(), "GMT", "yyyyMMdd") + "-" + Math.floor(1000 + Math.random() * 9000);
+  const nowIso = new Date().toISOString();
+  const actor = userEmail || "System";
+  const rDate = p.receiptDate || nowIso.split("T")[0];
+
+  sheet.appendRow([
+    receiptId,
+    rDate,
+    p.merchant,
+    amount,
+    p.documentType || "Receipt",
+    p.driveFileId || "",
+    p.driveUrl || "",
+    p.source || "Manual Upload",
+    p.emailMessageId || "",
+    p.matchedTransactionId || "",
+    p.matchedTransactionId ? "Matched" : "Unmatched",
+    p.notes || "",
+    actor,
+    nowIso,
+    nowIso
+  ]);
+
+  return { success: true, receiptId: receiptId };
+}
+
+/**
+ * Matches a receipt to a transaction and updates both records
+ */
+function matchReceiptToTransaction(p, userEmail) {
+  p = p || {};
+  if (!p.receiptId) throw new Error("receiptId is required");
+  if (!p.transactionId) throw new Error("transactionId is required");
+
+  const db = getDB(true, "matchReceiptToTransaction");
+  const rSheet = db.getSheetByName("Receipt_Register");
+  const tSheet = db.getSheetByName("Transactions");
+
+  if (!rSheet) throw new Error("Receipt_Register tab missing");
+
+  // Update Receipt_Register row
+  const rData = rSheet.getDataRange().getValues();
+  const rHeaders = rData.shift();
+  const rIdx = rData.findIndex(function(r) { return r[0] === p.receiptId; });
+  if (rIdx === -1) throw new Error("Receipt not found: " + p.receiptId);
+
+  const rRow = rIdx + 2;
+  const R_TXN_COL = rHeaders.indexOf("matchedTransactionId") + 1;
+  const R_STATUS_COL = rHeaders.indexOf("matchStatus") + 1;
+  const R_UPDATED_COL = rHeaders.indexOf("updatedAt") + 1;
+
+  if (R_TXN_COL > 0) rSheet.getRange(rRow, R_TXN_COL).setValue(p.transactionId);
+  if (R_STATUS_COL > 0) rSheet.getRange(rRow, R_STATUS_COL).setValue("Matched");
+  if (R_UPDATED_COL > 0) rSheet.getRange(rRow, R_UPDATED_COL).setValue(new Date().toISOString());
+
+  // Update Transactions row if tab exists
+  if (tSheet && tSheet.getLastRow() > 1) {
+    const tData = tSheet.getDataRange().getValues();
+    const tHeaders = tData.shift();
+    const tIdx = tData.findIndex(function(r) { return r[0] === p.transactionId; });
+    if (tIdx !== -1) {
+      const tRow = tIdx + 2;
+      const T_RCP_COL = tHeaders.indexOf("receiptId") + 1;
+      const T_STATUS_COL = tHeaders.indexOf("receiptStatus") + 1;
+      if (T_RCP_COL > 0) tSheet.getRange(tRow, T_RCP_COL).setValue(p.receiptId);
+      if (T_STATUS_COL > 0) tSheet.getRange(tRow, T_STATUS_COL).setValue("Attached");
+    }
+  }
+
+  return { success: true, receiptId: p.receiptId, matchedTransactionId: p.transactionId };
+}
+
+/**
+ * Retrieves Check Details
+ */
+function getCheckDetails() {
+  const db = getDB(false, "getCheckDetails");
+  const sheet = db.getSheetByName("Check_Details");
+  let checks = [];
+
+  if (sheet && sheet.getLastRow() > 1) {
+    const data = sheet.getDataRange().getValues();
+    const headers = data.shift();
+
+    checks = data.map(function(row) {
+      const obj = {};
+      headers.forEach(function(h, i) { obj[h] = row[i]; });
+      obj.amount = Number(obj.amount || 0);
+      return obj;
+    });
+  }
+
+  return { success: true, count: checks.length, checks: checks };
+}
+
+/**
+ * Adds a Check disbursement record
+ */
+function addCheckDetail(p, userEmail) {
+  p = p || {};
+  if (!p.checkNumber) throw new Error("Check number is required");
+  const amount = Number(p.amount || 0);
+  if (amount <= 0) throw new Error("Check amount must be greater than zero");
+  if (!p.payee) throw new Error("Payee is required");
+
+  const db = getDB(true, "addCheckDetail");
+  let sheet = db.getSheetByName("Check_Details");
+  if (!sheet) {
+    initializeSandboxSchema();
+    sheet = db.getSheetByName("Check_Details");
+  }
+
+  const checkId = "CHK-" + Date.now();
+  const nowIso = new Date().toISOString();
+  const actor = userEmail || "System";
+  const cDate = p.checkDate || nowIso.split("T")[0];
+
+  sheet.appendRow([
+    checkId,
+    p.checkNumber,
+    cDate,
+    amount,
+    p.payee,
+    p.purpose || "",
+    p.transactionId || "",
+    p.invoiceReceiptId || "",
+    p.driveFileId || "",
+    p.driveUrl || "",
+    p.reconciliationStatus || "Unreconciled",
+    p.notes || "",
+    actor,
+    nowIso,
+    nowIso
+  ]);
+
+  return { success: true, checkId: checkId };
+}

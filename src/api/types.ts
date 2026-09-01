@@ -6,13 +6,12 @@ export interface GasRequestEnvelope<T = Record<string, unknown>> {
   payload?: T;
 }
 
-export interface GasResponseEnvelope<T = unknown> {
+export type GasResponseEnvelope<T = Record<string, unknown>> = {
   success: boolean;
   error?: string;
   message?: string;
   data?: T;
-  [key: string]: unknown;
-}
+} & T;
 
 export interface VerifySessionPayload {
   tokenClaims?: {

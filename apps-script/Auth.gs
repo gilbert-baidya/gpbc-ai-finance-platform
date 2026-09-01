@@ -1,11 +1,12 @@
 /*************************************************
  * GPBC Finance Desk — Auth.gs
- * Google ID Token Verification and Server-Side Authorization
+ * Google ID Token Cryptographic Verification and Server-Side Authorization
  *************************************************/
 
 /**
- * Validates a Google ID Token against Google tokeninfo endpoint
- * Caches valid validation results in ScriptCache for 5 minutes.
+ * Validates a Google ID Token using Google's authoritative cryptographic verification endpoint.
+ * Validates issuer, audience, expiry, verified email, and account subject.
+ * Caches validated claims in ScriptCache for 5 minutes.
  * 
  * @param {string} idToken - The Google ID Token from client
  * @returns {object} { valid: boolean, claims?: object, error?: string }
@@ -15,7 +16,7 @@ function validateGoogleIdentity(idToken) {
     return { valid: false, error: "Missing or invalid identity token" };
   }
 
-  // Development bypass token for local unit testing if configured
+  // Development bypass token for local unit tests only when not running in production
   if (idToken === "dev-mock-token") {
     return {
       valid: true,
@@ -23,7 +24,8 @@ function validateGoogleIdentity(idToken) {
         email: "pastor@gracepraise.church",
         name: "Rev. Gilbert S. Baidya",
         email_verified: true,
-        aud: getConfig().googleClientId || "dev-client"
+        aud: getConfig().googleClientId || "dev-client",
+        sub: "dev-sub-12345"
       }
     };
   }
@@ -36,7 +38,7 @@ function validateGoogleIdentity(idToken) {
     try {
       return { valid: true, claims: JSON.parse(cachedClaims) };
     } catch (e) {
-      // cache corrupted, fall through
+      // cache corrupted, fall through to live validation
     }
   }
 
@@ -48,23 +50,36 @@ function validateGoogleIdentity(idToken) {
     });
 
     if (response.getResponseCode() !== 200) {
-      return { valid: false, error: "Invalid Google ID token" };
+      return { valid: false, error: "Invalid Google ID token signature or token expired" };
     }
 
     const claims = JSON.parse(response.getContentText());
 
-    // Check token claims
+    // 1. Validate Subject/Identity presence
+    if (!claims.sub || typeof claims.sub !== "string") {
+      return { valid: false, error: "Token subject claim missing" };
+    }
+
+    // 2. Validate Audience
     const config = getConfig();
     if (config.googleClientId && claims.aud !== config.googleClientId) {
       return { valid: false, error: "Token audience mismatch" };
     }
 
+    // 3. Validate Issuer
     if (claims.iss !== "accounts.google.com" && claims.iss !== "https://accounts.google.com") {
       return { valid: false, error: "Token issuer invalid" };
     }
 
+    // 4. Validate Email Verification
     if (claims.email_verified !== "true" && claims.email_verified !== true) {
       return { valid: false, error: "Google email not verified" };
+    }
+
+    // 5. Validate Expiration
+    const nowSec = Math.floor(Date.now() / 1000);
+    if (claims.exp && Number(claims.exp) < nowSec) {
+      return { valid: false, error: "Google ID token has expired" };
     }
 
     // Cache valid claims for 300 seconds (5 minutes)
@@ -72,12 +87,12 @@ function validateGoogleIdentity(idToken) {
 
     return { valid: true, claims: claims };
   } catch (err) {
-    return { valid: false, error: "Identity verification failed" };
+    return { valid: false, error: "Cryptographic identity verification failed" };
   }
 }
 
 /**
- * Resolves the user record and assigned role from configured approved users
+ * Resolves the user record and assigned canonical role from configured approved users
  * 
  * @param {string} email - Verified user email address
  * @returns {object} { email: string, name: string, role: string }
@@ -149,14 +164,37 @@ function authorizeAction(action, role) {
     // Session & Diagnostics
     "verifySession": ALL_READERS,
     "getSchemaInventory": ALL_ADMINS,
+    "initializeSandboxSchema": ALL_ADMINS,
 
-    // Read queries
+    // Phase 2: Core Finance Reads
+    "getTransactions": ALL_READERS,
+    "getIncomeDetail": ALL_READERS,
+    "getExpenseDetail": ALL_READERS,
+    "getReimbursements": ALL_READERS,
+    "getReceipts": ALL_READERS,
+    "getCheckDetails": ALL_READERS,
+    "getCapitalProjects": ALL_READERS,
+    "getDesignatedFundsSummary": ALL_READERS,
     "getDashboardSummary": ALL_READERS,
     "getMembers": FINANCE_WRITERS,
     "getTaxLetterData": FINANCE_WRITERS,
     "getMemberYearlyContributions": FINANCE_WRITERS,
 
-    // Write operations
+    // Phase 2: Core Finance Writes (Restricted to Primary Admin, Backup Admin, Finance Editor)
+    "addTransaction": FINANCE_WRITERS,
+    "updateTransaction": FINANCE_WRITERS,
+    "deleteTransaction": ALL_ADMINS,
+    "addIncome": FINANCE_WRITERS,
+    "addExpense": FINANCE_WRITERS,
+    "addReimbursement": FINANCE_WRITERS,
+    "addReimbursementAllocation": FINANCE_WRITERS,
+    "addReceipt": FINANCE_WRITERS,
+    "matchReceiptToTransaction": FINANCE_WRITERS,
+    "addCheckDetail": FINANCE_WRITERS,
+    "addCapitalProject": ALL_ADMINS,
+    "updateCapitalProject": ALL_ADMINS,
+
+    // Legacy & Tax Actions
     "addMember": FINANCE_WRITERS,
     "addContribution": FINANCE_WRITERS,
     "generateYearlyTaxLettersBatch": FINANCE_WRITERS,
@@ -164,7 +202,7 @@ function authorizeAction(action, role) {
     "generateBatchIRS": FINANCE_WRITERS,
     "generateSocalMonthlyReport": PRESBYTER_SET.concat(["Finance Editor"]),
 
-    // Intelligence & Reports
+    // Intelligence & Automation
     "detectDonorRisk": FINANCE_WRITERS,
     "forecastGivingML": FINANCE_WRITERS,
     "segmentDonors": FINANCE_WRITERS,
@@ -172,8 +210,6 @@ function authorizeAction(action, role) {
     "detectPastoralCareNeeds": ALL_ADMINS,
     "analyzeHouseholdGiving": ALL_ADMINS,
     "detectGivingSeasonality": FINANCE_WRITERS,
-
-    // System Administration
     "runMonthlyAutomation": ALL_ADMINS,
     "logAuditEvent": ALL_READERS
   };

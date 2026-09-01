@@ -19,7 +19,7 @@ export function getActiveIdToken(): string | null {
   return currentIdToken;
 }
 
-export async function gasFetch<T = unknown>(
+export async function gasFetch<T = Record<string, unknown>>(
   action: string,
   payload: Record<string, unknown> = {},
   idTokenOverride?: string
