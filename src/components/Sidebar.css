@@ -7,10 +7,10 @@
   flex-direction: column;
   background: rgba(253, 251, 247, 0.95);
   border: 1px solid var(--mist-blue-dark);
-  border-radius: var(--radius-lg);
+  border-radius: 8px;
   padding: 1rem 0.75rem;
   transition: width 0.25s var(--ease-spring);
-  box-shadow: 0 4px 16px rgba(44, 62, 80, 0.04);
+  box-shadow: 0 1px 4px rgba(44, 62, 80, 0.04);
   overflow: hidden;
   z-index: 90;
 }
@@ -70,6 +70,18 @@
 .collapse-toggle:hover {
   background: var(--mist-blue);
   color: var(--slate-blue);
+}
+
+.sidebar-mobile-close {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 5px;
+  color: var(--warm-gray);
+  background: transparent;
+  border: 0;
+  border-radius: 6px;
+  cursor: pointer;
 }
 
 .nav-menu-scrollable {
@@ -139,35 +151,39 @@
   text-overflow: ellipsis;
 }
 
-.legacy-toggle-btn {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  width: 100%;
-  background: transparent;
-  border: none;
-  padding: 0.4rem 0.6rem;
-  font-size: 0.72rem;
-  font-weight: 600;
-  color: var(--warm-gray);
-  cursor: pointer;
-  text-align: left;
-  border-radius: 6px;
-}
+@media (max-width: 1023px) {
+  .sidebar-premium {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: min(280px, 86vw);
+    height: 100vh;
+    border-radius: 0 8px 8px 0;
+    transform: translateX(-105%);
+    transition: transform 0.2s ease;
+    z-index: 220;
+  }
 
-.legacy-toggle-btn:hover {
-  background: var(--ivory);
-  color: var(--slate-blue);
-}
+  .sidebar-premium.mobile-open {
+    transform: translateX(0);
+  }
 
-.legacy-item {
-  font-size: 0.8rem;
-  padding-left: 1rem;
-  opacity: 0.85;
-}
+  .sidebar-premium.collapsed {
+    width: min(280px, 86vw);
+  }
 
-.sidebar-footer-premium {
-  padding-top: 0.75rem;
-  border-top: 1px solid var(--border-light);
-  margin-top: auto;
+  .sidebar-premium.collapsed .brand-text-block,
+  .sidebar-premium.collapsed .nav-group-title,
+  .sidebar-premium.collapsed .nav-label {
+    display: flex;
+  }
+
+  .collapse-toggle {
+    display: none;
+  }
+
+  .sidebar-mobile-close {
+    display: flex;
+  }
 }

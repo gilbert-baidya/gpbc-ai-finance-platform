@@ -19,6 +19,7 @@ import {
 import { useAuth } from '../auth/AuthContext';
 import { auditApi } from '../api/auditApi';
 import { parseStatementCsv } from '../utils/csvParser';
+import FinanceDataState from '../components/FinanceDataState';
 
 export const AuditCenter = () => {
   const { user } = useAuth();
@@ -36,6 +37,7 @@ export const AuditCenter = () => {
   const [runningAudit, setRunningAudit] = useState(false);
   const [issues, setIssues] = useState([]);
   const [healthScore, setHealthScore] = useState(null);
+  const [dataAvailable, setDataAvailable] = useState(false);
 
   // Filters
   const [search, setSearch] = useState('');
@@ -62,11 +64,17 @@ export const AuditCenter = () => {
     try {
       setLoading(true);
       const res = await auditApi.getAuditIssues();
+      if (!res?.success || !Array.isArray(res.issues)) throw new Error('Live audit data unavailable');
       setIssues(res.issues || []);
       const sumRes = await auditApi.getAuditSummary();
-      setHealthScore(sumRes.healthScore || null);
+      if (!sumRes?.success || !sumRes.healthScore) throw new Error('Live audit data unavailable');
+      setHealthScore(sumRes.healthScore);
+      setDataAvailable(true);
     } catch (err) {
       console.error('Failed to load audit data:', err);
+      setIssues([]);
+      setHealthScore(null);
+      setDataAvailable(false);
     } finally {
       setLoading(false);
     }
@@ -78,6 +86,7 @@ export const AuditCenter = () => {
       const res = await auditApi.runAudit();
       setIssues(res.issues || []);
       setHealthScore(res.healthScore || null);
+      setDataAvailable(Boolean(res.success && res.healthScore));
     } catch (err) {
       alert(err.message || 'Audit execution failed');
     } finally {
@@ -231,7 +240,7 @@ export const AuditCenter = () => {
               type="button"
               className="btn btn-primary"
               onClick={handleRunAudit}
-              disabled={runningAudit}
+              disabled={runningAudit || !dataAvailable}
               style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'var(--slate-blue)' }}
             >
               <RefreshCw size={16} className={runningAudit ? 'animate-spin' : ''} />
@@ -251,20 +260,20 @@ export const AuditCenter = () => {
                 AUDIT HEALTH SCORE
               </span>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: '10px', marginTop: '4px' }}>
-                <span style={{ fontSize: '2.5rem', fontWeight: 900, color: (healthScore?.score || 100) >= 80 ? '#165940' : ((healthScore?.score || 100) >= 60 ? '#C05621' : '#991B1B') }}>
-                  {healthScore ? healthScore.score : 100}
+                <span style={{ fontSize: '2.5rem', fontWeight: 900, color: !dataAvailable ? 'var(--warm-gray)' : ((healthScore?.score ?? 0) >= 80 ? '#165940' : ((healthScore?.score ?? 0) >= 60 ? '#C05621' : '#991B1B')) }}>
+                  {dataAvailable ? healthScore.score : '—'}
                 </span>
-                <span style={{ fontSize: '1rem', color: 'var(--warm-gray)', fontWeight: 600 }}>/ 100</span>
+                {dataAvailable && <span style={{ fontSize: '1rem', color: 'var(--warm-gray)', fontWeight: 600 }}>/ 100</span>}
                 <span className="badge" style={{
-                  background: (healthScore?.score || 100) >= 80 ? 'rgba(45, 139, 110, 0.15)' : 'rgba(192, 86, 33, 0.15)',
-                  color: (healthScore?.score || 100) >= 80 ? '#165940' : '#C05621',
+                  background: dataAvailable ? ((healthScore?.score ?? 0) >= 80 ? 'rgba(45, 139, 110, 0.15)' : 'rgba(192, 86, 33, 0.15)') : '#EEF2F5',
+                  color: dataAvailable ? ((healthScore?.score ?? 0) >= 80 ? '#165940' : '#C05621') : 'var(--warm-gray)',
                   fontWeight: 700
                 }}>
-                  {healthScore?.scoreTier || 'Audit Ready'}
+                  {dataAvailable ? healthScore.scoreTier : 'Not calculated yet'}
                 </span>
               </div>
             </div>
-            <ShieldCheck size={48} color={(healthScore?.score || 100) >= 80 ? '#2D8B6E' : '#C05621'} />
+            <ShieldCheck size={48} color={dataAvailable ? ((healthScore?.score ?? 0) >= 80 ? '#2D8B6E' : '#C05621') : 'var(--warm-gray)'} />
           </div>
 
           {/* Deductions Breakdown */}
@@ -277,9 +286,7 @@ export const AuditCenter = () => {
                   </span>
                 ))}
               </div>
-            ) : (
-              <span>100% compliant — No unresolved active audit findings</span>
-            )}
+            ) : dataAvailable ? <span>No unresolved active audit findings</span> : <span>Live audit data unavailable</span>}
           </div>
         </div>
 
@@ -290,7 +297,7 @@ export const AuditCenter = () => {
             <AlertTriangle size={18} color="#991B1B" />
           </div>
           <div style={{ fontSize: '1.8rem', fontWeight: 800, color: '#991B1B', marginTop: '8px' }}>
-            {criticalIssuesCount}
+            {dataAvailable ? criticalIssuesCount : '—'}
           </div>
           <span style={{ fontSize: '0.75rem', color: 'var(--warm-gray)' }}>Over-allocations & fund deficits</span>
         </div>
@@ -301,7 +308,7 @@ export const AuditCenter = () => {
             <Receipt size={18} color="#C05621" />
           </div>
           <div style={{ fontSize: '1.8rem', fontWeight: 800, color: '#C05621', marginTop: '8px' }}>
-            {missingReceiptsCount}
+            {dataAvailable ? missingReceiptsCount : '—'}
           </div>
           <span style={{ fontSize: '0.75rem', color: 'var(--warm-gray)' }}>Expenses lacking evidence</span>
         </div>
@@ -312,11 +319,13 @@ export const AuditCenter = () => {
             <FileText size={18} color="var(--slate-blue)" />
           </div>
           <div style={{ fontSize: '1.8rem', fontWeight: 800, color: 'var(--slate-blue)', marginTop: '8px' }}>
-            {pendingReimbursementsCount}
+            {dataAvailable ? pendingReimbursementsCount : '—'}
           </div>
           <span style={{ fontSize: '0.75rem', color: 'var(--warm-gray)' }}>Unallocated or pending purchases</span>
         </div>
       </div>
+
+      {!loading && !dataAvailable && <div className="glass-panel" style={{ marginBottom: '20px' }}><FinanceDataState title="Live audit data unavailable" description="Connect the GPBC finance sandbox and run the Audit Engine to calculate compliance results." /></div>}
 
       {/* Tab Switcher */}
       <div style={{ display: 'flex', gap: '8px', borderBottom: '2px solid #E2E8F0', marginBottom: '20px' }}>
@@ -334,7 +343,7 @@ export const AuditCenter = () => {
             color: activeTab === 'issues' ? 'var(--slate-blue)' : 'var(--warm-gray)'
           }}
         >
-          Active Audit Findings ({issues.length})
+          Active Audit Findings ({dataAvailable ? issues.length : '—'})
         </button>
         <button
           type="button"
@@ -431,6 +440,12 @@ export const AuditCenter = () => {
                     <tr>
                       <td colSpan={7} style={{ padding: '32px', textAlign: 'center', color: 'var(--warm-gray)' }}>
                         Loading audit findings...
+                      </td>
+                    </tr>
+                  ) : !dataAvailable ? (
+                    <tr>
+                      <td colSpan={7} style={{ padding: '32px', textAlign: 'center', color: 'var(--warm-gray)' }}>
+                        Live audit data unavailable.
                       </td>
                     </tr>
                   ) : filteredIssues.length === 0 ? (

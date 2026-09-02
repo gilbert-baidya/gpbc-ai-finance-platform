@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { financeApi } from '../api/financeApi';
 import { useAuth } from '../context/AuthContext';
+import FinanceDataState from '../components/FinanceDataState';
 import {
   Receipt,
   Plus,
@@ -18,6 +19,7 @@ export const ReceiptRegister = () => {
   const [receipts, setReceipts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [dataAvailable, setDataAvailable] = useState(false);
   const [statusFilter, setStatusFilter] = useState('');
   const [search, setSearch] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
@@ -47,11 +49,14 @@ export const ReceiptRegister = () => {
       });
       if (res.success && Array.isArray(res.receipts)) {
         setReceipts(res.receipts);
+        setDataAvailable(true);
       } else {
         setReceipts([]);
+        setDataAvailable(false);
       }
     } catch (err) {
       setError(err.message || 'Failed to load receipts');
+      setDataAvailable(false);
     } finally {
       setLoading(false);
     }
@@ -146,9 +151,9 @@ export const ReceiptRegister = () => {
             <Receipt size={18} color="var(--slate-blue)" />
           </div>
           <div style={{ fontSize: '1.6rem', fontWeight: 800, color: 'var(--slate-blue)', marginTop: '8px' }}>
-            {receipts.length}
+            {dataAvailable ? receipts.length : '—'}
           </div>
-          <span style={{ fontSize: '0.75rem', color: 'var(--warm-gray)' }}>${totalAmount.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
+          <span style={{ fontSize: '0.75rem', color: 'var(--warm-gray)' }}>{dataAvailable ? `$${totalAmount.toLocaleString('en-US', { minimumFractionDigits: 2 })}` : 'Not available yet'}</span>
         </div>
 
         <div className="glass-panel" style={{ padding: '20px', background: '#FAF6F0' }}>
@@ -157,7 +162,7 @@ export const ReceiptRegister = () => {
             <CheckCircle2 size={18} color="#2D8B6E" />
           </div>
           <div style={{ fontSize: '1.6rem', fontWeight: 800, color: '#165940', marginTop: '8px' }}>
-            {matchedCount}
+            {dataAvailable ? matchedCount : '—'}
           </div>
           <span style={{ fontSize: '0.75rem', color: 'var(--warm-gray)' }}>Linked to ledger transactions</span>
         </div>
@@ -168,7 +173,7 @@ export const ReceiptRegister = () => {
             <AlertCircle size={18} color="#C05621" />
           </div>
           <div style={{ fontSize: '1.6rem', fontWeight: 800, color: unmatchedCount > 0 ? '#C05621' : '#165940', marginTop: '8px' }}>
-            {unmatchedCount}
+            {dataAvailable ? unmatchedCount : '—'}
           </div>
           <span style={{ fontSize: '0.75rem', color: 'var(--warm-gray)' }}>Pending transaction link</span>
         </div>
@@ -209,6 +214,8 @@ export const ReceiptRegister = () => {
             <div className="spinner" style={{ margin: '0 auto 12px auto' }} />
             <span>Loading receipt register...</span>
           </div>
+        ) : !dataAvailable ? (
+          <FinanceDataState title="Receipt register data is currently unavailable" />
         ) : receipts.length === 0 ? (
           <div style={{ padding: '48px', textAlign: 'center', color: 'var(--warm-gray)' }}>
             <Receipt size={40} style={{ opacity: 0.4, margin: '0 auto 12px auto' }} />

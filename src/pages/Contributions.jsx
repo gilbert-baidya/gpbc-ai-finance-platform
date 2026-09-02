@@ -26,13 +26,13 @@ const Contributions = () => {
                         color: 'var(--wine)',
                         marginBottom: '8px'
                     }}>
-                        Record Contributions
+                        Record Income
                     </h1>
                     <p style={{ 
                         fontSize: 'var(--text-base)',
                         color: 'var(--text-muted)'
                     }}>
-                        Record member contributions and export data
+                        Record offerings, donations, designated gifts, and other church income.
                     </p>
                 </div>
                 <RoleGuard roles={["Treasurer", "Admin"]}>

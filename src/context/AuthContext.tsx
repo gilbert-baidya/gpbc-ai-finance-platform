@@ -1,29 +1,19 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import { AuthUser, AuthContextType, UserRole } from '../types/auth';
-import { setActiveIdToken } from '../api/gasFetch';
+import { gasFetch, setActiveIdToken } from '../api/gasFetch';
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const SESSION_STORAGE_KEY = 'gpbc_session_user';
 const SESSION_TOKEN_KEY = 'gpbc_session_token';
 
-// Helper to decode JWT payload safely
-function parseJwtPayload(token: string): Record<string, unknown> | null {
-  try {
-    const base64Url = token.split('.')[1];
-    if (!base64Url) return null;
-    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-    const jsonPayload = decodeURIComponent(
-      atob(base64)
-        .split('')
-        .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
-        .join('')
-    );
-    return JSON.parse(jsonPayload);
-  } catch {
-    return null;
-  }
-}
+const CANONICAL_ROLES: UserRole[] = [
+  'Primary Admin',
+  'Backup Admin',
+  'Finance Editor',
+  'Viewer',
+  'Presbyter Read-Only'
+];
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<AuthUser | null>(null);
@@ -33,33 +23,42 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Restore session on mount
   useEffect(() => {
-    try {
-      const storedUser = sessionStorage.getItem(SESSION_STORAGE_KEY);
+    let cancelled = false;
+
+    const restoreSession = async () => {
+      try {
       const storedToken = sessionStorage.getItem(SESSION_TOKEN_KEY);
 
-      if (storedUser && storedToken) {
-        const parsed = JSON.parse(storedUser) as AuthUser;
-        const claims = parseJwtPayload(storedToken);
-        const exp = typeof claims?.exp === 'number' ? claims.exp * 1000 : 0;
+        if (storedToken) {
+          const response = await gasFetch<{ user: AuthUser }>('verifySession', {}, storedToken);
+          const verifiedUser = response.user;
 
-        // Check if token expired
-        if (exp > Date.now() || !exp) {
-          setUser(parsed);
+          if (!verifiedUser?.email || !verifiedUser.name || !CANONICAL_ROLES.includes(verifiedUser.role)) {
+            throw new Error('Backend returned an invalid authorized-user session');
+          }
+
+          if (!cancelled) {
+            setUser(verifiedUser);
           setIdTokenState(storedToken);
           setActiveIdToken(storedToken);
+            sessionStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(verifiedUser));
+          }
         } else {
           sessionStorage.removeItem(SESSION_STORAGE_KEY);
-          sessionStorage.removeItem(SESSION_TOKEN_KEY);
           setActiveIdToken(null);
         }
+      } catch {
+        sessionStorage.removeItem(SESSION_STORAGE_KEY);
+        sessionStorage.removeItem(SESSION_TOKEN_KEY);
+        setActiveIdToken(null);
+      } finally {
+        if (!cancelled) setLoading(false);
       }
-    } catch {
-      sessionStorage.removeItem(SESSION_STORAGE_KEY);
-      sessionStorage.removeItem(SESSION_TOKEN_KEY);
-      setActiveIdToken(null);
-    } finally {
-      setLoading(false);
-    }
+
+    };
+
+    void restoreSession();
+    return () => { cancelled = true; };
   }, []);
 
   const signInWithGoogleCredential = useCallback(async (credential: string) => {
@@ -67,32 +66,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setError(null);
 
     try {
-      const claims = parseJwtPayload(credential);
-      if (!claims || !claims.email) {
-        throw new Error('Invalid Google credential payload');
+      const response = await gasFetch<{ user: AuthUser }>('verifySession', {}, credential);
+      const verifiedUser = response.user;
+
+      if (!verifiedUser?.email || !verifiedUser.name || !CANONICAL_ROLES.includes(verifiedUser.role)) {
+        throw new Error('Backend returned an invalid authorized-user session');
       }
-
-      const email = String(claims.email).toLowerCase().trim();
-      const name = String(claims.name || claims.given_name || email);
-      const picture = typeof claims.picture === 'string' ? claims.picture : undefined;
-
-      // Temporary role assignment pending backend response or default Viewer
-      // Backend enforces authoritative role on every API action
-      let role: UserRole = 'Viewer';
-
-      // Check if user is church primary/backup admin or finance team by domain
-      if (email.endsWith('@gracepraise.church') || email.includes('pastor') || email.includes('gilbert')) {
-        role = 'Primary Admin';
-      }
-
-      const verifiedUser: AuthUser = {
-        email,
-        name,
-        picture,
-        role,
-        givenName: typeof claims.given_name === 'string' ? claims.given_name : undefined,
-        familyName: typeof claims.family_name === 'string' ? claims.family_name : undefined,
-      };
 
       setUser(verifiedUser);
       setIdTokenState(credential);
@@ -134,10 +113,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     setUser(mockUser);
-    setIdTokenState('dev-mock-token');
-    setActiveIdToken('dev-mock-token');
+    setIdTokenState(null);
+    setActiveIdToken(null);
     sessionStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(mockUser));
-    sessionStorage.setItem(SESSION_TOKEN_KEY, 'dev-mock-token');
+    sessionStorage.removeItem(SESSION_TOKEN_KEY);
   }, []);
 
   const isAuthorized = useCallback((allowedRoles?: UserRole[]): boolean => {

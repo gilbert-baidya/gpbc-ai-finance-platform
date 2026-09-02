@@ -7,6 +7,7 @@
   position: relative;
   overflow-x: hidden;
   padding: var(--space-4);
+  background: linear-gradient(180deg, #faf8f3 0%, #f7faf9 100%);
 }
 
 /* Background Decorations - Subtle Sacred Gradients */
@@ -16,7 +17,7 @@
   left: -10%;
   width: 50vw;
   height: 50vw;
-  background: radial-gradient(circle, rgba(74, 14, 26, 0.08) 0%, rgba(255, 255, 255, 0) 70%);
+  display: none;
   border-radius: 50%;
   z-index: -1;
   pointer-events: none;
@@ -28,7 +29,7 @@
   right: -10%;
   width: 60vw;
   height: 60vw;
-  background: radial-gradient(circle, rgba(31, 111, 84, 0.05) 0%, rgba(255, 255, 255, 0) 70%);
+  display: none;
   border-radius: 50%;
   z-index: -1;
   pointer-events: none;
@@ -63,7 +64,7 @@
 .dashboard-content {
   max-width: 1280px;
   margin: 0 auto;
-  padding: var(--space-12) var(--space-6);
+  padding: var(--space-6);
 }
 
 .metrics-grid {
@@ -85,9 +86,7 @@
     padding: var(--space-6);
   }
   
-  .dashboard-content {
-    padding: var(--space-16) var(--space-8);
-  }
+  .dashboard-content { padding: var(--space-8); }
 }
 
 @media (min-width: 1024px) {
@@ -126,7 +125,25 @@
     gap: var(--space-4);
   }
   
-  .dashboard-content {
-    padding: var(--space-8) var(--space-4);
+  .dashboard-content { padding: var(--space-6) var(--space-3); }
+}
+
+.sidebar-mobile-backdrop {
+  display: none;
+}
+
+@media (max-width: 1023px) {
+  .sidebar-column {
+    display: block;
+    flex: 0 0 0;
+  }
+
+  .sidebar-mobile-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 210;
+    background: rgba(31, 45, 56, 0.28);
+    border: 0;
   }
 }

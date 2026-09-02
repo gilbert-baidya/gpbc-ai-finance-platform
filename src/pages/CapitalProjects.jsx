@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { financeApi } from '../api/financeApi';
 import { useAuth } from '../context/AuthContext';
+import FinanceDataState from '../components/FinanceDataState';
 import {
   FolderGit2,
   Plus,
@@ -13,6 +14,7 @@ export const CapitalProjects = () => {
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [dataAvailable, setDataAvailable] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
@@ -32,11 +34,14 @@ export const CapitalProjects = () => {
       const res = await financeApi.getCapitalProjects();
       if (res.success && Array.isArray(res.projects)) {
         setProjects(res.projects);
+        setDataAvailable(true);
       } else {
         setProjects([]);
+        setDataAvailable(false);
       }
     } catch (err) {
       setError(err.message || 'Failed to load capital projects');
+      setDataAvailable(false);
     } finally {
       setLoading(false);
     }
@@ -124,7 +129,7 @@ export const CapitalProjects = () => {
             <FolderGit2 size={18} color="var(--slate-blue)" />
           </div>
           <div style={{ fontSize: '1.6rem', fontWeight: 800, color: 'var(--slate-blue)', marginTop: '8px' }}>
-            ${totalBudget.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+            {dataAvailable ? `$${totalBudget.toLocaleString('en-US', { minimumFractionDigits: 2 })}` : '—'}
           </div>
           <span style={{ fontSize: '0.75rem', color: 'var(--warm-gray)' }}>Across all active projects</span>
         </div>
@@ -135,7 +140,7 @@ export const CapitalProjects = () => {
             <FolderGit2 size={18} color="#2D8B6E" />
           </div>
           <div style={{ fontSize: '1.6rem', fontWeight: 800, color: '#165940', marginTop: '8px' }}>
-            ${totalDonations.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+            {dataAvailable ? `$${totalDonations.toLocaleString('en-US', { minimumFractionDigits: 2 })}` : '—'}
           </div>
           <span style={{ fontSize: '0.75rem', color: 'var(--warm-gray)' }}>Campaign offerings received</span>
         </div>
@@ -146,7 +151,7 @@ export const CapitalProjects = () => {
             <FolderGit2 size={18} color="#991B1B" />
           </div>
           <div style={{ fontSize: '1.6rem', fontWeight: 800, color: '#991B1B', marginTop: '8px' }}>
-            ${totalExpenses.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+            {dataAvailable ? `$${totalExpenses.toLocaleString('en-US', { minimumFractionDigits: 2 })}` : '—'}
           </div>
           <span style={{ fontSize: '0.75rem', color: 'var(--warm-gray)' }}>Project expenditures disbursed</span>
         </div>
@@ -157,7 +162,7 @@ export const CapitalProjects = () => {
             <FolderGit2 size={18} color="var(--gold-dark)" />
           </div>
           <div style={{ fontSize: '1.6rem', fontWeight: 800, color: 'var(--gold-dark)', marginTop: '8px' }}>
-            ${totalRemaining.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+            {dataAvailable ? `$${totalRemaining.toLocaleString('en-US', { minimumFractionDigits: 2 })}` : '—'}
           </div>
           <span style={{ fontSize: '0.75rem', color: 'var(--warm-gray)' }}>Restricted funds available</span>
         </div>
@@ -170,6 +175,8 @@ export const CapitalProjects = () => {
             <div className="spinner" style={{ margin: '0 auto 12px auto' }} />
             <span>Loading capital projects...</span>
           </div>
+        ) : !dataAvailable ? (
+          <div className="glass-panel" style={{ gridColumn: '1 / -1' }}><FinanceDataState title="Capital project data unavailable" /></div>
         ) : projects.length === 0 ? (
           <div className="glass-panel" style={{ padding: '48px', textAlign: 'center', gridColumn: '1 / -1', color: 'var(--warm-gray)' }}>
             <FolderGit2 size={40} style={{ opacity: 0.4, margin: '0 auto 12px auto' }} />

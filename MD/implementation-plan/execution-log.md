@@ -229,3 +229,27 @@
   - Production data: 100% untouched.
   - Production writes: Disarmed (`GPBC_PRODUCTION_WRITES_ENABLED=false`).
   - Sandbox status: `LIVE MONTHLY CLOSE INTEGRATION PENDING`.
+
+---
+
+## 9. Google OAuth and Live Sandbox Integration Attempt
+
+- **Date**: 2026-09-02
+- **Starting branch/commit**: `feature/gpbc-finance-desk-refactor` at `afb66c6d1221c1e2491ce7d488c742c9d8831372`
+- **Safety audit**:
+  - Existing uncommitted UI work preserved.
+  - Production data and deployments untouched.
+  - Production-write guards remain fail closed and disarmed by default.
+  - Sandbox utilities remain permanently blocked against the protected production Sheet ID.
+- **Auth hardening completed**:
+  - Removed frontend email/domain role inference.
+  - Google sessions now require backend `verifySession` and an allowlisted canonical role.
+  - Removed the runtime DEV mock token; preview roles carry no backend credential.
+  - Added clean unknown-user denial before session response or action dispatch.
+- **Focused verification**: 11/11 authorization tests passed.
+- **Final automated verification**: 88/88 tests passed; TypeScript passed; production build passed with the existing large-chunk warning.
+- **Lint**: Repository-wide lint remains blocked by 49 errors and 18 warnings in pre-existing legacy/unrelated files. Touched JSX is lint-clean; TypeScript and Apps Script are not included by the current ESLint file configuration.
+- **External blocker**: `VITE_GOOGLE_CLIENT_ID` is not available. Apps Script properties, physical sandbox identity, and deployment target cannot be verified from the repository.
+- **Live tests**: Not run. No sandbox schema, fake records, audit, reconciliation, close, or report actions were executed.
+- **Detailed handoff**: `MD/implementation-plan/sandbox-integration-report.md`.
+- **Status**: `BLOCKED ON OWNER-CONTROLLED GOOGLE CONFIGURATION`; Phase 5 not started.

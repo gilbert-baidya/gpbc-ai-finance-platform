@@ -3,20 +3,38 @@
   justify-content: space-between;
   align-items: center;
   padding: 0.85rem 1.75rem;
-  border-radius: var(--radius-lg);
+  border-radius: 8px;
   margin-bottom: 1.5rem;
   position: sticky;
   top: 1rem;
   z-index: 100;
   background: rgba(253, 251, 247, 0.92);
   border: 1px solid var(--mist-blue-dark);
-  box-shadow: 0 4px 16px rgba(44, 62, 80, 0.05);
+  box-shadow: 0 1px 4px rgba(44, 62, 80, 0.04);
 }
 
 .header-left {
   display: flex;
   align-items: center;
   gap: 0.75rem;
+}
+
+.header-left > img {
+  width: 40px;
+  height: 40px;
+  object-fit: contain;
+}
+
+.header-menu-button {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 7px;
+  color: var(--slate-blue);
+  background: #fff;
+  border: 1px solid var(--mist-blue-dark);
+  border-radius: 7px;
+  cursor: pointer;
 }
 
 .church-info h1 {
@@ -106,4 +124,39 @@
 .header-logout-btn:hover {
   color: var(--terracotta);
   background: var(--ivory-warm);
+}
+
+@media (max-width: 1023px) {
+  .header-menu-button {
+    display: flex;
+  }
+}
+
+@media (max-width: 760px) {
+  .app-header {
+    padding: 0.7rem 0.8rem;
+    top: 0.5rem;
+  }
+
+  .header-left > img,
+  .date-display,
+  .user-info {
+    display: none;
+  }
+
+  .church-info h1 {
+    font-size: 1rem;
+  }
+
+  .church-info .subtitle {
+    font-size: 0.64rem;
+  }
+
+  .header-right {
+    gap: 0.5rem;
+  }
+
+  .user-profile {
+    padding: 0.3rem;
+  }
 }

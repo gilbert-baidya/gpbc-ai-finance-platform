@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { financeApi } from '../api/financeApi';
 import { useAuth } from '../context/AuthContext';
+import FinanceDataState from '../components/FinanceDataState';
 import {
   CreditCard,
   Plus,
@@ -16,6 +17,7 @@ export const Reimbursements = () => {
   const [reimbursements, setReimbursements] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [dataAvailable, setDataAvailable] = useState(false);
   const [statusFilter, setStatusFilter] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -40,11 +42,14 @@ export const Reimbursements = () => {
       const res = await financeApi.getReimbursements();
       if (res.success && Array.isArray(res.reimbursements)) {
         setReimbursements(res.reimbursements);
+        setDataAvailable(true);
       } else {
         setReimbursements([]);
+        setDataAvailable(false);
       }
     } catch (err) {
       setError(err.message || 'Failed to load reimbursements');
+      setDataAvailable(false);
     } finally {
       setLoading(false);
     }
@@ -172,7 +177,7 @@ export const Reimbursements = () => {
             <CreditCard size={18} color="var(--slate-blue)" />
           </div>
           <div style={{ fontSize: '1.6rem', fontWeight: 800, color: 'var(--slate-blue)', marginTop: '8px' }}>
-            ${totalPurchases.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            {dataAvailable ? `$${totalPurchases.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '—'}
           </div>
           <span style={{ fontSize: '0.75rem', color: 'var(--warm-gray)' }}>Underlying personal expenses</span>
         </div>
@@ -183,7 +188,7 @@ export const Reimbursements = () => {
             <CheckCircle2 size={18} color="#2D8B6E" />
           </div>
           <div style={{ fontSize: '1.6rem', fontWeight: 800, color: '#165940', marginTop: '8px' }}>
-            ${totalReimbursed.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            {dataAvailable ? `$${totalReimbursed.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '—'}
           </div>
           <span style={{ fontSize: '0.75rem', color: 'var(--warm-gray)' }}>Paid by church check/Zelle</span>
         </div>
@@ -194,7 +199,7 @@ export const Reimbursements = () => {
             <HeartHandshake size={18} color="var(--gold-dark)" />
           </div>
           <div style={{ fontSize: '1.6rem', fontWeight: 800, color: 'var(--gold-dark)', marginTop: '8px' }}>
-            ${totalAbsorbed.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            {dataAvailable ? `$${totalAbsorbed.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '—'}
           </div>
           <span style={{ fontSize: '0.75rem', color: 'var(--warm-gray)' }}>Absorbed as member gift</span>
         </div>
@@ -205,7 +210,7 @@ export const Reimbursements = () => {
             <Clock size={18} color="#C05621" />
           </div>
           <div style={{ fontSize: '1.6rem', fontWeight: 800, color: totalPending > 0 ? '#C05621' : '#165940', marginTop: '8px' }}>
-            ${totalPending.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            {dataAvailable ? `$${totalPending.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '—'}
           </div>
           <span style={{ fontSize: '0.75rem', color: 'var(--warm-gray)' }}>Pending future payout</span>
         </div>
@@ -237,6 +242,8 @@ export const Reimbursements = () => {
             <div className="spinner" style={{ margin: '0 auto 12px auto' }} />
             <span>Loading reimbursements...</span>
           </div>
+        ) : !dataAvailable ? (
+          <FinanceDataState title="Reimbursement data is currently unavailable" />
         ) : filtered.length === 0 ? (
           <div style={{ padding: '48px', textAlign: 'center', color: 'var(--warm-gray)' }}>
             <CreditCard size={40} style={{ opacity: 0.4, margin: '0 auto 12px auto' }} />

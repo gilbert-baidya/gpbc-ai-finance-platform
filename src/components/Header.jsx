@@ -1,9 +1,9 @@
 import React from 'react';
-import { User, Calendar, LogOut, Shield } from 'lucide-react';
+import { User, Calendar, LogOut, Shield, Menu } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import './Header.css';
 
-const Header = () => {
+const Header = ({ onOpenNavigation }) => {
   const { user, signOut } = useAuth();
   
   const currentDate = new Date().toLocaleDateString('en-US', {
@@ -16,15 +16,12 @@ const Header = () => {
   return (
     <header className="app-header app-global-header glass-panel">
       <div className="header-left">
+        <button type="button" className="header-menu-button" onClick={onOpenNavigation} aria-label="Open navigation">
+          <Menu size={20} />
+        </button>
         <img 
           src="/Logo-gpbc.png" 
           alt="GPBC Church Logo" 
-          style={{ 
-            width: '64px', 
-            height: '64px', 
-            objectFit: 'contain',
-            marginRight: '12px'
-          }}
           onError={(e) => {
             e.target.style.display = 'none';
           }}

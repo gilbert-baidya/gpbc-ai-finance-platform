@@ -8,8 +8,8 @@ import {
   Lock
 } from 'lucide-react';
 
-// Phase 0/1/2 Implemented Pages
-export { default as Dashboard } from './Dashboard';
+// Core finance pages
+export { default as Dashboard } from './FinanceDashboard';
 export { default as Members } from './Members';
 export { default as Contributions } from './Contributions';
 export { default as Income } from './Contributions';
@@ -20,7 +20,7 @@ export { default as ReceiptRegister } from './ReceiptRegister';
 export { default as CheckDetails } from './CheckDetails';
 export { default as CapitalProjects } from './CapitalProjects';
 
-// Legacy & Ministry Pages
+// Additional pages
 export { default as AIReports } from './AIReports';
 export { default as PastoralIntelligence } from './PastoralIntelligence';
 export { default as OperationsCommandCenter } from './OperationsCommandCenter';
@@ -83,12 +83,12 @@ const PhaseCard = ({ icon: IconComponent, title, phase, subtitle, features }) =>
 
     <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem', color: 'var(--warm-gray-light)' }}>
       <Lock size={14} />
-      <span>Phase 2 financial data model active. Full rule engine and PDF automation unlock in Phase 3/4.</span>
+      <span>Configuration is displayed here for governance visibility. Security-sensitive settings remain backend-controlled.</span>
     </div>
   </div>
 );
 
-// Phase 3 & 4 Implemented Pages
+// Audit and reporting pages
 export { default as AuditCenter } from './AuditCenter';
 export { default as MonthlyClose } from './MonthlyClose';
 export { default as PresbyterReports } from './PresbyterReports';
@@ -97,12 +97,13 @@ export const Settings = () => (
   <PhaseCard
     icon={SettingsIcon}
     title="System Settings & Governance"
-    phase="Phase 0/1"
+    phase="Configuration"
     subtitle="Security configuration, authorized user management, and spreadsheet environment settings."
     features={[
       "Server-side role assignments (Primary Admin, Backup Admin, Finance Editor, Viewer, Presbyter)",
-      "Google Apps Script environment configuration (Production / Sandbox)",
-      "Script Properties and Google OAuth Client management"
+      "Finance environment: Development Preview, Sandbox, or Production",
+      "Finance data connection and Google Apps Script configuration status",
+      "Production writes remain backend-controlled and are not changed from this screen"
     ]}
   />
 );

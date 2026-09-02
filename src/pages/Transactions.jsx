@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { financeApi } from '../api/financeApi';
 import { useAuth } from '../context/AuthContext';
+import FinanceDataState from '../components/FinanceDataState';
 import {
   FileSpreadsheet,
   Plus,
@@ -19,6 +20,7 @@ export const Transactions = () => {
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [dataAvailable, setDataAvailable] = useState(false);
   const [search, setSearch] = useState('');
   const [directionFilter, setDirectionFilter] = useState('');
   const [fundFilter, setFundFilter] = useState('');
@@ -53,11 +55,14 @@ export const Transactions = () => {
       });
       if (res.success && Array.isArray(res.transactions)) {
         setTransactions(res.transactions);
+        setDataAvailable(true);
       } else {
         setTransactions([]);
+        setDataAvailable(false);
       }
     } catch (err) {
       setError(err.message || 'Failed to load transactions');
+      setDataAvailable(false);
     } finally {
       setLoading(false);
     }
@@ -167,7 +172,7 @@ export const Transactions = () => {
             <ArrowUpRight size={18} color="#2D8B6E" />
           </div>
           <div style={{ fontSize: '1.6rem', fontWeight: 800, color: '#165940', marginTop: '8px' }}>
-            ${totalIncome.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            {dataAvailable ? `$${totalIncome.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '—'}
           </div>
           <span style={{ fontSize: '0.75rem', color: 'var(--warm-gray)' }}>Offerings & donations</span>
         </div>
@@ -178,7 +183,7 @@ export const Transactions = () => {
             <ArrowDownLeft size={18} color="#C05621" />
           </div>
           <div style={{ fontSize: '1.6rem', fontWeight: 800, color: '#991B1B', marginTop: '8px' }}>
-            ${totalExpense.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            {dataAvailable ? `$${totalExpense.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '—'}
           </div>
           <span style={{ fontSize: '0.75rem', color: 'var(--warm-gray)' }}>Recognized expenses (settlements: ${totalSettlements.toFixed(2)})</span>
         </div>
@@ -189,7 +194,7 @@ export const Transactions = () => {
             <FileSpreadsheet size={18} color="var(--slate-blue)" />
           </div>
           <div style={{ fontSize: '1.6rem', fontWeight: 800, color: netBalance >= 0 ? 'var(--slate-blue)' : '#991B1B', marginTop: '8px' }}>
-            ${netBalance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            {dataAvailable ? `$${netBalance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '—'}
           </div>
           <span style={{ fontSize: '0.75rem', color: 'var(--warm-gray)' }}>Operating balance</span>
         </div>
@@ -200,7 +205,7 @@ export const Transactions = () => {
             <CreditCard size={18} color="var(--gold-dark)" />
           </div>
           <div style={{ fontSize: '1.6rem', fontWeight: 800, color: 'var(--gold-dark)', marginTop: '8px' }}>
-            ${personalPurchases.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            {dataAvailable ? `$${personalPurchases.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '—'}
           </div>
           <span style={{ fontSize: '0.75rem', color: 'var(--warm-gray)' }}>Personal card tracking</span>
         </div>
@@ -261,6 +266,8 @@ export const Transactions = () => {
             <div className="spinner" style={{ margin: '0 auto 12px auto' }} />
             <span>Loading master transactions...</span>
           </div>
+        ) : !dataAvailable ? (
+          <FinanceDataState title="Transaction data is currently unavailable" />
         ) : transactions.length === 0 ? (
           <div style={{ padding: '48px', textAlign: 'center', color: 'var(--warm-gray)' }}>
             <FileSpreadsheet size={40} style={{ opacity: 0.4, margin: '0 auto 12px auto' }} />

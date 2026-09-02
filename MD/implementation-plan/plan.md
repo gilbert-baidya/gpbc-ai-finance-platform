@@ -177,6 +177,18 @@ No constitution exception is required.
 - **Requirements**: REQ-010, REQ-019, REQ-022
 - **Description**: Process only configured label/mailbox messages, deduplicate by message/attachment identity, save private attachments, create unmatched Receipt Register entries, and present non-binding match suggestions.
 
+### Pre-Phase 5 Live Sandbox Integration Gate
+
+- [x] Inspect OAuth, Apps Script authorization, environment guards, local endpoint presence, and Git safety state.
+- [x] Require backend `verifySession` for canonical Google-user roles and isolate DEV preview roles from backend credentials.
+- [ ] Configure the approved Web OAuth Client ID in ignored local configuration and matching Apps Script Script Properties. **Blocked: Client ID unavailable.**
+- [ ] Create and verify `GPBC_Finance_Master_SANDBOX` as physically distinct from production.
+- [ ] Configure and verify sandbox Script Properties and Web app deployment with production writes disabled.
+- [ ] Initialize the current schema and execute real role, unknown-user, fake-data, accounting, audit, reconciliation, Monthly Close, report, and Dashboard tests.
+- [ ] Complete `MD/implementation-plan/sandbox-integration-report.md` with live evidence before any production-release preparation.
+
+This gate is not Phase 5 and does not authorize production preparation. Current status: **BLOCKED / INCOMPLETE**.
+
 ### Step 5.2: Production readiness and phased release
 
 - **Requirements**: REQ-002, REQ-003, REQ-004, REQ-005, REQ-020, REQ-022, REQ-023, REQ-024

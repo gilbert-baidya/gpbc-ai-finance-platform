@@ -1,0 +1,40 @@
+metadata:
+  generated: "2026-09-02"
+  report: "MD/implementation-plan/sandbox-integration-report.md"
+  branch: "feature/gpbc-finance-desk-refactor"
+  starting_commit: "afb66c6d1221c1e2491ce7d488c742c9d8831372"
+
+status: "blocked"
+phase_5_started: false
+production_release_preparation_allowed: false
+
+safety:
+  production_data_touched: false
+  production_deployed: false
+  production_writes_enabled: "source-default-disabled-live-property-unverified"
+  sandbox_production_identity_guard: "verified-in-source"
+  missing_configuration_fails_closed: true
+  unknown_users_denied: true
+  audience_validation_required: true
+  runtime_dev_mock_token_present: false
+
+configuration:
+  frontend_api_url: "configured-unverified"
+  frontend_google_client_id: "missing"
+  apps_script_google_client_id: "unverified"
+  approved_users_allowlist: "unverified"
+  sandbox_sheet: "unverified"
+  sandbox_environment: "unverified"
+  sandbox_deployment: "unverified"
+
+completed:
+  - "architecture-and-safety-audit"
+  - "backend-authoritative-frontend-role-resolution"
+  - "dev-preview-token-isolation"
+  - "clean-unknown-user-denial"
+  - "focused-authorization-tests"
+
+blocked:
+  reason: "Approved Google Web OAuth Client ID and owner-controlled Google configuration are unavailable."
+  live_tests_run: false
+  schema_initialized: false

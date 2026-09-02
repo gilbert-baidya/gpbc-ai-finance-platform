@@ -57,7 +57,7 @@ function App() {
                 <Route path="presbyter-reports" element={<PresbyterReports />} />
                 <Route path="settings" element={<Settings />} />
 
-                {/* Preserved Ministry & Intelligence Routes */}
+                {/* Preserved legacy routes */}
                 <Route path="members" element={<Members />} />
                 <Route path="contributions" element={<Contributions />} />
                 <Route path="letters" element={<Letters />} />

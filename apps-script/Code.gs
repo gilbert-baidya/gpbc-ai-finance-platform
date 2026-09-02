@@ -53,6 +53,19 @@ function doPost(e) {
     const userEmail = authResult.claims.email;
     const approvedUser = getApprovedUser(userEmail);
 
+    if (!approvedUser) {
+      logAuditEvent({
+        actor: userEmail,
+        action: action,
+        status: "DENIED",
+        details: "User not in approved user list"
+      });
+      return jsonResponse({
+        success: false,
+        error: "Forbidden: User not in approved user list"
+      });
+    }
+
     // Session Verification Action
     if (action === "verifySession") {
       return jsonResponse({

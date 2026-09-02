@@ -13,11 +13,8 @@
    - **Application type**: Web application
    - **Name**: `GPBC Finance Desk Web Client`
    - **Authorized JavaScript origins**:
-     - `http://localhost:5173` (for local development)
-     - `http://localhost:4173` (for local preview)
-     - `https://<your-firebase-app-id>.web.app` (for Firebase Hosting)
-     - `https://<your-firebase-app-id>.firebaseapp.com`
-     - `https://finance.gracepraise.church` (custom domain)
+       - `http://127.0.0.1:5173` (current sandbox integration origin)
+    - Do not add production origins or redirects during the sandbox integration task.
 4. Copy the **Client ID** (e.g., `xxxxxxxxxxxx-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.apps.googleusercontent.com`).
    *Note: Do NOT commit or expose the Client Secret. Only the public Client ID is needed in the frontend build.*
 
@@ -44,6 +41,7 @@ In Google Apps Script (under **Project Settings** > **Script Properties**):
 | `GOOGLE_CLIENT_ID` | Google OAuth Web Client ID for audience verification | Matching `VITE_GOOGLE_CLIENT_ID` |
 | `GPBC_APPROVED_USERS` | JSON array of approved user objects with roles | `[{"email":"admin@gracepraise.church","role":"Primary Admin","name":"Pastor Gilbert"},{"email":"backup@gmail.com","role":"Backup Admin","name":"Backup Admin"},{"email":"finance@gracepraise.church","role":"Finance Editor","name":"Finance Team"},{"email":"presbyter@socalnetwork.org","role":"Presbyter Read-Only","name":"Presbyter"}]` |
 | `GPBC_ENVIRONMENT` | Environment guard (`production` or `sandbox`) | `sandbox` (for testing) / `production` |
+| `GPBC_PRODUCTION_WRITES_ENABLED` | Explicit production write arm | `false` for all sandbox integration work |
 
 ---
 

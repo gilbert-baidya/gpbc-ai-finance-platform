@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { financeApi } from '../api/financeApi';
 import { useAuth } from '../context/AuthContext';
+import FinanceDataState from '../components/FinanceDataState';
 import {
   CheckSquare,
   Plus,
@@ -15,6 +16,7 @@ export const CheckDetails = () => {
   const [checks, setChecks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [dataAvailable, setDataAvailable] = useState(false);
   const [search, setSearch] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -38,11 +40,14 @@ export const CheckDetails = () => {
       const res = await financeApi.getCheckDetails();
       if (res.success && Array.isArray(res.checks)) {
         setChecks(res.checks);
+        setDataAvailable(true);
       } else {
         setChecks([]);
+        setDataAvailable(false);
       }
     } catch (err) {
       setError(err.message || 'Failed to load checks');
+      setDataAvailable(false);
     } finally {
       setLoading(false);
     }
@@ -126,7 +131,7 @@ export const CheckDetails = () => {
             <CheckSquare size={18} color="var(--slate-blue)" />
           </div>
           <div style={{ fontSize: '1.6rem', fontWeight: 800, color: 'var(--slate-blue)', marginTop: '8px' }}>
-            {checks.length}
+            {dataAvailable ? checks.length : '—'}
           </div>
           <span style={{ fontSize: '0.75rem', color: 'var(--warm-gray)' }}>Disbursements recorded</span>
         </div>
@@ -137,7 +142,7 @@ export const CheckDetails = () => {
             <CheckSquare size={18} color="#991B1B" />
           </div>
           <div style={{ fontSize: '1.6rem', fontWeight: 800, color: '#991B1B', marginTop: '8px' }}>
-            ${totalDisbursed.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+            {dataAvailable ? `$${totalDisbursed.toLocaleString('en-US', { minimumFractionDigits: 2 })}` : '—'}
           </div>
           <span style={{ fontSize: '0.75rem', color: 'var(--warm-gray)' }}>Total check payments</span>
         </div>
@@ -167,6 +172,8 @@ export const CheckDetails = () => {
             <div className="spinner" style={{ margin: '0 auto 12px auto' }} />
             <span>Loading check register...</span>
           </div>
+        ) : !dataAvailable ? (
+          <FinanceDataState title="Check register data is currently unavailable" />
         ) : filtered.length === 0 ? (
           <div style={{ padding: '48px', textAlign: 'center', color: 'var(--warm-gray)' }}>
             <CheckSquare size={40} style={{ opacity: 0.4, margin: '0 auto 12px auto' }} />

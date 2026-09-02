@@ -177,8 +177,8 @@ export const PremiumContributionForm = () => {
             <div className="form-card">
                 {/* Header */}
                 <div className="form-header">
-                    <h2 className="form-title">Record Contribution</h2>
-                    <p className="form-subtitle">Enter giving information for the selected member</p>
+                    <h2 className="form-title">Record Income</h2>
+                    <p className="form-subtitle">Record offerings, donations, designated gifts, and other church income.</p>
                 </div>
 
                 {/* Form */}
@@ -186,7 +186,7 @@ export const PremiumContributionForm = () => {
                     {/* Member Selection */}
                     <div className="form-group">
                         <label htmlFor="memberId" className="form-label">
-                            Member *
+                            Donor / Member *
                         </label>
                         <select
                             id="memberId"
@@ -237,7 +237,7 @@ export const PremiumContributionForm = () => {
                     {/* Contribution Type */}
                     <div className="form-group">
                         <label htmlFor="contributionType" className="form-label">
-                            Contribution Type *
+                            Income Type *
                         </label>
                         <Select
                             inputId="contributionType"
@@ -346,7 +346,7 @@ export const PremiumContributionForm = () => {
                                     Processing...
                                 </>
                             ) : (
-                                'Record Contribution'
+                                'Record Income'
                             )}
                         </button>
                     </div>

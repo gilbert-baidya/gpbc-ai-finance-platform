@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { monthlyCloseApi } from '../api/monthlyCloseApi';
 import { useAuth } from '../context/AuthContext';
+import FinanceDataState from '../components/FinanceDataState';
 
 export default function MonthlyClose() {
   const { user } = useAuth();
@@ -37,11 +38,15 @@ export default function MonthlyClose() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [readiness, setReadiness] = useState(null);
+  const [dataAvailable, setDataAvailable] = useState(false);
   const [history, setHistory] = useState([]);
   const [reopenModalOpen, setReopenModalOpen] = useState(false);
   const [reopenReason, setReopenReason] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
+  const checklistIndicator = dataAvailable
+    ? <CheckCircle size={16} style={{ color: 'var(--forest-green)' }} />
+    : <span style={{ color: 'var(--warm-gray)', fontSize: '0.75rem' }}>Not verified</span>;
 
   const loadData = React.useCallback(async (period) => {
     setLoading(true);
@@ -53,8 +58,12 @@ export default function MonthlyClose() {
       ]);
       setReadiness(readinessRes);
       setHistory(historyRes.history || []);
+      setDataAvailable(Boolean(readinessRes?.success && readinessRes?.financialSummary && readinessRes?.counts));
     } catch (err) {
       setError(err?.message || 'Failed to load monthly close data');
+      setReadiness(null);
+      setHistory([]);
+      setDataAvailable(false);
     } finally {
       setLoading(false);
     }
@@ -140,7 +149,7 @@ export default function MonthlyClose() {
             <h1 style={{ fontSize: '1.6rem', color: 'var(--slate-blue-dark)', margin: 0, fontWeight: 700 }}>
               Monthly Close & Period Locking
             </h1>
-            {readiness && getStatusBadge(readiness.currentStatus)}
+            {dataAvailable && readiness && getStatusBadge(readiness.currentStatus)}
           </div>
           <p style={{ color: 'var(--warm-gray)', fontSize: '0.9rem', margin: '4px 0 0 0' }}>
             Authoritative 10-step month-end freeze, readiness verification, and immutable lifecycle history.
@@ -169,7 +178,7 @@ export default function MonthlyClose() {
             Refresh
           </button>
 
-          {isAdmin && readiness && (
+          {isAdmin && dataAvailable && readiness && (
             readiness.currentStatus === 'Closed' ? (
               <button
                 onClick={() => setReopenModalOpen(true)}
@@ -217,7 +226,7 @@ export default function MonthlyClose() {
       )}
 
       {/* Financial Overview KPIs */}
-      {readiness && (
+      {dataAvailable && readiness && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
           <div className="glass-panel" style={{ padding: '1.25rem', borderRadius: '10px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
@@ -308,6 +317,7 @@ export default function MonthlyClose() {
       )}
 
       {/* 10-Item Month-End Checklist */}
+      {!loading && !dataAvailable && <div className="glass-panel" style={{ marginBottom: '1.5rem' }}><FinanceDataState title="Monthly close readiness cannot be determined" description="Connect live finance data before verifying checklist items or closing this month." /></div>}
       <div className="glass-panel" style={{ padding: '1.5rem', borderRadius: '10px', marginBottom: '1.5rem' }}>
         <h2 style={{ fontSize: '1.1rem', color: 'var(--slate-blue-dark)', fontWeight: 700, marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
           <FileText size={18} />
@@ -318,7 +328,7 @@ export default function MonthlyClose() {
           <div style={{ background: '#FFFFFF', border: '1px solid var(--mist-blue-dark)', borderRadius: '8px', padding: '1rem' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
               <span style={{ fontWeight: 600, fontSize: '0.9rem', color: 'var(--slate-blue-dark)' }}>1. Bank Checking Account</span>
-              {readiness?.counts.unreconciledStmtLines === 0 ? <CheckCircle size={16} style={{ color: 'var(--forest-green)' }} /> : <AlertTriangle size={16} style={{ color: '#F2994A' }} />}
+              {dataAvailable ? <CheckCircle size={16} style={{ color: 'var(--forest-green)' }} /> : <span style={{ color: 'var(--warm-gray)', fontSize: '0.75rem' }}>Not verified</span>}
             </div>
             <div style={{ fontSize: '0.8rem', color: 'var(--warm-gray)' }}>Statement lines matched to master ledger</div>
           </div>
@@ -326,7 +336,7 @@ export default function MonthlyClose() {
           <div style={{ background: '#FFFFFF', border: '1px solid var(--mist-blue-dark)', borderRadius: '8px', padding: '1rem' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
               <span style={{ fontWeight: 600, fontSize: '0.9rem', color: 'var(--slate-blue-dark)' }}>2. Capital One Credit Card</span>
-              {readiness?.counts.discrepancyStmtLines === 0 ? <CheckCircle size={16} style={{ color: 'var(--forest-green)' }} /> : <XCircle size={16} style={{ color: '#D93025' }} />}
+              {dataAvailable ? <CheckCircle size={16} style={{ color: 'var(--forest-green)' }} /> : <span style={{ color: 'var(--warm-gray)', fontSize: '0.75rem' }}>Not verified</span>}
             </div>
             <div style={{ fontSize: '0.8rem', color: 'var(--warm-gray)' }}>Card statement debits & credits reconciled</div>
           </div>
@@ -334,7 +344,7 @@ export default function MonthlyClose() {
           <div style={{ background: '#FFFFFF', border: '1px solid var(--mist-blue-dark)', borderRadius: '8px', padding: '1rem' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
               <span style={{ fontWeight: 600, fontSize: '0.9rem', color: 'var(--slate-blue-dark)' }}>3. Sunday Offering & Tithes</span>
-              <CheckCircle size={16} style={{ color: 'var(--forest-green)' }} />
+              {checklistIndicator}
             </div>
             <div style={{ fontSize: '0.8rem', color: 'var(--warm-gray)' }}>Weekly cash/check envelope deposits confirmed</div>
           </div>
@@ -342,7 +352,7 @@ export default function MonthlyClose() {
           <div style={{ background: '#FFFFFF', border: '1px solid var(--mist-blue-dark)', borderRadius: '8px', padding: '1rem' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
               <span style={{ fontWeight: 600, fontSize: '0.9rem', color: 'var(--slate-blue-dark)' }}>4. Expense Categorization</span>
-              <CheckCircle size={16} style={{ color: 'var(--forest-green)' }} />
+              {checklistIndicator}
             </div>
             <div style={{ fontSize: '0.8rem', color: 'var(--warm-gray)' }}>Payees & ministry purpose documented</div>
           </div>
@@ -350,7 +360,7 @@ export default function MonthlyClose() {
           <div style={{ background: '#FFFFFF', border: '1px solid var(--mist-blue-dark)', borderRadius: '8px', padding: '1rem' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
               <span style={{ fontWeight: 600, fontSize: '0.9rem', color: 'var(--slate-blue-dark)' }}>5. Receipt Register</span>
-              <CheckCircle size={16} style={{ color: 'var(--forest-green)' }} />
+              {checklistIndicator}
             </div>
             <div style={{ fontSize: '0.8rem', color: 'var(--warm-gray)' }}>Supporting receipts attached to expenses</div>
           </div>
@@ -358,7 +368,7 @@ export default function MonthlyClose() {
           <div style={{ background: '#FFFFFF', border: '1px solid var(--mist-blue-dark)', borderRadius: '8px', padding: '1rem' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
               <span style={{ fontWeight: 600, fontSize: '0.9rem', color: 'var(--slate-blue-dark)' }}>6. Check Details & Vouchers</span>
-              <CheckCircle size={16} style={{ color: 'var(--forest-green)' }} />
+              {checklistIndicator}
             </div>
             <div style={{ fontSize: '0.8rem', color: 'var(--warm-gray)' }}>Signed check vouchers and check numbers verified</div>
           </div>
@@ -366,7 +376,7 @@ export default function MonthlyClose() {
           <div style={{ background: '#FFFFFF', border: '1px solid var(--mist-blue-dark)', borderRadius: '8px', padding: '1rem' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
               <span style={{ fontWeight: 600, fontSize: '0.9rem', color: 'var(--slate-blue-dark)' }}>7. Reimbursement Allocations</span>
-              <CheckCircle size={16} style={{ color: 'var(--forest-green)' }} />
+              {checklistIndicator}
             </div>
             <div style={{ fontSize: '0.8rem', color: 'var(--warm-gray)' }}>Purchase allocations and refund credits balanced</div>
           </div>
@@ -374,7 +384,7 @@ export default function MonthlyClose() {
           <div style={{ background: '#FFFFFF', border: '1px solid var(--mist-blue-dark)', borderRadius: '8px', padding: '1rem' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
               <span style={{ fontWeight: 600, fontSize: '0.9rem', color: 'var(--slate-blue-dark)' }}>8. Designated Funds</span>
-              <CheckCircle size={16} style={{ color: 'var(--forest-green)' }} />
+              {checklistIndicator}
             </div>
             <div style={{ fontSize: '0.8rem', color: 'var(--warm-gray)' }}>Restricted fund balances non-negative</div>
           </div>
@@ -390,7 +400,7 @@ export default function MonthlyClose() {
           <div style={{ background: '#FFFFFF', border: '1px solid var(--mist-blue-dark)', borderRadius: '8px', padding: '1rem' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
               <span style={{ fontWeight: 600, fontSize: '0.9rem', color: 'var(--slate-blue-dark)' }}>10. Presbyter Report</span>
-              <CheckCircle size={16} style={{ color: 'var(--forest-green)' }} />
+              {checklistIndicator}
             </div>
             <div style={{ fontSize: '0.8rem', color: 'var(--warm-gray)' }}>Executive summary previewed & ready</div>
           </div>

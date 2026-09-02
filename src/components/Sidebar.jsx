@@ -13,18 +13,14 @@ import {
   Settings,
   CreditCard,
   CheckSquare,
-  Users,
-  Mail,
   ChevronLeft,
   ChevronRight,
-  Sparkles,
-  ChevronDown
+  X
 } from 'lucide-react';
 import './Sidebar.css';
 
-const Sidebar = () => {
+const Sidebar = ({ mobileOpen = false, onClose }) => {
   const [isCollapsed, setIsCollapsed] = useState(false);
-  const [legacyOpen, setLegacyOpen] = useState(false);
 
   const mainNavGroups = [
     {
@@ -58,19 +54,16 @@ const Sidebar = () => {
         { icon: <FileCheck2 size={18} />, label: 'Presbyter Reports', path: '/presbyter-reports' },
       ],
     },
-  ];
-
-  const legacyItems = [
-    { icon: <Users size={16} />, label: 'Members', path: '/members' },
-    { icon: <TrendingUp size={16} />, label: 'Contributions (Legacy)', path: '/contributions' },
-    { icon: <Mail size={16} />, label: 'Tax Letters', path: '/letters' },
-    { icon: <Sparkles size={16} />, label: 'AI Reports', path: '/ai-reports' },
-    { icon: <Sparkles size={16} />, label: 'Pastoral AI', path: '/pastoral-intelligence' },
-    { icon: <Sparkles size={16} />, label: 'Operations Center', path: '/operations-command-center' },
+    {
+      group: 'System',
+      items: [
+        { icon: <Settings size={18} />, label: 'Settings', path: '/settings' },
+      ],
+    },
   ];
 
   return (
-    <aside className={`sidebar-premium navigation-sidebar ${isCollapsed ? 'collapsed' : ''}`}>
+    <aside className={`sidebar-premium navigation-sidebar ${isCollapsed ? 'collapsed' : ''} ${mobileOpen ? 'mobile-open' : ''}`}>
       {/* Sidebar Header with Logo/Brand */}
       <div className="sidebar-header">
         <div className="brand-container">
@@ -103,6 +96,9 @@ const Sidebar = () => {
         >
           {isCollapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
         </button>
+        <button type="button" className="sidebar-mobile-close" onClick={onClose} aria-label="Close navigation">
+          <X size={19} />
+        </button>
       </div>
 
       {/* Main Navigation */}
@@ -114,6 +110,7 @@ const Sidebar = () => {
               <NavLink
                 key={iIdx}
                 to={item.path}
+                onClick={onClose}
                 className={({ isActive }) => `nav-item-premium ${isActive ? 'active' : ''}`}
                 title={isCollapsed ? item.label : ''}
               >
@@ -123,53 +120,7 @@ const Sidebar = () => {
             ))}
           </div>
         ))}
-
-        {/* Preserved Legacy Features Dropdown */}
-        <div className="nav-group legacy-group">
-          {!isCollapsed ? (
-            <button
-              type="button"
-              className="legacy-toggle-btn"
-              onClick={() => setLegacyOpen(!legacyOpen)}
-            >
-              <span>Ministry & Intelligence</span>
-              <ChevronDown
-                size={14}
-                style={{ transform: legacyOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}
-              />
-            </button>
-          ) : (
-            <div className="nav-group-divider" />
-          )}
-
-          {(legacyOpen || isCollapsed) &&
-            legacyItems.map((item, lIdx) => (
-              <NavLink
-                key={lIdx}
-                to={item.path}
-                className={({ isActive }) => `nav-item-premium legacy-item ${isActive ? 'active' : ''}`}
-                title={isCollapsed ? item.label : ''}
-              >
-                <div className="icon-bubble">{item.icon}</div>
-                {!isCollapsed && <span className="nav-label">{item.label}</span>}
-              </NavLink>
-            ))}
-        </div>
       </nav>
-
-      {/* Footer Actions */}
-      <div className="sidebar-footer-premium">
-        <NavLink
-          to="/settings"
-          className={({ isActive }) => `nav-item-premium ${isActive ? 'active' : ''}`}
-          title={isCollapsed ? 'Settings' : ''}
-        >
-          <div className="icon-bubble">
-            <Settings size={18} />
-          </div>
-          {!isCollapsed && <span className="nav-label">Settings</span>}
-        </NavLink>
-      </div>
     </aside>
   );
 };
