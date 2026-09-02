@@ -169,7 +169,8 @@ function getConfig() {
     sheetId: props.getProperty("GPBC_SHEET_ID") || "",
     googleClientId: props.getProperty("GOOGLE_CLIENT_ID") || "",
     approvedUsersJson: props.getProperty("GPBC_APPROVED_USERS") || "[]",
-    environment: props.getProperty("GPBC_ENVIRONMENT") || ""
+    environment: props.getProperty("GPBC_ENVIRONMENT") || "",
+    productionWritesEnabled: props.getProperty("GPBC_PRODUCTION_WRITES_ENABLED") || ""
   };
 }
 
@@ -178,7 +179,9 @@ function getConfig() {
  * Throws an exception if:
  * 1. GPBC_SHEET_ID is missing
  * 2. GPBC_ENVIRONMENT is missing on write
- * 3. Any development/sandbox/schema/test operation attempts to target PRODUCTION_SPREADSHEET_ID
+ * 3. Any development/sandbox/schema/test operation attempts to target PRODUCTION_SPREADSHEET_ID (Permanently Blocked)
+ * 4. Environment is sandbox/dev but sheetId points to PRODUCTION_SPREADSHEET_ID
+ * 5. Environment is production, sheetId is production, but GPBC_PRODUCTION_WRITES_ENABLED !== 'true' (Disarmed)
  */
 function assertSandboxSheet(operationName) {
   const config = getConfig();
@@ -203,7 +206,7 @@ function assertSandboxSheet(operationName) {
   if (DEV_ONLY_OPERATIONS.indexOf(op) !== -1 && config.sheetId === PRODUCTION_SPREADSHEET_ID) {
     throw new Error(
       "FAIL-CLOSED SAFETY GUARD: Development operation '" + op + "' is STRICTLY FORBIDDEN against the production spreadsheet (" +
-      PRODUCTION_SPREADSHEET_ID + ") regardless of environment setting. Configure a sandbox spreadsheet ID."
+      PRODUCTION_SPREADSHEET_ID + ") regardless of environment setting or arming flags. Configure a sandbox spreadsheet ID."
     );
   }
 
@@ -213,6 +216,16 @@ function assertSandboxSheet(operationName) {
       "FAIL-CLOSED SAFETY GUARD: Environment is set to '" + config.environment + "' but GPBC_SHEET_ID points to the production spreadsheet (" +
       PRODUCTION_SPREADSHEET_ID + "). Operation '" + op + "' blocked."
     );
+  }
+
+  // Production Write Arming Control: Production writes are blocked unless explicitly armed
+  if (config.environment === "production" && config.sheetId === PRODUCTION_SPREADSHEET_ID) {
+    const isArmed = (config.productionWritesEnabled === "true" || config.productionWritesEnabled === true);
+    if (!isArmed) {
+      throw new Error(
+        "FAIL-CLOSED SAFETY GUARD: Production writes are DISARMED. Set Script Property GPBC_PRODUCTION_WRITES_ENABLED='true' to authorize production write operations."
+      );
+    }
   }
 }
 

@@ -15,10 +15,9 @@ const {
   validateGoogleIdentity
 } = require('../Auth.gs');
 
-/**
- * Apps Script Phase 2 Hardened Logic Tests
- * Directly tests the ACTUAL runtime functions from Apps Script modules.
- */
+const {
+  validateAndPrepareAllocation
+} = require('../Reimbursements.gs');
 
 describe('1. Fail-Closed Production Sheet Safety Guard (Config.gs)', () => {
   beforeEach(() => {
@@ -55,12 +54,13 @@ describe('1. Fail-Closed Production Sheet Safety Guard (Config.gs)', () => {
     }).toThrow(/FAIL-CLOSED SAFETY GUARD: GPBC_ENVIRONMENT is not configured/);
   });
 
-  it('strictly blocks dev schema initialization against production spreadsheet ID', () => {
+  it('strictly blocks dev schema initialization against production spreadsheet ID even if production writes armed', () => {
     global.PropertiesService = {
       getScriptProperties: () => ({
         getProperty: (key) => {
           if (key === 'GPBC_SHEET_ID') return PRODUCTION_SPREADSHEET_ID;
           if (key === 'GPBC_ENVIRONMENT') return 'production';
+          if (key === 'GPBC_PRODUCTION_WRITES_ENABLED') return 'true';
           return null;
         }
       })
@@ -87,6 +87,23 @@ describe('1. Fail-Closed Production Sheet Safety Guard (Config.gs)', () => {
     }).toThrow(/Environment is set to 'sandbox' but GPBC_SHEET_ID points to the production spreadsheet/);
   });
 
+  it('fails closed when production writes are disarmed (GPBC_PRODUCTION_WRITES_ENABLED is missing or false)', () => {
+    global.PropertiesService = {
+      getScriptProperties: () => ({
+        getProperty: (key) => {
+          if (key === 'GPBC_SHEET_ID') return PRODUCTION_SPREADSHEET_ID;
+          if (key === 'GPBC_ENVIRONMENT') return 'production';
+          if (key === 'GPBC_PRODUCTION_WRITES_ENABLED') return 'false';
+          return null;
+        }
+      })
+    };
+
+    expect(() => {
+      assertSandboxSheet('addTransaction');
+    }).toThrow(/Production writes are DISARMED/);
+  });
+
   it('allows write operations when both GPBC_SHEET_ID (non-prod) and GPBC_ENVIRONMENT (sandbox) are properly configured', () => {
     global.PropertiesService = {
       getScriptProperties: () => ({
@@ -109,7 +126,10 @@ describe('2. Deny-By-Default Approved User Resolution (Auth.gs)', () => {
     { email: 'pastor@gracepraise.church', name: 'Pastor Gilbert', role: 'Primary Admin' },
     { email: 'finance@gracepraise.church', name: 'Finance Lead', role: 'Finance Editor' },
     { email: 'presbyter@socalnetwork.org', name: 'Presbyter Observer', role: 'Presbyter Read-Only' },
-    { email: 'auditor@gracepraise.church', name: 'Church Auditor', role: 'Viewer' }
+    { email: 'auditor@gracepraise.church', name: 'Church Auditor', role: 'Viewer' },
+    { email: 'badrole1@gracepraise.church', name: 'Bad Role 1', role: 'admin' }, // lowercase
+    { email: 'badrole2@gracepraise.church', name: 'Bad Role 2', role: 'SuperUser' },
+    { email: 'norole@gracepraise.church', name: 'No Role' } // missing role
   ]);
 
   beforeEach(() => {
@@ -135,6 +155,24 @@ describe('2. Deny-By-Default Approved User Resolution (Auth.gs)', () => {
       name: 'Finance Lead',
       role: 'Finance Editor'
     });
+
+    expect(getApprovedUser('presbyter@socalnetwork.org')).toEqual({
+      email: 'presbyter@socalnetwork.org',
+      name: 'Presbyter Observer',
+      role: 'Presbyter Read-Only'
+    });
+
+    expect(getApprovedUser('auditor@gracepraise.church')).toEqual({
+      email: 'auditor@gracepraise.church',
+      name: 'Church Auditor',
+      role: 'Viewer'
+    });
+  });
+
+  it('denies allowlisted users with missing, misspelled, or unsupported roles (fails closed)', () => {
+    expect(getApprovedUser('badrole1@gracepraise.church')).toBeNull();
+    expect(getApprovedUser('badrole2@gracepraise.church')).toBeNull();
+    expect(getApprovedUser('norole@gracepraise.church')).toBeNull();
   });
 
   it('denies unknown external gmail accounts (returns null)', () => {
@@ -266,7 +304,110 @@ describe('4. Token Security & Client ID Requirement (Auth.gs)', () => {
   });
 });
 
-describe('5. Accounting Correctness: Reimbursement Double-Counting Fix', () => {
+describe('5. Unified Reimbursement Allocation Validation (Reimbursements.gs)', () => {
+  const createMockDb = (transactions, allocations = []) => {
+    return {
+      getSheetByName: (name) => {
+        if (name === 'Transactions') {
+          return {
+            getLastRow: () => transactions.length + 1,
+            getDataRange: () => ({
+              getValues: () => [
+                ['transactionId', 'transactionDate', 'transactionType', 'direction', 'amount', 'personalPurchase'],
+                ...transactions.map(t => [t.transactionId, t.date || '2026-02-01', t.type || 'Expense', t.direction, t.amount, t.personalPurchase])
+              ]
+            })
+          };
+        }
+        if (name === 'Reimbursement_Allocations') {
+          return {
+            getLastRow: () => allocations.length + 1,
+            getDataRange: () => ({
+              getValues: () => [
+                ['allocationId', 'reimbursementId', 'purchaseTransactionId', 'allocatedAmount', 'personallyAbsorbedAmount', 'refundCreditAdjustment'],
+                ...allocations.map(a => [a.allocationId, a.reimbursementId, a.purchaseTransactionId, a.allocatedAmount, a.personallyAbsorbedAmount, a.refundCreditAdjustment || 0])
+              ]
+            })
+          };
+        }
+        return null;
+      }
+    };
+  };
+
+  it('validates a valid allocation against an existing personal-card purchase', () => {
+    const mockDb = createMockDb([
+      { transactionId: 'TXN-P1', direction: 'EXPENSE', amount: 100.00, personalPurchase: true }
+    ]);
+
+    const res = validateAndPrepareAllocation({
+      purchaseTransactionId: 'TXN-P1',
+      allocatedAmount: 60.00,
+      personallyAbsorbedAmount: 20.00
+    }, mockDb, null);
+
+    expect(res.purchaseTransactionId).toBe('TXN-P1');
+    expect(res.allocatedAmount).toBe(60.00);
+    expect(res.personallyAbsorbedAmount).toBe(20.00);
+    expect(res.purchaseAmount).toBe(100.00);
+  });
+
+  it('rejects allocation if purchase transaction does not exist', () => {
+    const mockDb = createMockDb([
+      { transactionId: 'TXN-OTHER', direction: 'EXPENSE', amount: 50.00, personalPurchase: true }
+    ]);
+    expect(() => {
+      validateAndPrepareAllocation({ purchaseTransactionId: 'TXN-NONEXISTENT', allocatedAmount: 50.00 }, mockDb, null);
+    }).toThrow(/Purchase transaction not found/);
+  });
+
+  it('rejects allocation if transaction is not an eligible expense (e.g. INCOME offering)', () => {
+    const mockDb = createMockDb([
+      { transactionId: 'TXN-INC-1', direction: 'INCOME', amount: 500.00, personalPurchase: false }
+    ]);
+
+    expect(() => {
+      validateAndPrepareAllocation({ purchaseTransactionId: 'TXN-INC-1', allocatedAmount: 50.00 }, mockDb, null);
+    }).toThrow(/not an eligible expense/);
+  });
+
+  it('enforces multi-reimbursement allocation caps: rejects allocation that exceeds remaining balance', () => {
+    // Purchase was $100. Prior Reimbursement A allocated $40, absorbed $0.
+    // Prior Reimbursement B allocated $35, absorbed $0.
+    // Remaining eligible is $25.
+    const mockDb = createMockDb(
+      [{ transactionId: 'TXN-P100', direction: 'EXPENSE', amount: 100.00, personalPurchase: true }],
+      [
+        { allocationId: 'ALC-1', reimbursementId: 'RMB-A', purchaseTransactionId: 'TXN-P100', allocatedAmount: 40.00, personallyAbsorbedAmount: 0 },
+        { allocationId: 'ALC-2', reimbursementId: 'RMB-B', purchaseTransactionId: 'TXN-P100', allocatedAmount: 35.00, personallyAbsorbedAmount: 0 }
+      ]
+    );
+
+    // Third allocation of $20 should succeed (40 + 35 + 20 = 95 <= 100)
+    expect(() => {
+      validateAndPrepareAllocation({ purchaseTransactionId: 'TXN-P100', allocatedAmount: 20.00 }, mockDb, null);
+    }).not.toThrow();
+
+    // Third allocation of $30 should FAIL (40 + 35 + 30 = 105 > 100)
+    expect(() => {
+      validateAndPrepareAllocation({ purchaseTransactionId: 'TXN-P100', allocatedAmount: 30.00 }, mockDb, null);
+    }).toThrow(/Allocation overage for purchase TXN-P100: Total allocated \(\$105.00\) exceeds purchase cost \(\$100.00\)/);
+  });
+
+  it('supports grouped reimbursement across multiple distinct purchases', () => {
+    const mockDb = createMockDb([
+      { transactionId: 'TXN-PA', direction: 'EXPENSE', amount: 40.00, personalPurchase: true },
+      { transactionId: 'TXN-PB', direction: 'EXPENSE', amount: 60.00, personalPurchase: true }
+    ]);
+
+    const resA = validateAndPrepareAllocation({ purchaseTransactionId: 'TXN-PA', allocatedAmount: 40.00 }, mockDb, null);
+    const resB = validateAndPrepareAllocation({ purchaseTransactionId: 'TXN-PB', allocatedAmount: 60.00 }, mockDb, null);
+
+    expect(resA.allocatedAmount + resB.allocatedAmount).toBe(100.00);
+  });
+});
+
+describe('6. Accounting Correctness: Reimbursement Double-Counting Fix', () => {
   it('correctly classifies personal church purchase as EXPENSE and reimbursement payout as SETTLEMENT ($100 + $100 = $100 expense)', () => {
     const transactions = [
       {
@@ -337,7 +478,7 @@ describe('5. Accounting Correctness: Reimbursement Double-Counting Fix', () => {
   });
 });
 
-describe('6. Canonical Capital Projects Financial Derivation', () => {
+describe('7. Canonical Capital Projects Financial Derivation', () => {
   it('correctly derives donations received, expenses paid, and remaining balance from canonical transactions', () => {
     const project = {
       projectId: 'PRJ-101',

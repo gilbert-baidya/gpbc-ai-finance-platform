@@ -105,14 +105,28 @@ function getApprovedUser(email) {
     approvedList = [];
   }
 
+  const CANONICAL_ROLES = [
+    "Primary Admin",
+    "Backup Admin",
+    "Finance Editor",
+    "Viewer",
+    "Presbyter Read-Only"
+  ];
+
   // Exact lookup in approved user list
   for (let i = 0; i < approvedList.length; i++) {
     const item = approvedList[i];
     if (item && item.email && String(item.email).toLowerCase().trim() === normalizedEmail) {
+      const role = String(item.role || "").trim();
+      // Fail closed: Invalid, missing, or misspelled roles are NOT converted to Viewer
+      if (CANONICAL_ROLES.indexOf(role) === -1) {
+        return null;
+      }
+
       return {
         email: normalizedEmail,
         name: item.name || normalizedEmail,
-        role: item.role || "Viewer"
+        role: role
       };
     }
   }

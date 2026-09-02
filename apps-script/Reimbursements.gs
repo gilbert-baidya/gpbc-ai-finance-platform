@@ -1,6 +1,6 @@
 /*************************************************
  * GPBC Finance Desk — Reimbursements.gs
- * Authoritative Many-to-Many Reimbursements & Allocation Engine
+ * Authoritative Many-to-Many Reimbursements & Unified Allocation Engine
  *************************************************/
 
 /**
@@ -50,6 +50,99 @@ function getReimbursements() {
 }
 
 /**
+ * Authoritative Unified Allocation Validator
+ * Used by both addReimbursement() and addReimbursementAllocation()
+ * 
+ * Enforces:
+ * 1. Purchase transaction exists in Transactions tab
+ * 2. Purchase is eligible for reimbursement (direction: EXPENSE or personalPurchase: true)
+ * 3. Allocated & absorbed amounts are non-negative numbers
+ * 4. Sum of (priorAllocated + pendingAllocated + currentAllocated + currentAbsorbed - adjustments) <= originalPurchaseAmount
+ */
+function validateAndPrepareAllocation(alc, db, inFlightAllocationsMap) {
+  alc = alc || {};
+  if (!alc.purchaseTransactionId) {
+    throw new Error("purchaseTransactionId is required for allocation");
+  }
+
+  const txSheet = db.getSheetByName("Transactions");
+  if (!txSheet || txSheet.getLastRow() <= 1) {
+    throw new Error("Transactions tab missing or empty. Cannot link allocation to non-existent purchase.");
+  }
+
+  const txData = txSheet.getDataRange().getValues();
+  const txHeaders = txData.shift();
+  const pIdx = txHeaders.indexOf("transactionId");
+  const aIdx = txHeaders.indexOf("amount");
+  const dIdx = txHeaders.indexOf("direction");
+  const ppIdx = txHeaders.indexOf("personalPurchase");
+  const matchedTx = txData.find(function(r) { return r[pIdx] === alc.purchaseTransactionId; });
+
+  if (!matchedTx) {
+    throw new Error("Purchase transaction not found: " + alc.purchaseTransactionId);
+  }
+
+  const isExpense = (matchedTx[dIdx] === "EXPENSE");
+  const isPersonal = (matchedTx[ppIdx] === true || matchedTx[ppIdx] === "TRUE" || matchedTx[ppIdx] === "true");
+  if (!isExpense && !isPersonal) {
+    throw new Error("Transaction " + alc.purchaseTransactionId + " is not an eligible expense/purchase for reimbursement");
+  }
+
+  const purchaseAmount = Number(matchedTx[aIdx] || 0);
+  const allocAmt = Number(alc.allocatedAmount !== undefined && alc.allocatedAmount !== "" ? alc.allocatedAmount : 0);
+  const absorbAmt = Number(alc.personallyAbsorbedAmount !== undefined && alc.personallyAbsorbedAmount !== "" ? alc.personallyAbsorbedAmount : 0);
+  const refundAdj = Number(alc.refundCreditAdjustment || 0);
+
+  if (isNaN(allocAmt) || allocAmt < 0) {
+    throw new Error("Allocated amount must be a non-negative number for purchase " + alc.purchaseTransactionId);
+  }
+  if (isNaN(absorbAmt) || absorbAmt < 0) {
+    throw new Error("Personally absorbed amount must be a non-negative number for purchase " + alc.purchaseTransactionId);
+  }
+
+  // Calculate prior historical allocations from Reimbursement_Allocations tab
+  let priorAllocated = 0;
+  const alcSheet = db.getSheetByName("Reimbursement_Allocations");
+  if (alcSheet && alcSheet.getLastRow() > 1) {
+    const aData = alcSheet.getDataRange().getValues();
+    const aHeaders = aData.shift();
+    const pTxIdx = aHeaders.indexOf("purchaseTransactionId");
+    const amtIdx = aHeaders.indexOf("allocatedAmount");
+    const absIdx = aHeaders.indexOf("personallyAbsorbedAmount");
+    const refIdx = aHeaders.indexOf("refundCreditAdjustment");
+
+    aData.forEach(function(r) {
+      if (r[pTxIdx] === alc.purchaseTransactionId) {
+        const priorAmt = Number(r[amtIdx] || 0);
+        const priorAbs = Number(r[absIdx] || 0);
+        const priorRef = Number(r[refIdx] || 0);
+        priorAllocated += (priorAmt + priorAbs - priorRef);
+      }
+    });
+  }
+
+  // In-flight allocations within same request batch
+  const inFlightPrior = (inFlightAllocationsMap && inFlightAllocationsMap[alc.purchaseTransactionId]) || 0;
+  const totalAllocatedForPurchase = priorAllocated + inFlightPrior + allocAmt + absorbAmt - refundAdj;
+
+  if (totalAllocatedForPurchase > purchaseAmount + 0.01) {
+    throw new Error(
+      "Allocation overage for purchase " + alc.purchaseTransactionId + ": Total allocated ($" +
+      totalAllocatedForPurchase.toFixed(2) + ") exceeds purchase cost ($" + purchaseAmount.toFixed(2) + ")"
+    );
+  }
+
+  return {
+    purchaseTransactionId: alc.purchaseTransactionId,
+    purchaseAmount: purchaseAmount,
+    allocatedAmount: allocAmt,
+    personallyAbsorbedAmount: absorbAmt,
+    refundCreditAdjustment: refundAdj,
+    notes: alc.notes || ""
+  };
+}
+
+/**
  * Validates and records a reimbursement payout with verified many-to-many allocations.
  * Invariant: Reimbursed payout is recorded as a liability SETTLEMENT, preventing double-counting.
  */
@@ -58,15 +151,68 @@ function addReimbursement(p, userEmail) {
   if (!p.claimantName) throw new Error("Claimant name is required");
   
   const reimbursedAmt = Number(p.totalReimbursedAmount || 0);
-  const purchaseAmt = Number(p.totalPurchaseAmount || reimbursedAmt);
-  const absorbedAmt = Number(p.totalPersonallyAbsorbed || 0);
-  const remainingAmt = Number(Math.max(0, purchaseAmt - reimbursedAmt - absorbedAmt).toFixed(2));
+  const suppliedPurchaseAmt = Number(p.totalPurchaseAmount || reimbursedAmt);
+  const suppliedAbsorbedAmt = Number(p.totalPersonallyAbsorbed || 0);
 
-  if (reimbursedAmt < 0 || purchaseAmt <= 0) {
+  if (reimbursedAmt < 0 || suppliedPurchaseAmt <= 0) {
     throw new Error("Invalid reimbursement or purchase amount");
   }
 
-  // Prevent allocation overage: Reimbursed + Absorbed cannot exceed original purchase
+  const rawAllocations = Array.isArray(p.allocations) ? p.allocations : [];
+  const db = getDB(true, "addReimbursement");
+
+  // Validate allocations using the authoritative unified validator
+  const validatedAllocations = [];
+  const inFlightMap = {};
+
+  if (rawAllocations.length > 0) {
+    let sumAllocated = 0;
+    let sumAbsorbed = 0;
+    let sumPurchases = 0;
+
+    rawAllocations.forEach(function(rawAlc, idx) {
+      // For a single allocation row where amounts were omitted, default to the reimbursement total
+      if (rawAllocations.length === 1) {
+        if (rawAlc.allocatedAmount === undefined || rawAlc.allocatedAmount === "") {
+          rawAlc.allocatedAmount = reimbursedAmt;
+        }
+        if (rawAlc.personallyAbsorbedAmount === undefined || rawAlc.personallyAbsorbedAmount === "") {
+          rawAlc.personallyAbsorbedAmount = suppliedAbsorbedAmt;
+        }
+      }
+
+      const validated = validateAndPrepareAllocation(rawAlc, db, inFlightMap);
+      validatedAllocations.push(validated);
+
+      // Accumulate in-flight allocations for multi-row requests against same purchase
+      inFlightMap[validated.purchaseTransactionId] = (inFlightMap[validated.purchaseTransactionId] || 0) +
+        (validated.allocatedAmount + validated.personallyAbsorbedAmount - validated.refundCreditAdjustment);
+
+      sumAllocated += validated.allocatedAmount;
+      sumAbsorbed += validated.personallyAbsorbedAmount;
+      sumPurchases += validated.purchaseAmount;
+    });
+
+    // Reconcile top-level totalReimbursedAmount against allocation sum
+    if (Math.abs(sumAllocated - reimbursedAmt) > 0.01) {
+      throw new Error(
+        "Allocation mismatch: Sum of allocations ($" + sumAllocated.toFixed(2) +
+        ") does not match reimbursement total ($" + reimbursedAmt.toFixed(2) + ")"
+      );
+    }
+  }
+
+  const purchaseAmt = validatedAllocations.length > 0
+    ? validatedAllocations.reduce(function(sum, a) { return sum + a.purchaseAmount; }, 0)
+    : suppliedPurchaseAmt;
+
+  const absorbedAmt = validatedAllocations.length > 0
+    ? validatedAllocations.reduce(function(sum, a) { return sum + a.personallyAbsorbedAmount; }, 0)
+    : suppliedAbsorbedAmt;
+
+  const remainingAmt = Number(Math.max(0, purchaseAmt - reimbursedAmt - absorbedAmt).toFixed(2));
+
+  // Invariant: Reimbursed + Absorbed cannot exceed purchase
   if (reimbursedAmt + absorbedAmt > purchaseAmt + 0.01) {
     throw new Error(
       "Reimbursement invariant violation: Total reimbursed ($" + reimbursedAmt + 
@@ -74,28 +220,6 @@ function addReimbursement(p, userEmail) {
     );
   }
 
-  const rawAllocations = Array.isArray(p.allocations) ? p.allocations : [];
-
-  // Multi-Allocation Defaulting Fix: If multiple allocations provided, explicit amounts are required
-  if (rawAllocations.length > 1) {
-    let sumAllocated = 0;
-    rawAllocations.forEach(function(alc, idx) {
-      const amt = Number(alc.allocatedAmount);
-      if (isNaN(amt) || amt < 0) {
-        throw new Error("Allocation row #" + (idx + 1) + " requires an explicit non-negative allocated amount");
-      }
-      sumAllocated += amt;
-    });
-
-    if (Math.abs(sumAllocated - reimbursedAmt) > 0.01) {
-      throw new Error(
-        "Allocation mismatch: Sum of multi-purchase allocations ($" + sumAllocated.toFixed(2) +
-        ") does not match reimbursement total ($" + reimbursedAmt.toFixed(2) + ")"
-      );
-    }
-  }
-
-  const db = getDB(true, "addReimbursement");
   let rmbSheet = db.getSheetByName("Reimbursements");
   let alcSheet = db.getSheetByName("Reimbursement_Allocations");
 
@@ -135,25 +259,17 @@ function addReimbursement(p, userEmail) {
     nowIso
   ]);
 
-  // Process Allocations
-  rawAllocations.forEach(function(alc) {
-    const singleAllocAmt = rawAllocations.length === 1 && (alc.allocatedAmount === undefined || alc.allocatedAmount === "")
-      ? reimbursedAmt
-      : Number(alc.allocatedAmount || 0);
-
-    const singleAbsorbAmt = rawAllocations.length === 1 && (alc.personallyAbsorbedAmount === undefined || alc.personallyAbsorbedAmount === "")
-      ? absorbedAmt
-      : Number(alc.personallyAbsorbedAmount || 0);
-
+  // Process Validated Allocations
+  validatedAllocations.forEach(function(alc) {
     const alcId = "ALC-" + Date.now() + "-" + Math.floor(100 + Math.random() * 900);
     alcSheet.appendRow([
       alcId,
       rmbId,
-      alc.purchaseTransactionId || "",
-      singleAllocAmt,
-      singleAbsorbAmt,
-      Number(alc.refundCreditAdjustment || 0),
-      alc.notes || "",
+      alc.purchaseTransactionId,
+      alc.allocatedAmount,
+      alc.personallyAbsorbedAmount,
+      alc.refundCreditAdjustment,
+      alc.notes,
       actor,
       nowIso
     ]);
@@ -194,14 +310,11 @@ function addReimbursement(p, userEmail) {
 
 /**
  * Adds an individual reimbursement allocation linking a reimbursement to a purchase
- * Validates purchase existence and prevents allocation overage
+ * Uses the authoritative validateAndPrepareAllocation validator
  */
 function addReimbursementAllocation(p, userEmail) {
   p = p || {};
   if (!p.reimbursementId) throw new Error("reimbursementId is required");
-  if (!p.purchaseTransactionId) throw new Error("purchaseTransactionId is required");
-  const allocAmt = Number(p.allocatedAmount || 0);
-  if (allocAmt < 0) throw new Error("Allocated amount cannot be negative");
 
   const db = getDB(true, "addReimbursementAllocation");
   let alcSheet = db.getSheetByName("Reimbursement_Allocations");
@@ -210,45 +323,8 @@ function addReimbursementAllocation(p, userEmail) {
     alcSheet = db.getSheetByName("Reimbursement_Allocations");
   }
 
-  // Verify purchase transaction exists and check prior allocations
-  const txSheet = db.getSheetByName("Transactions");
-  if (txSheet && txSheet.getLastRow() > 1) {
-    const txData = txSheet.getDataRange().getValues();
-    const txHeaders = txData.shift();
-    const pIdx = txHeaders.indexOf("transactionId");
-    const aIdx = txHeaders.indexOf("amount");
-    const matchedTx = txData.find(function(r) { return r[pIdx] === p.purchaseTransactionId; });
-
-    if (!matchedTx) {
-      throw new Error("Purchase transaction not found: " + p.purchaseTransactionId);
-    }
-
-    const purchaseAmount = Number(matchedTx[aIdx] || 0);
-
-    // Sum existing allocations for this purchase
-    let priorAllocated = 0;
-    if (alcSheet.getLastRow() > 1) {
-      const aData = alcSheet.getDataRange().getValues();
-      const aHeaders = aData.shift();
-      const pTxIdx = aHeaders.indexOf("purchaseTransactionId");
-      const amtIdx = aHeaders.indexOf("allocatedAmount");
-      const absIdx = aHeaders.indexOf("personallyAbsorbedAmount");
-
-      aData.forEach(function(r) {
-        if (r[pTxIdx] === p.purchaseTransactionId) {
-          priorAllocated += Number(r[amtIdx] || 0) + Number(r[absIdx] || 0);
-        }
-      });
-    }
-
-    const newAbsorbed = Number(p.personallyAbsorbedAmount || 0);
-    if (priorAllocated + allocAmt + newAbsorbed > purchaseAmount + 0.01) {
-      throw new Error(
-        "Allocation overage: Total allocated ($" + (priorAllocated + allocAmt + newAbsorbed).toFixed(2) +
-        ") exceeds purchase amount ($" + purchaseAmount.toFixed(2) + ")"
-      );
-    }
-  }
+  // Authoritative validation
+  const validated = validateAndPrepareAllocation(p, db, null);
 
   const alcId = "ALC-" + Date.now();
   const nowIso = new Date().toISOString();
@@ -256,11 +332,11 @@ function addReimbursementAllocation(p, userEmail) {
   alcSheet.appendRow([
     alcId,
     p.reimbursementId,
-    p.purchaseTransactionId,
-    allocAmt,
-    Number(p.personallyAbsorbedAmount || 0),
-    Number(p.refundCreditAdjustment || 0),
-    p.notes || "",
+    validated.purchaseTransactionId,
+    validated.allocatedAmount,
+    validated.personallyAbsorbedAmount,
+    validated.refundCreditAdjustment,
+    validated.notes,
     userEmail || "System",
     nowIso
   ]);
@@ -272,6 +348,7 @@ if (typeof module !== "undefined" && module.exports) {
   module.exports = {
     getReimbursements,
     addReimbursement,
-    addReimbursementAllocation
+    addReimbursementAllocation,
+    validateAndPrepareAllocation
   };
 }
