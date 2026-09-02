@@ -201,6 +201,17 @@ function authorizeAction(action, role) {
     "generateBatchIRS": FINANCE_WRITERS,
     "generateSocalMonthlyReport": PRESBYTER_SET.concat(["Finance Editor"]),
 
+    // Phase 3 Audit & Reconciliation Center
+    "runAudit": FINANCE_WRITERS,
+    "getAuditIssues": ALL_READERS,
+    "getAuditSummary": ALL_READERS,
+    "resolveAuditIssue": FINANCE_WRITERS,
+    "reopenAuditIssue": FINANCE_WRITERS,
+    "assignAuditIssue": FINANCE_WRITERS,
+    "stageBankStatementLines": FINANCE_WRITERS,
+    "getReconciliationCandidates": ALL_READERS,
+    "matchReconciliationLine": FINANCE_WRITERS,
+
     // Intelligence & Automation
     "detectDonorRisk": FINANCE_WRITERS,
     "forecastGivingML": FINANCE_WRITERS,

@@ -55,9 +55,11 @@ function getReimbursements() {
  * 
  * Enforces:
  * 1. Purchase transaction exists in Transactions tab
- * 2. Purchase is eligible for reimbursement (direction: EXPENSE or personalPurchase: true)
- * 3. Allocated & absorbed amounts are non-negative numbers
- * 4. Sum of (priorAllocated + pendingAllocated + currentAllocated + currentAbsorbed - adjustments) <= originalPurchaseAmount
+ * 2. Purchase is strictly eligible for reimbursement (personalPurchase: true, or recognized personal payment method)
+ * 3. Ordinary church-card, church-check, or income disbursements cannot be reimbursed
+ * 4. Allocated & absorbed amounts are finite non-negative numbers
+ * 5. Refund adjustments are finite non-negative numbers
+ * 6. Sum of (priorAllocated + pendingAllocated + currentAllocated + currentAbsorbed - adjustments) <= originalPurchaseAmount
  */
 function validateAndPrepareAllocation(alc, db, inFlightAllocationsMap) {
   alc = alc || {};
@@ -75,29 +77,58 @@ function validateAndPrepareAllocation(alc, db, inFlightAllocationsMap) {
   const pIdx = txHeaders.indexOf("transactionId");
   const aIdx = txHeaders.indexOf("amount");
   const dIdx = txHeaders.indexOf("direction");
+  const tTypeIdx = txHeaders.indexOf("transactionType");
+  const payMethodIdx = txHeaders.indexOf("paymentMethod");
   const ppIdx = txHeaders.indexOf("personalPurchase");
+  const impactIdx = txHeaders.indexOf("accountingImpact");
+
   const matchedTx = txData.find(function(r) { return r[pIdx] === alc.purchaseTransactionId; });
 
   if (!matchedTx) {
     throw new Error("Purchase transaction not found: " + alc.purchaseTransactionId);
   }
 
-  const isExpense = (matchedTx[dIdx] === "EXPENSE");
-  const isPersonal = (matchedTx[ppIdx] === true || matchedTx[ppIdx] === "TRUE" || matchedTx[ppIdx] === "true");
-  if (!isExpense && !isPersonal) {
-    throw new Error("Transaction " + alc.purchaseTransactionId + " is not an eligible expense/purchase for reimbursement");
+  // Check Non-Reimbursable Types (Income, Settlement, Transfer)
+  const direction = String(matchedTx[dIdx] || "");
+  const txnType = String(matchedTx[tTypeIdx] || "");
+  const impact = String(matchedTx[impactIdx] || "");
+
+  if (direction === "INCOME" || impact === "INCOME") {
+    throw new Error("Transaction " + alc.purchaseTransactionId + " is an income donation, not an eligible expense/purchase for reimbursement");
+  }
+
+  if (txnType === "Reimbursement" || impact === "SETTLEMENT") {
+    throw new Error("Transaction " + alc.purchaseTransactionId + " is a reimbursement settlement payout, not an original purchase");
+  }
+
+  // Tighten Eligibility: Must be an explicit personal-card / personal purchase
+  const isPersonalFlag = (matchedTx[ppIdx] === true || matchedTx[ppIdx] === "TRUE" || matchedTx[ppIdx] === "true");
+  const paymentMethod = String(matchedTx[payMethodIdx] || "").toLowerCase();
+  const isPersonalPayment = (paymentMethod.includes("personal") || paymentMethod === "personal card" || paymentMethod === "personal cash");
+  const isPersonalType = (txnType.toLowerCase().includes("personal"));
+
+  const isEligible = isPersonalFlag || isPersonalPayment || isPersonalType;
+
+  if (!isEligible) {
+    throw new Error(
+      "Transaction " + alc.purchaseTransactionId + " is a church-paid disbursement (" + 
+      (matchedTx[payMethodIdx] || "Church Direct") + "), not an eligible personal purchase for reimbursement"
+    );
   }
 
   const purchaseAmount = Number(matchedTx[aIdx] || 0);
   const allocAmt = Number(alc.allocatedAmount !== undefined && alc.allocatedAmount !== "" ? alc.allocatedAmount : 0);
   const absorbAmt = Number(alc.personallyAbsorbedAmount !== undefined && alc.personallyAbsorbedAmount !== "" ? alc.personallyAbsorbedAmount : 0);
-  const refundAdj = Number(alc.refundCreditAdjustment || 0);
+  const refundAdj = Number(alc.refundCreditAdjustment !== undefined && alc.refundCreditAdjustment !== "" ? alc.refundCreditAdjustment : 0);
 
-  if (isNaN(allocAmt) || allocAmt < 0) {
-    throw new Error("Allocated amount must be a non-negative number for purchase " + alc.purchaseTransactionId);
+  if (isNaN(allocAmt) || !isFinite(allocAmt) || allocAmt < 0) {
+    throw new Error("Allocated amount must be a finite non-negative number for purchase " + alc.purchaseTransactionId);
   }
-  if (isNaN(absorbAmt) || absorbAmt < 0) {
-    throw new Error("Personally absorbed amount must be a non-negative number for purchase " + alc.purchaseTransactionId);
+  if (isNaN(absorbAmt) || !isFinite(absorbAmt) || absorbAmt < 0) {
+    throw new Error("Personally absorbed amount must be a finite non-negative number for purchase " + alc.purchaseTransactionId);
+  }
+  if (isNaN(refundAdj) || !isFinite(refundAdj) || refundAdj < 0) {
+    throw new Error("refundCreditAdjustment must be a finite non-negative number for purchase " + alc.purchaseTransactionId);
   }
 
   // Calculate prior historical allocations from Reimbursement_Allocations tab
@@ -164,6 +195,7 @@ function addReimbursement(p, userEmail) {
   // Validate allocations using the authoritative unified validator
   const validatedAllocations = [];
   const inFlightMap = {};
+  const seenPurchaseIds = {};
 
   if (rawAllocations.length > 0) {
     let sumAllocated = 0;
@@ -171,6 +203,19 @@ function addReimbursement(p, userEmail) {
     let sumPurchases = 0;
 
     rawAllocations.forEach(function(rawAlc, idx) {
+      if (!rawAlc.purchaseTransactionId) {
+        throw new Error("Allocation row #" + (idx + 1) + " requires purchaseTransactionId");
+      }
+
+      // Prevent duplicate purchase IDs within the same reimbursement batch
+      if (seenPurchaseIds[rawAlc.purchaseTransactionId]) {
+        throw new Error(
+          "Duplicate purchase transaction ID in reimbursement request: " + rawAlc.purchaseTransactionId +
+          ". Combine multiple allocations for the same purchase into a single row."
+        );
+      }
+      seenPurchaseIds[rawAlc.purchaseTransactionId] = true;
+
       // For a single allocation row where amounts were omitted, default to the reimbursement total
       if (rawAllocations.length === 1) {
         if (rawAlc.allocatedAmount === undefined || rawAlc.allocatedAmount === "") {
@@ -184,7 +229,6 @@ function addReimbursement(p, userEmail) {
       const validated = validateAndPrepareAllocation(rawAlc, db, inFlightMap);
       validatedAllocations.push(validated);
 
-      // Accumulate in-flight allocations for multi-row requests against same purchase
       inFlightMap[validated.purchaseTransactionId] = (inFlightMap[validated.purchaseTransactionId] || 0) +
         (validated.allocatedAmount + validated.personallyAbsorbedAmount - validated.refundCreditAdjustment);
 
@@ -310,20 +354,37 @@ function addReimbursement(p, userEmail) {
 
 /**
  * Adds an individual reimbursement allocation linking a reimbursement to a purchase
- * Uses the authoritative validateAndPrepareAllocation validator
+ * Enforces: Reimbursement MUST exist in Reimbursements tab (No Orphan Allocations)
  */
 function addReimbursementAllocation(p, userEmail) {
   p = p || {};
   if (!p.reimbursementId) throw new Error("reimbursementId is required");
 
   const db = getDB(true, "addReimbursementAllocation");
+  let rmbSheet = db.getSheetByName("Reimbursements");
   let alcSheet = db.getSheetByName("Reimbursement_Allocations");
-  if (!alcSheet) {
+
+  if (!rmbSheet || !alcSheet) {
     initializeSandboxSchema();
+    rmbSheet = db.getSheetByName("Reimbursements");
     alcSheet = db.getSheetByName("Reimbursement_Allocations");
   }
 
-  // Authoritative validation
+  // A1: Verify Reimbursement exists in Reimbursements tab to prevent orphan allocations
+  if (rmbSheet.getLastRow() <= 1) {
+    throw new Error("Reimbursement not found: " + p.reimbursementId);
+  }
+
+  const rData = rmbSheet.getDataRange().getValues();
+  const rHeaders = rData.shift();
+  const rIdCol = rHeaders.indexOf("reimbursementId");
+  const matchedRmb = rData.find(function(r) { return r[rIdCol] === p.reimbursementId; });
+
+  if (!matchedRmb) {
+    throw new Error("Reimbursement not found: " + p.reimbursementId);
+  }
+
+  // Authoritative validation against purchase transaction
   const validated = validateAndPrepareAllocation(p, db, null);
 
   const alcId = "ALC-" + Date.now();

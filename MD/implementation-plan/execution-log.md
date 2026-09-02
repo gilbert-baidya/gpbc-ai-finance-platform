@@ -125,3 +125,29 @@
   - Production build: Clean Vite build.
   - Sandbox status: `SANDBOX CONFIGURATION PENDING` (awaiting owner Sheet copy).
   - Production data: 100% untouched.
+
+---
+
+## 5. Phase 3 Execution Summary (Audit & Reconciliation Center)
+
+- **Date Completed**: 2026-09-01
+- **Feature Branch**: `feature/gpbc-finance-desk-refactor`
+- **Part A Hardening**:
+  - `apps-script/Reimbursements.gs#addReimbursementAllocation` checks `Reimbursements` tab to prevent orphan allocations.
+  - Strict eligibility: Only personal-card / personal-cash expenses can be reimbursed; church card / check disbursements are strictly rejected.
+  - Duplicate purchase IDs in single reimbursement batch are rejected.
+  - `refundCreditAdjustment` must be a finite non-negative number.
+- **Part B Audit & Reconciliation**:
+  - `apps-script/Audit.gs`: 11 deterministic audit rules evaluated (`RULE-RCP-001` to `RULE-DIS-001`).
+  - Idempotent issue lifecycle using deterministic fingerprints.
+  - Explainable Audit Health Score formula with severity caps.
+  - CSV statement staging and deterministic candidate matching (Exact Match, Possible Match, Discrepancy).
+  - Built `src/pages/AuditCenter.jsx` with health score gauge, issues table, review/resolve modal, and reconciliation tab.
+  - Added typed API layer in `src/api/auditApi.ts` and `src/types/audit.ts`.
+- **Validation**:
+  - Vitest: 60/60 passing tests across 6 test suites.
+  - TypeScript: 0 errors (`tsc --noEmit`).
+  - Build: Vite production build passed cleanly.
+  - Production data: 100% untouched.
+  - Production writes: Disarmed.
+  - Sandbox status: `LIVE SANDBOX INTEGRATION PENDING`.

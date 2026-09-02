@@ -156,6 +156,42 @@ const SCHEMA_DEFINITIONS = {
     "createdBy",
     "createdAt",
     "updatedAt"
+  ],
+  "Audit_Issues": [
+    "auditIssueId",
+    "issueFingerprint",
+    "ruleId",
+    "severity",
+    "status",
+    "entityType",
+    "entityId",
+    "title",
+    "description",
+    "amount",
+    "recommendedAction",
+    "detectedAt",
+    "lastDetectedAt",
+    "detectedBy",
+    "assignedTo",
+    "resolutionNotes",
+    "resolvedBy",
+    "resolvedAt",
+    "evidenceUrl"
+  ],
+  "Reconciliation_Staging": [
+    "statementLineId",
+    "statementDate",
+    "description",
+    "amount",
+    "direction",
+    "statementType",
+    "referenceNumber",
+    "matchStatus",
+    "matchedTransactionId",
+    "differenceAmount",
+    "sourceFileName",
+    "importedAt",
+    "importedBy"
   ]
 };
 

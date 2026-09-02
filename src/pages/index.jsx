@@ -88,19 +88,8 @@ const PhaseCard = ({ icon: IconComponent, title, phase, subtitle, features }) =>
   </div>
 );
 
-export const AuditCenter = () => (
-  <PhaseCard
-    icon={ShieldCheck}
-    title="Audit Center"
-    phase="Phase 3"
-    subtitle="Deterministic rule-based audit engine detecting documentation gaps and reconciliation differences."
-    features={[
-      "Rule-based detection for missing receipts, missing payees, unmatched reimbursements, and duplicates",
-      "Deterministic Audit Health Score with transparent contributor breakdown",
-      "Direct navigation from audit issues to affected transactions and Drive evidence"
-    ]}
-  />
-);
+// Phase 3 Implemented Pages
+export { default as AuditCenter } from './AuditCenter';
 
 export const MonthlyClose = () => (
   <PhaseCard

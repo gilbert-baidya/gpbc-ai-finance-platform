@@ -135,6 +135,26 @@ function doPost(e) {
       case "updateCapitalProject":
         return jsonResponse(updateCapitalProject(p, userEmail));
 
+      // PHASE 3: AUDIT CENTER & RECONCILIATION
+      case "runAudit":
+        return jsonResponse(runAudit(p, userEmail));
+      case "getAuditIssues":
+        return jsonResponse(getAuditIssues(p));
+      case "getAuditSummary":
+        return jsonResponse(getAuditSummary());
+      case "resolveAuditIssue":
+        return jsonResponse(resolveAuditIssue(p, userEmail));
+      case "reopenAuditIssue":
+        return jsonResponse(reopenAuditIssue(p, userEmail));
+      case "assignAuditIssue":
+        return jsonResponse(assignAuditIssue(p, userEmail));
+      case "stageBankStatementLines":
+        return jsonResponse(stageBankStatementLines(p, userEmail));
+      case "getReconciliationCandidates":
+        return jsonResponse(getReconciliationCandidates());
+      case "matchReconciliationLine":
+        return jsonResponse(matchReconciliationLine(p, userEmail));
+
       // MEMBERS
       case "addMember":
         return jsonResponse(addMember(p));
