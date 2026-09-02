@@ -1,6 +1,6 @@
 /*************************************************
  * GPBC Finance Desk — Audit.gs
- * Deterministic Audit Rule Engine, Audit Health Score, and Reconciliation
+ * Deterministic Audit Rule Engine (12 Rules), Health Score, and Reconciliation
  *************************************************/
 
 const AUDIT_SCORING_CONFIG = {
@@ -18,6 +18,7 @@ const AUDIT_SCORING_CONFIG = {
     MEDIUM: 15,
     LOW: 8
   },
+  // All unresolved statuses that impact the Audit Health Score (includes 'Reviewed')
   unresolvedStatuses: [
     "Needs Receipt",
     "Needs Explanation",
@@ -25,12 +26,87 @@ const AUDIT_SCORING_CONFIG = {
     "Pending Match",
     "Partial Reimbursement",
     "Possible Duplicate",
-    "Discrepancy"
+    "Discrepancy",
+    "Reviewed"
+  ],
+  nonDeductingStatuses: [
+    "Cleared",
+    "Reconciled"
   ]
 };
 
+const ALLOWED_AUDIT_STATUSES = [
+  "Needs Receipt",
+  "Needs Explanation",
+  "Missing Documentation",
+  "Pending Match",
+  "Partial Reimbursement",
+  "Possible Duplicate",
+  "Discrepancy",
+  "Reviewed",
+  "Cleared",
+  "Reconciled"
+];
+
+const ALLOWED_RESOLUTION_STATUSES = [
+  "Reviewed",
+  "Cleared",
+  "Reconciled"
+];
+
 /**
- * Pure Rule Engine: Evaluates all 11 deterministic audit rules against financial datasets
+ * Normalizes merchant / payee names deterministically without collapsing distinct entities
+ */
+function normalizeMerchantName(name) {
+  if (!name) return "";
+  let s = String(name).toLowerCase().trim();
+  // Remove common banking prefixes like 'the ', 'sq *', 'tst* ', 'paypal *', 'amzn mktp '
+  s = s.replace(/^(the\s+|sq\s*\*|tst\*\s*|paypal\s*\*|amzn\s*mktp\s*)/g, "");
+  // Replace punctuation with spaces
+  s = s.replace(/[^a-z0-9\s]/g, " ");
+  // Remove trailing store / terminal numbers
+  s = s.replace(/\b(store\s+)?\d+\b/g, "");
+  // Collapse whitespace
+  s = s.replace(/\s+/g, " ").trim();
+  return s;
+}
+
+/**
+ * Shared canonical purchase balance and allocation calculation helper
+ * Correctly accounts for refund credit adjustments as a settlement offset
+ */
+function calculatePurchaseBalance(purchaseAmount, allocations) {
+  purchaseAmount = Number(purchaseAmount || 0);
+  allocations = Array.isArray(allocations) ? allocations : [];
+  let totalAllocated = 0;
+  let totalAbsorbed = 0;
+  let totalRefundAdj = 0;
+
+  allocations.forEach(function(a) {
+    totalAllocated += Number(a.allocatedAmount || 0);
+    totalAbsorbed += Number(a.personallyAbsorbedAmount || 0);
+    totalRefundAdj += Number(a.refundCreditAdjustment || 0);
+  });
+
+  const netCovered = totalAllocated + totalAbsorbed + totalRefundAdj;
+  const remainingBalance = Number(Math.max(0, purchaseAmount - netCovered).toFixed(2));
+  const isOverAllocated = (netCovered > purchaseAmount + 0.01);
+  const overageAmount = isOverAllocated ? Number((netCovered - purchaseAmount).toFixed(2)) : 0;
+
+  return {
+    purchaseAmount: purchaseAmount,
+    totalAllocated: totalAllocated,
+    totalAbsorbed: totalAbsorbed,
+    totalRefundAdjustment: totalRefundAdj,
+    netCovered: netCovered,
+    remainingBalance: remainingBalance,
+    isOverAllocated: isOverAllocated,
+    overageAmount: overageAmount
+  };
+}
+
+/**
+ * Pure Rule Engine: Evaluates all 12 deterministic audit rules against financial datasets
  */
 function evaluateAuditRules(data) {
   data = data || {};
@@ -154,22 +230,21 @@ function evaluateAuditRules(data) {
     }
 
     // RULE-PRP-001: Personal Purchase Without Complete Reimbursement / Resolution
+    // Uses shared canonical balance formula (including refund credit adjustments)
     if (t.personalPurchase === true) {
       const pAllocations = allocationsByPurchase[t.transactionId] || [];
-      const totalAllocated = pAllocations.reduce(function(sum, a) { return sum + Number(a.allocatedAmount || 0); }, 0);
-      const totalAbsorbed = pAllocations.reduce(function(sum, a) { return sum + Number(a.personallyAbsorbedAmount || 0); }, 0);
-      const unresolved = amt - totalAllocated - totalAbsorbed;
+      const balance = calculatePurchaseBalance(amt, pAllocations);
 
-      if (unresolved > 0.01) {
+      if (balance.remainingBalance > 0.01) {
         findings.push({
           ruleId: "RULE-PRP-001",
           severity: "HIGH",
-          status: totalAllocated > 0 ? "Partial Reimbursement" : "Pending Match",
+          status: balance.totalAllocated > 0 ? "Partial Reimbursement" : "Pending Match",
           entityType: "Transaction",
           entityId: t.transactionId,
-          title: "Personal-card purchase pending reimbursement ($" + unresolved.toFixed(2) + " remaining)",
-          description: "Personal card church purchase of $" + amt.toFixed(2) + " by " + (t.claimantName || t.payeeOrPayer || "Claimant") + " has $" + unresolved.toFixed(2) + " unallocated/unreimbursed balance.",
-          amount: unresolved,
+          title: "Personal-card purchase pending reimbursement ($" + balance.remainingBalance.toFixed(2) + " remaining)",
+          description: "Personal card church purchase of $" + amt.toFixed(2) + " by " + (t.claimantName || t.payeeOrPayer || "Claimant") + " has $" + balance.remainingBalance.toFixed(2) + " unallocated/unreimbursed balance.",
+          amount: balance.remainingBalance,
           recommendedAction: "Process reimbursement payout or record personally absorbed donation allocation.",
           evidenceUrl: "",
           fingerprint: "RULE-PRP-001_Transaction_" + t.transactionId
@@ -197,8 +272,9 @@ function evaluateAuditRules(data) {
 
     // RULE-REF-001: Unlinked Merchant Refund / Card Credit
     if (t.transactionType === "Refund" || t.transactionType === "Card Credit") {
-      const notes = String(t.notes || "").toLowerCase();
-      if (!notes.includes("txn-") && !notes.includes("linked") && !notes.includes("alc-")) {
+      const notes = String(t.notes || "");
+      const hasLink = Boolean(notes.match(/\btxn-[a-z0-9_-]+/i) || notes.match(/\balc-[a-z0-9_-]+/i) || notes.match(/\blinked\s+to\b/i));
+      if (!hasLink) {
         findings.push({
           ruleId: "RULE-REF-001",
           severity: "MEDIUM",
@@ -298,22 +374,24 @@ function evaluateAuditRules(data) {
   });
 
   // Defensive check for Over-Allocations (RULE-RMB-002)
+  // Uses shared canonical balance formula (including refund credit adjustments)
   Object.keys(allocationsByPurchase).forEach(function(pId) {
     const pAllocs = allocationsByPurchase[pId];
-    const sumAllocated = pAllocs.reduce(function(sum, a) { return sum + Number(a.allocatedAmount || 0) + Number(a.personallyAbsorbedAmount || 0); }, 0);
     const matchedTx = transactions.find(function(t) { return t.transactionId === pId; });
     if (matchedTx) {
       const pCost = Number(matchedTx.amount || 0);
-      if (sumAllocated > pCost + 0.01) {
+      const balance = calculatePurchaseBalance(pCost, pAllocs);
+
+      if (balance.isOverAllocated) {
         findings.push({
           ruleId: "RULE-RMB-002",
           severity: "CRITICAL",
           status: "Discrepancy",
           entityType: "Transaction",
           entityId: pId,
-          title: "Over-allocated purchase transaction ($" + sumAllocated.toFixed(2) + " allocated on $" + pCost.toFixed(2) + " purchase)",
-          description: "Purchase " + pId + " has allocations totaling $" + sumAllocated.toFixed(2) + ", which exceeds the purchase cost of $" + pCost.toFixed(2) + ".",
-          amount: Number((sumAllocated - pCost).toFixed(2)),
+          title: "Over-allocated purchase transaction ($" + balance.netCovered.toFixed(2) + " allocated on $" + pCost.toFixed(2) + " purchase)",
+          description: "Purchase " + pId + " has allocations totaling $" + balance.netCovered.toFixed(2) + ", which exceeds the purchase cost of $" + pCost.toFixed(2) + ".",
+          amount: balance.overageAmount,
           recommendedAction: "Correct allocation amounts in Reimbursements or record explicit refund adjustment.",
           evidenceUrl: "",
           fingerprint: "RULE-RMB-002_Transaction_" + pId
@@ -347,6 +425,7 @@ function evaluateAuditRules(data) {
 
 /**
  * Calculates deterministic explainable Audit Health Score
+ * Rule: 'Reviewed' issues remain score-impacting until underlying condition is Cleared
  */
 function calculateAuditHealthScore(issues) {
   issues = issues || [];
@@ -413,7 +492,7 @@ function calculateAuditHealthScore(issues) {
 }
 
 /**
- * Runs the full deterministic audit suite, persists findings idempotently, and updates health score
+ * Runs the full deterministic audit suite, persists findings idempotently, auto-reopens recurring issues, and updates health score
  */
 function runAudit(p, userEmail) {
   const db = getDB(true, "runAudit");
@@ -448,7 +527,7 @@ function runAudit(p, userEmail) {
     });
   }
 
-  // 2. Evaluate rules
+  // 2. Evaluate all 12 rules
   const currentFindings = evaluateAuditRules({
     transactions: transactions,
     reimbursements: reimbursements,
@@ -479,19 +558,35 @@ function runAudit(p, userEmail) {
   const nowIso = new Date().toISOString();
   const currentFingerprints = {};
 
-  // 4. Update or insert current findings
+  // 4. Update, reopen, or insert current findings
   currentFindings.forEach(function(f) {
     currentFingerprints[f.fingerprint] = true;
     const existing = existingByFingerprint[f.fingerprint];
 
     if (existing) {
-      // Finding exists: update lastDetectedAt and amount
       const rowNum = existing._rowIndex;
       const headers = auditSheet.getRange(1, 1, 1, auditSheet.getLastColumn()).getValues()[0];
       const lastDetCol = headers.indexOf("lastDetectedAt") + 1;
       const amtCol = headers.indexOf("amount") + 1;
+      const statusCol = headers.indexOf("status") + 1;
+      const notesCol = headers.indexOf("resolutionNotes") + 1;
+      const resByCol = headers.indexOf("resolvedBy") + 1;
+      const resAtCol = headers.indexOf("resolvedAt") + 1;
+
       if (lastDetCol > 0) auditSheet.getRange(rowNum, lastDetCol).setValue(nowIso);
       if (amtCol > 0 && f.amount !== undefined) auditSheet.getRange(rowNum, amtCol).setValue(f.amount);
+
+      // AUTOMATIC REOPENING: If condition recurring for a Cleared / Reconciled issue, reopen it!
+      if (existing.status === "Cleared" || existing.status === "Reconciled") {
+        if (statusCol > 0) auditSheet.getRange(rowNum, statusCol).setValue(f.status);
+        if (notesCol > 0) {
+          const prevNote = String(existing.resolutionNotes || "");
+          const reopenedNote = prevNote ? prevNote + " | [Reopened: defect recurred " + nowIso + "]" : "[Reopened: defect recurred " + nowIso + "]";
+          auditSheet.getRange(rowNum, notesCol).setValue(reopenedNote);
+        }
+        if (resByCol > 0) auditSheet.getRange(rowNum, resByCol).setValue("");
+        if (resAtCol > 0) auditSheet.getRange(rowNum, resAtCol).setValue("");
+      }
     } else {
       // Insert new audit issue
       const issueId = "AUD-" + Utilities.formatDate(new Date(), "GMT", "yyyyMMdd") + "-" + Math.floor(1000 + Math.random() * 9000);
@@ -519,7 +614,7 @@ function runAudit(p, userEmail) {
     }
   });
 
-  // 5. Auto-clear findings whose conditions resolved
+  // 5. Auto-clear findings whose conditions resolved in the ledger
   existingIssues.forEach(function(existing) {
     if (!currentFingerprints[existing.issueFingerprint]) {
       const isUnresolved = AUDIT_SCORING_CONFIG.unresolvedStatuses.indexOf(existing.status) !== -1;
@@ -534,7 +629,9 @@ function runAudit(p, userEmail) {
         if (statusCol > 0) auditSheet.getRange(rowNum, statusCol).setValue("Cleared");
         if (resByCol > 0) auditSheet.getRange(rowNum, resByCol).setValue("System Engine");
         if (resAtCol > 0) auditSheet.getRange(rowNum, resAtCol).setValue(nowIso);
-        if (notesCol > 0 && !existing.resolutionNotes) auditSheet.getRange(rowNum, notesCol).setValue("Auto-cleared: condition resolved in financial ledger.");
+        if (notesCol > 0 && !existing.resolutionNotes) {
+          auditSheet.getRange(rowNum, notesCol).setValue("Auto-cleared: condition resolved in financial ledger.");
+        }
       }
     }
   });
@@ -617,12 +714,17 @@ function getAuditSummary() {
 }
 
 /**
- * Resolves or updates an audit issue (e.g. Reviewed, Cleared) with preserved audit history
+ * Resolves or updates an audit issue with strict allowed-status validation
  */
 function resolveAuditIssue(p, userEmail) {
   p = p || {};
   if (!p.auditIssueId) throw new Error("auditIssueId is required");
-  if (!p.status) throw new Error("status is required for resolution");
+  if (!p.status || ALLOWED_RESOLUTION_STATUSES.indexOf(p.status) === -1) {
+    throw new Error("Invalid resolution status: " + p.status + ". Allowed statuses: " + ALLOWED_RESOLUTION_STATUSES.join(", "));
+  }
+  if (!p.resolutionNotes || String(p.resolutionNotes).trim() === "") {
+    throw new Error("resolutionNotes are required to resolve an audit issue");
+  }
 
   const db = getDB(true, "resolveAuditIssue");
   const sheet = db.getSheetByName("Audit_Issues");
@@ -713,7 +815,7 @@ function assignAuditIssue(p, userEmail) {
 }
 
 /**
- * Stages normalized CSV statement lines into Reconciliation_Staging tab
+ * Stages normalized CSV statement lines into Reconciliation_Staging tab with duplicate protection
  */
 function stageBankStatementLines(p, userEmail) {
   p = p || {};
@@ -727,20 +829,73 @@ function stageBankStatementLines(p, userEmail) {
     sheet = db.getSheetByName("Reconciliation_Staging");
   }
 
+  // Load existing statement line fingerprints to prevent duplicate imports
+  const existingFingerprints = {};
+  if (sheet.getLastRow() > 1) {
+    const sData = sheet.getDataRange().getValues();
+    const sHeaders = sData.shift();
+    const dateCol = sHeaders.indexOf("statementDate");
+    const descCol = sHeaders.indexOf("description");
+    const amtCol = sHeaders.indexOf("amount");
+    const dirCol = sHeaders.indexOf("direction");
+    const refCol = sHeaders.indexOf("referenceNumber");
+    const fileCol = sHeaders.indexOf("sourceFileName");
+
+    sData.forEach(function(row) {
+      const fp = [
+        String(row[fileCol] || "").trim(),
+        String(row[dateCol] || "").trim(),
+        normalizeMerchantName(row[descCol]),
+        Number(row[amtCol] || 0).toFixed(2),
+        String(row[dirCol] || "").trim(),
+        String(row[refCol] || "").trim()
+      ].join("_");
+      existingFingerprints[fp] = true;
+    });
+  }
+
   const nowIso = new Date().toISOString();
   const actor = userEmail || "System";
   const sourceFile = p.sourceFileName || "statement_import.csv";
 
+  let insertedCount = 0;
+  let duplicateCount = 0;
+
   lines.forEach(function(line) {
+    const amt = Number(line.amount || 0);
+    if (isNaN(amt) || amt === 0 || !isFinite(amt)) {
+      return;
+    }
+
+    const stmtDate = line.statementDate || line.date || nowIso.split("T")[0];
+    const desc = line.description || "Statement Line";
+    const direction = line.direction || (amt < 0 ? "EXPENSE" : "INCOME");
+    const refNum = line.referenceNumber || "";
+
+    const fp = [
+      sourceFile.trim(),
+      stmtDate.trim(),
+      normalizeMerchantName(desc),
+      amt.toFixed(2),
+      direction.trim(),
+      refNum.trim()
+    ].join("_");
+
+    if (existingFingerprints[fp]) {
+      duplicateCount++;
+      return;
+    }
+    existingFingerprints[fp] = true;
+
     const lineId = "STMT-" + Date.now() + "-" + Math.floor(100 + Math.random() * 900);
     sheet.appendRow([
       lineId,
-      line.statementDate || line.date || nowIso.split("T")[0],
-      line.description || "Statement Line",
-      Number(line.amount || 0),
-      line.direction || (Number(line.amount) < 0 ? "EXPENSE" : "INCOME"),
+      stmtDate,
+      desc,
+      amt,
+      direction,
       line.statementType || "Bank Checking",
-      line.referenceNumber || "",
+      refNum,
       "Unmatched",
       "",
       0,
@@ -748,20 +903,27 @@ function stageBankStatementLines(p, userEmail) {
       nowIso,
       actor
     ]);
+    insertedCount++;
   });
 
-  return { success: true, count: lines.length };
+  return {
+    success: true,
+    count: insertedCount,
+    insertedCount: insertedCount,
+    duplicateCount: duplicateCount,
+    totalSubmitted: lines.length
+  };
 }
 
 /**
  * Returns reconciliation candidate matches between staged statement lines and Transactions
+ * Enforces: Direction compatibility, deterministic ranking, merchant normalization, already-reconciled exclusion
  */
 function getReconciliationCandidates() {
   const db = getDB(false, "getReconciliationCandidates");
   const stmtSheet = db.getSheetByName("Reconciliation_Staging");
   const txSheet = db.getSheetByName("Transactions");
 
-  const candidates = [];
   if (!stmtSheet || stmtSheet.getLastRow() <= 1) {
     return { success: true, count: 0, candidates: [] };
   }
@@ -776,33 +938,109 @@ function getReconciliationCandidates() {
   });
 
   const txRes = getTransactions();
-  const transactions = txRes.transactions || [];
+  const allTransactions = txRes.transactions || [];
+
+  // Index already matched transaction IDs to exclude accidental multiple reuse
+  const matchedTxIdMap = {};
+  stagedLines.forEach(function(s) {
+    if (s.matchedTransactionId && s.matchedTransactionId.trim() !== "") {
+      matchedTxIdMap[s.matchedTransactionId] = true;
+    }
+  });
+
+  const candidates = [];
 
   stagedLines.forEach(function(stmt) {
+    // Authoritative statement direction
+    const sDirection = stmt.direction || (stmt.amount < 0 ? "EXPENSE" : "INCOME");
     const sAmt = Math.abs(stmt.amount);
     const sDate = new Date(stmt.statementDate).getTime();
-    let bestMatch = null;
-    let matchType = "Unmatched";
+    const sNormDesc = normalizeMerchantName(stmt.description);
+    const sRef = String(stmt.referenceNumber || "").trim().toLowerCase();
 
-    transactions.forEach(function(tx) {
-      if (bestMatch) return;
+    let bestCandidate = null;
+    let bestScore = -1;
+    let bestMatchType = "Unmatched";
+    let bestDateDiff = null;
+    let bestAmtDiff = null;
+    let bestMerchantSim = false;
+    let bestRefMatched = false;
+
+    allTransactions.forEach(function(tx) {
+      // 1. DIRECTION COMPATIBILITY IS MANDATORY
+      // Deposit (+ amount / INCOME) CANNOT match Expense (- amount / EXPENSE)
+      const tDirection = tx.direction || "EXPENSE";
+      if (tDirection !== sDirection) return;
+
+      // 2. Exclude transactions already reconciled or matched to other statement lines
+      const isAlreadyUsed = (tx.reconciliationStatus === "Reconciled" || matchedTxIdMap[tx.transactionId]);
+      if (isAlreadyUsed && stmt.matchedTransactionId !== tx.transactionId) return;
+
       const tAmt = Math.abs(Number(tx.amount || 0));
       const tDate = new Date(tx.transactionDate).getTime();
-      const diffDays = Math.abs(sDate - tDate) / (1000 * 60 * 60 * 24);
+      const diffDays = Math.round(Math.abs(sDate - tDate) / (1000 * 60 * 60 * 24));
+      const amtDiff = Number(Math.abs(sAmt - tAmt).toFixed(2));
+      const tNormPayee = normalizeMerchantName(tx.payeeOrPayer);
+      const tNormDesc = normalizeMerchantName(tx.description);
+      const tCheckNum = String(tx.checkNumber || "").trim().toLowerCase();
 
-      if (Math.abs(sAmt - tAmt) < 0.01 && diffDays <= 2) {
-        bestMatch = tx;
+      const merchantMatched = Boolean(
+        (sNormDesc && tNormPayee && (sNormDesc.includes(tNormPayee) || tNormPayee.includes(sNormDesc))) ||
+        (sNormDesc && tNormDesc && (sNormDesc.includes(tNormDesc) || tNormDesc.includes(sNormDesc)))
+      );
+      const refMatched = Boolean(sRef && tCheckNum && sRef === tCheckNum);
+
+      // Deterministic Scoring Factors
+      let score = 0;
+      // Amount scoring
+      if (amtDiff === 0) score += 50;
+      else if (amtDiff <= 0.05) score += 30;
+      else if (amtDiff <= 1.00) score += 10;
+      else score += 0;
+
+      // Date scoring
+      if (diffDays === 0) score += 30;
+      else if (diffDays <= 2) score += 25;
+      else if (diffDays <= 5) score += 15;
+      else if (diffDays <= 10) score += 5;
+
+      // Merchant & Reference scoring
+      if (merchantMatched) score += 20;
+      if (refMatched) score += 15;
+
+      // Match Type determination
+      let matchType = "Unmatched";
+      if (amtDiff === 0 && diffDays <= 2) {
         matchType = "Exact Match";
-      } else if (Math.abs(sAmt - tAmt) < 0.01 && diffDays <= 7) {
-        bestMatch = tx;
+      } else if (amtDiff === 0 && diffDays <= 10) {
         matchType = "Possible Match";
+      } else if (amtDiff <= 0.05 && diffDays <= 5 && merchantMatched) {
+        matchType = "Possible Match";
+      } else if (amtDiff > 0 && (merchantMatched || refMatched)) {
+        matchType = "Discrepancy";
+      }
+
+      if (score > bestScore) {
+        bestScore = score;
+        bestCandidate = tx;
+        bestMatchType = matchType;
+        bestDateDiff = diffDays;
+        bestAmtDiff = amtDiff;
+        bestMerchantSim = merchantMatched;
+        bestRefMatched = refMatched;
       }
     });
 
     candidates.push({
       statementLine: stmt,
-      suggestedTransaction: bestMatch,
-      matchType: matchType
+      suggestedTransaction: bestCandidate,
+      matchType: bestMatchType,
+      score: bestScore > 0 ? bestScore : 0,
+      dateDifferenceDays: bestDateDiff,
+      amountDifference: bestAmtDiff,
+      merchantSimilarity: bestMerchantSim,
+      referenceMatched: bestRefMatched,
+      candidateTransactionId: bestCandidate ? bestCandidate.transactionId : null
     });
   });
 
@@ -811,6 +1049,7 @@ function getReconciliationCandidates() {
 
 /**
  * Reconciles a staged statement line with an authoritative transaction
+ * Validate-first sequence: Verifies both records, directions, and differences before writes
  */
 function matchReconciliationLine(p, userEmail) {
   p = p || {};
@@ -823,36 +1062,80 @@ function matchReconciliationLine(p, userEmail) {
 
   if (!sSheet || !tSheet) throw new Error("Reconciliation tabs missing");
 
-  // 1. Update Staged Line
+  // 1. Validate Statement Line Existence
   const sData = sSheet.getDataRange().getValues();
   const sHeaders = sData.shift();
   const sIdCol = sHeaders.indexOf("statementLineId");
   const sIdx = sData.findIndex(function(r) { return r[sIdCol] === p.statementLineId; });
   if (sIdx === -1) throw new Error("Statement line not found: " + p.statementLineId);
+  const matchedStmtRow = sData[sIdx];
 
-  const sRowNum = sIdx + 2;
-  const statusCol = sHeaders.indexOf("matchStatus") + 1;
-  const txCol = sHeaders.indexOf("matchedTransactionId") + 1;
-  if (statusCol > 0) sSheet.getRange(sRowNum, statusCol).setValue("Matched");
-  if (txCol > 0) sSheet.getRange(sRowNum, txCol).setValue(p.transactionId);
-
-  // 2. Update Transaction reconciliationStatus
+  // 2. Validate Transaction Existence
   const tData = tSheet.getDataRange().getValues();
   const tHeaders = tData.shift();
   const tIdCol = tHeaders.indexOf("transactionId");
   const tIdx = tData.findIndex(function(r) { return r[tIdCol] === p.transactionId; });
   if (tIdx === -1) throw new Error("Transaction not found: " + p.transactionId);
+  const matchedTxRow = tData[tIdx];
 
-  const tRowNum = tIdx + 2;
-  const tStatusCol = tHeaders.indexOf("reconciliationStatus") + 1;
-  if (tStatusCol > 0) tSheet.getRange(tRowNum, tStatusCol).setValue("Reconciled");
+  // 3. Direction & Eligibility Validation
+  const sAmtCol = sHeaders.indexOf("amount");
+  const sDirCol = sHeaders.indexOf("direction");
+  const tAmtCol = tHeaders.indexOf("amount");
+  const tDirCol = tHeaders.indexOf("direction");
 
-  return { success: true, statementLineId: p.statementLineId, transactionId: p.transactionId };
+  const stmtAmt = Number(matchedStmtRow[sAmtCol] || 0);
+  const stmtDir = String(matchedStmtRow[sDirCol] || (stmtAmt < 0 ? "EXPENSE" : "INCOME"));
+  const txAmt = Number(matchedTxRow[tAmtCol] || 0);
+  const txDir = String(matchedTxRow[tDirCol] || "EXPENSE");
+
+  if (stmtDir !== txDir) {
+    throw new Error("Direction mismatch: Statement line is " + stmtDir + " but transaction is " + txDir);
+  }
+
+  const diffAmount = Number(Math.abs(Math.abs(stmtAmt) - Math.abs(txAmt)).toFixed(2));
+  const matchStatus = (diffAmount > 0.001) ? "Discrepancy" : "Matched";
+
+  // 4. Atomic Write Section (Zero writes if validation failed above)
+  let lock = null;
+  if (typeof LockService !== "undefined" && LockService.getScriptLock) {
+    lock = LockService.getScriptLock();
+    lock.tryLock(10000);
+  }
+
+  try {
+    const sRowNum = sIdx + 2;
+    const sStatusCol = sHeaders.indexOf("matchStatus") + 1;
+    const sTxCol = sHeaders.indexOf("matchedTransactionId") + 1;
+    const sDiffCol = sHeaders.indexOf("differenceAmount") + 1;
+
+    if (sStatusCol > 0) sSheet.getRange(sRowNum, sStatusCol).setValue(matchStatus);
+    if (sTxCol > 0) sSheet.getRange(sRowNum, sTxCol).setValue(p.transactionId);
+    if (sDiffCol > 0) sSheet.getRange(sRowNum, sDiffCol).setValue(diffAmount);
+
+    const tRowNum = tIdx + 2;
+    const tStatusCol = tHeaders.indexOf("reconciliationStatus") + 1;
+    if (tStatusCol > 0) tSheet.getRange(tRowNum, tStatusCol).setValue("Reconciled");
+  } finally {
+    if (lock && lock.releaseLock) lock.releaseLock();
+  }
+
+  return {
+    success: true,
+    statementLineId: p.statementLineId,
+    transactionId: p.transactionId,
+    matchStatus: matchStatus,
+    differenceAmount: diffAmount
+  };
 }
 
 if (typeof module !== "undefined" && module.exports) {
   module.exports = {
     AUDIT_SCORING_CONFIG,
+    ALLOWED_AUDIT_STATUSES,
+    ALLOWED_RESOLUTION_STATUSES,
+    normalizeMerchantName,
+    calculatePurchaseBalance,
     evaluateAuditRules,
     calculateAuditHealthScore,
     runAudit,

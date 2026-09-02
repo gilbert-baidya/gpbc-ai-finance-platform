@@ -151,3 +151,31 @@
   - Production data: 100% untouched.
   - Production writes: Disarmed.
   - Sandbox status: `LIVE SANDBOX INTEGRATION PENDING`.
+
+---
+
+## 6. Phase 3 Final Integrity & Reconciliation Gate
+
+- **Date Completed**: 2026-09-01
+- **Feature Branch**: `feature/gpbc-finance-desk-refactor`
+- **Integrity Actions Completed**:
+  - `Reviewed` status included in `AUDIT_SCORING_CONFIG.unresolvedStatuses` so it remains score-impacting until underlying condition is cleared.
+  - Automatic reopening: recurring cleared findings are restored to active status on subsequent audit runs.
+  - Server-side allowed status validation in `resolveAuditIssue()` (`Reviewed`, `Cleared`, `Reconciled`).
+  - Direction-safe reconciliation matching in `getReconciliationCandidates()`: deposits cannot match expenses.
+  - Deterministic candidate ranking based on direction, amount, date difference, normalized merchant text, and check references.
+  - Reconciled and in-use transactions excluded from candidate suggestions.
+  - Validate-before-write sequence with atomic execution in `matchReconciliationLine()`.
+  - Staging `differenceAmount` populated and flags `Discrepancy` when amounts differ.
+  - Standards-aware CSV parser in `src/utils/csvParser.ts` supporting quoted fields with embedded commas.
+  - Statement duplicate import prevention using safe line fingerprints.
+  - Refund adjustment balance formula alignment in `calculatePurchaseBalance` across `RULE-PRP-001` and `RULE-RMB-002`.
+  - Type contracts in `src/types/audit.ts` and `src/api/auditApi.ts` synchronized with runtime.
+  - Exactly 12 deterministic audit rules verified and documented.
+- **Verification**:
+  - Automated tests: 62/62 passing across 7 test suites.
+  - TypeScript: 0 errors (`tsc --noEmit`).
+  - Build: Vite production build passed cleanly in ~3.09s.
+  - Production data: 100% untouched.
+  - Production writes: Disarmed (`GPBC_PRODUCTION_WRITES_ENABLED=false`).
+  - Sandbox status: `LIVE SANDBOX INTEGRATION PENDING`.

@@ -4,7 +4,12 @@
  *************************************************/
 
 import { gasFetch } from './gasFetch';
-import type { AuditIssue, AuditHealthScoreBreakdown, BankStatementLine } from '../types/audit';
+import type {
+  AuditIssue,
+  AuditHealthScoreBreakdown,
+  ReconciliationCandidate,
+  StageStatementResult
+} from '../types/audit';
 
 export interface AuditFilterParams extends Record<string, unknown> {
   severity?: string;
@@ -29,19 +34,6 @@ export interface AuditIssuesResult {
 export interface AuditSummaryResult {
   success: boolean;
   healthScore: AuditHealthScoreBreakdown;
-}
-
-export interface ReconciliationCandidate {
-  statementLine: BankStatementLine;
-  suggestedTransaction?: {
-    transactionId: string;
-    transactionDate: string;
-    amount: number;
-    payeeOrPayer: string;
-    description: string;
-    direction: string;
-  };
-  matchType: 'Exact Match' | 'Possible Match' | 'Unmatched';
 }
 
 export async function logAuditEvent(event: Record<string, unknown>): Promise<void> {
@@ -123,8 +115,8 @@ export const auditApi = {
       referenceNumber?: string;
     }>;
     sourceFileName?: string;
-  }): Promise<{ success: boolean; count: number }> {
-    return gasFetch('stageBankStatementLines', params);
+  }): Promise<StageStatementResult> {
+    return gasFetch<StageStatementResult>('stageBankStatementLines', params);
   },
 
   /**

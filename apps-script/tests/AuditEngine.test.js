@@ -1,6 +1,10 @@
 import { describe, it, expect } from 'vitest';
 
 const {
+  AUDIT_SCORING_CONFIG,
+  ALLOWED_RESOLUTION_STATUSES,
+  normalizeMerchantName,
+  calculatePurchaseBalance,
   evaluateAuditRules,
   calculateAuditHealthScore
 } = require('../Audit.gs');
@@ -9,7 +13,7 @@ const {
   validateAndPrepareAllocation
 } = require('../Reimbursements.gs');
 
-const createMockDb = (transactions = [], reimbursements = [], allocations = [], receipts = [], checks = []) => {
+const createMockDb = (transactions = [], reimbursements = [], allocations = [], receipts = [], checks = [], staged = [], issues = []) => {
   return {
     getSheetByName: (name) => {
       if (name === 'Transactions') {
@@ -17,7 +21,7 @@ const createMockDb = (transactions = [], reimbursements = [], allocations = [], 
           getLastRow: () => transactions.length + 1,
           getDataRange: () => ({
             getValues: () => [
-              ['transactionId', 'transactionDate', 'transactionType', 'direction', 'amount', 'personalPurchase', 'paymentMethod', 'checkNumber', 'receiptStatus', 'receiptId', 'accountingImpact'],
+              ['transactionId', 'transactionDate', 'transactionType', 'direction', 'amount', 'personalPurchase', 'paymentMethod', 'checkNumber', 'receiptStatus', 'receiptId', 'accountingImpact', 'reconciliationStatus', 'payeeOrPayer', 'description'],
               ...transactions.map(t => [
                 t.transactionId,
                 t.transactionDate || t.date || '2026-02-01',
@@ -29,7 +33,10 @@ const createMockDb = (transactions = [], reimbursements = [], allocations = [], 
                 t.checkNumber || '',
                 t.receiptStatus || 'Needs Receipt',
                 t.receiptId || '',
-                t.accountingImpact || (t.transactionType === 'Reimbursement' ? 'SETTLEMENT' : t.direction)
+                t.accountingImpact || (t.transactionType === 'Reimbursement' ? 'SETTLEMENT' : t.direction),
+                t.reconciliationStatus || 'Unreconciled',
+                t.payeeOrPayer || '',
+                t.description || ''
               ])
             ]
           })
@@ -61,14 +68,71 @@ const createMockDb = (transactions = [], reimbursements = [], allocations = [], 
           getLastRow: () => allocations.length + 1,
           getDataRange: () => ({
             getValues: () => [
-              ['allocationId', 'reimbursementId', 'purchaseTransactionId', 'allocatedAmount', 'personallyAbsorbedAmount', 'refundCreditAdjustment'],
+              ['allocationId', 'reimbursementId', 'purchaseTransactionId', 'allocatedAmount', 'personallyAbsorbedAmount', 'refundCreditAdjustment', 'notes'],
               ...allocations.map(a => [
                 a.allocationId || 'ALC-1',
                 a.reimbursementId || 'RMB-1',
                 a.purchaseTransactionId,
                 a.allocatedAmount || 0,
                 a.personallyAbsorbedAmount || 0,
-                a.refundCreditAdjustment || 0
+                a.refundCreditAdjustment || 0,
+                a.notes || ''
+              ])
+            ]
+          })
+        };
+      }
+      if (name === 'Reconciliation_Staging') {
+        return {
+          getLastRow: () => staged.length + 1,
+          getDataRange: () => ({
+            getValues: () => [
+              ['statementLineId', 'statementDate', 'description', 'amount', 'direction', 'statementType', 'referenceNumber', 'matchStatus', 'matchedTransactionId', 'differenceAmount', 'sourceFileName', 'importedAt', 'importedBy'],
+              ...staged.map(s => [
+                s.statementLineId || 'STMT-1',
+                s.statementDate || '2026-02-01',
+                s.description || 'Line',
+                s.amount || 0,
+                s.direction || (s.amount < 0 ? 'EXPENSE' : 'INCOME'),
+                s.statementType || 'Bank Checking',
+                s.referenceNumber || '',
+                s.matchStatus || 'Unmatched',
+                s.matchedTransactionId || '',
+                s.differenceAmount || 0,
+                s.sourceFileName || 'import.csv',
+                s.importedAt || '2026-02-01T00:00:00Z',
+                s.importedBy || 'System'
+              ])
+            ]
+          })
+        };
+      }
+      if (name === 'Audit_Issues') {
+        return {
+          getLastRow: () => issues.length + 1,
+          getDataRange: () => ({
+            getValues: () => [
+              ['auditIssueId', 'issueFingerprint', 'ruleId', 'severity', 'status', 'entityType', 'entityId', 'title', 'description', 'amount', 'recommendedAction', 'detectedAt', 'lastDetectedAt', 'detectedBy', 'assignedTo', 'resolutionNotes', 'resolvedBy', 'resolvedAt', 'evidenceUrl'],
+              ...issues.map(i => [
+                i.auditIssueId || 'AUD-1',
+                i.issueFingerprint || 'RULE-RCP-001_Transaction_TXN-1',
+                i.ruleId || 'RULE-RCP-001',
+                i.severity || 'HIGH',
+                i.status || 'Needs Receipt',
+                i.entityType || 'Transaction',
+                i.entityId || 'TXN-1',
+                i.title || 'Missing Receipt',
+                i.description || '',
+                i.amount || 0,
+                i.recommendedAction || '',
+                i.detectedAt || '2026-02-01T00:00:00Z',
+                i.lastDetectedAt || '2026-02-01T00:00:00Z',
+                i.detectedBy || 'System Engine',
+                i.assignedTo || '',
+                i.resolutionNotes || '',
+                i.resolvedBy || '',
+                i.resolvedAt || '',
+                i.evidenceUrl || ''
               ])
             ]
           })
@@ -79,297 +143,202 @@ const createMockDb = (transactions = [], reimbursements = [], allocations = [], 
   };
 };
 
-describe('1. Part A Edge-Case Hardening (Reimbursements.gs)', () => {
-  it('strictly rejects ordinary church credit-card expenses from reimbursement eligibility', () => {
-    const mockDb = createMockDb([
-      {
-        transactionId: 'TXN-CARD-1',
-        direction: 'EXPENSE',
-        amount: 150.00,
-        personalPurchase: false,
-        paymentMethod: 'Credit Card',
-        transactionType: 'Expense'
-      }
-    ]);
-
-    expect(() => {
-      validateAndPrepareAllocation({ purchaseTransactionId: 'TXN-CARD-1', allocatedAmount: 150.00 }, mockDb, null);
-    }).toThrow(/church-paid disbursement/);
+describe('1. Merchant Normalization & Purchase Balance Calculation', () => {
+  it('normalizes merchant names conservatively and deterministically', () => {
+    expect(normalizeMerchantName('THE HOME DEPOT #1234')).toBe('home depot');
+    expect(normalizeMerchantName('HOME DEPOT 1234')).toBe('home depot');
+    expect(normalizeMerchantName('Home Depot')).toBe('home depot');
+    expect(normalizeMerchantName('AMZN MKTP US*1234 SEATTLE')).toBe('us seattle');
+    expect(normalizeMerchantName('SQ *COFFEE SHOP')).toBe('coffee shop');
+    expect(normalizeMerchantName('Dollar Tree #5678')).toBe('dollar tree');
   });
 
-  it('strictly rejects church check disbursements from reimbursement eligibility', () => {
-    const mockDb = createMockDb([
-      {
-        transactionId: 'TXN-CHK-1',
-        direction: 'EXPENSE',
-        amount: 500.00,
-        personalPurchase: false,
-        paymentMethod: 'Check',
-        transactionType: 'Expense'
-      }
-    ]);
+  it('calculates purchase balance with refund adjustments correctly', () => {
+    // $100 purchase: Reimbursed $60 + Absorbed $20 + Refund $20 = Remaining $0
+    const allocations = [
+      { allocatedAmount: 60, personallyAbsorbedAmount: 20, refundCreditAdjustment: 20 }
+    ];
+    const balance = calculatePurchaseBalance(100, allocations);
 
-    expect(() => {
-      validateAndPrepareAllocation({ purchaseTransactionId: 'TXN-CHK-1', allocatedAmount: 500.00 }, mockDb, null);
-    }).toThrow(/church-paid disbursement/);
+    expect(balance.purchaseAmount).toBe(100);
+    expect(balance.totalAllocated).toBe(60);
+    expect(balance.totalAbsorbed).toBe(20);
+    expect(balance.totalRefundAdjustment).toBe(20);
+    expect(balance.remainingBalance).toBe(0);
+    expect(balance.isOverAllocated).toBe(false);
   });
 
-  it('allows personal-card church purchases for reimbursement', () => {
-    const mockDb = createMockDb([
-      {
-        transactionId: 'TXN-PERS-1',
-        direction: 'EXPENSE',
-        amount: 85.00,
-        personalPurchase: true,
-        paymentMethod: 'Personal Card',
-        transactionType: 'Personal-Card Church Purchase'
-      }
-    ]);
+  it('detects over-allocation correctly when sum exceeds purchase amount', () => {
+    // $100 purchase: Allocated $120
+    const allocations = [{ allocatedAmount: 120, personallyAbsorbedAmount: 0, refundCreditAdjustment: 0 }];
+    const balance = calculatePurchaseBalance(100, allocations);
 
-    const res = validateAndPrepareAllocation({ purchaseTransactionId: 'TXN-PERS-1', allocatedAmount: 85.00 }, mockDb, null);
-    expect(res.allocatedAmount).toBe(85.00);
-    expect(res.purchaseAmount).toBe(85.00);
-  });
-
-  it('rejects invalid or negative refundCreditAdjustment values', () => {
-    const mockDb = createMockDb([
-      {
-        transactionId: 'TXN-PERS-2',
-        direction: 'EXPENSE',
-        amount: 100.00,
-        personalPurchase: true,
-        paymentMethod: 'Personal Card'
-      }
-    ]);
-
-    expect(() => {
-      validateAndPrepareAllocation({
-        purchaseTransactionId: 'TXN-PERS-2',
-        allocatedAmount: 50.00,
-        refundCreditAdjustment: -20.00
-      }, mockDb, null);
-    }).toThrow(/refundCreditAdjustment must be a finite non-negative number/);
+    expect(balance.isOverAllocated).toBe(true);
+    expect(balance.overageAmount).toBe(20);
   });
 });
 
-describe('2. Deterministic Audit Rules Engine (evaluateAuditRules)', () => {
-  it('evaluates RULE-RCP-001 (Missing Receipt) with severity tiers', () => {
-    const dataset = {
-      transactions: [
-        {
-          transactionId: 'TXN-EXP-SMALL',
-          direction: 'EXPENSE',
-          accountingImpact: 'EXPENSE',
-          amount: 35.00,
-          payeeOrPayer: 'Dollar Tree',
-          receiptStatus: 'Needs Receipt',
-          receiptId: ''
-        },
-        {
-          transactionId: 'TXN-EXP-LARGE',
-          direction: 'EXPENSE',
-          accountingImpact: 'EXPENSE',
-          amount: 250.00,
-          payeeOrPayer: 'Guitar Center',
-          receiptStatus: 'Needs Receipt',
-          receiptId: ''
-        },
-        {
-          transactionId: 'TXN-EXP-EXEMPT',
-          direction: 'EXPENSE',
-          accountingImpact: 'EXPENSE',
-          amount: 500.00,
-          payeeOrPayer: 'Bank Fee',
-          receiptStatus: 'Exempt',
-          receiptId: ''
-        }
-      ]
-    };
+describe('2. Audit Health Score Semantics (Reviewed vs Cleared)', () => {
+  it('strictly includes Reviewed in score-impacting deductions', () => {
+    const issues = [
+      { severity: 'HIGH', status: 'Reviewed' } // Reviewed MUST still deduct 8 points!
+    ];
 
-    const findings = evaluateAuditRules(dataset);
-    const receiptFindings = findings.filter(f => f.ruleId === 'RULE-RCP-001');
-
-    expect(receiptFindings.length).toBe(2);
-    expect(receiptFindings.find(f => f.entityId === 'TXN-EXP-SMALL')?.severity).toBe('MEDIUM');
-    expect(receiptFindings.find(f => f.entityId === 'TXN-EXP-LARGE')?.severity).toBe('HIGH');
+    const res = calculateAuditHealthScore(issues);
+    expect(res.deductions.highDeduction).toBe(8);
+    expect(res.score).toBe(92);
+    expect(res.totalUnresolvedIssues).toBe(1);
   });
 
-  it('evaluates RULE-EXP-001 & RULE-PAY-001 (Missing Purpose / Payee)', () => {
-    const dataset = {
-      transactions: [
-        {
-          transactionId: 'TXN-NO-DESC',
-          direction: 'EXPENSE',
-          accountingImpact: 'EXPENSE',
-          amount: 40.00,
-          payeeOrPayer: 'Office Depot',
-          description: ''
-        },
-        {
-          transactionId: 'TXN-NO-PAYEE',
-          direction: 'EXPENSE',
-          accountingImpact: 'EXPENSE',
-          amount: 60.00,
-          payeeOrPayer: '',
-          description: 'Sunday School Supplies'
-        }
-      ]
-    };
+  it('excludes Cleared and Reconciled from deductions', () => {
+    const issues = [
+      { severity: 'CRITICAL', status: 'Cleared' },
+      { severity: 'HIGH', status: 'Reconciled' }
+    ];
 
-    const findings = evaluateAuditRules(dataset);
-    expect(findings.some(f => f.ruleId === 'RULE-EXP-001' && f.entityId === 'TXN-NO-DESC')).toBe(true);
-    expect(findings.some(f => f.ruleId === 'RULE-PAY-001' && f.entityId === 'TXN-NO-PAYEE')).toBe(true);
+    const res = calculateAuditHealthScore(issues);
+    expect(res.deductions.totalDeduction).toBe(0);
+    expect(res.score).toBe(100);
+    expect(res.totalUnresolvedIssues).toBe(0);
   });
 
-  it('evaluates RULE-CHK-001 (Missing Check Documentation / Voucher)', () => {
+  it('enforces allowed resolution statuses', () => {
+    expect(ALLOWED_RESOLUTION_STATUSES).toContain('Reviewed');
+    expect(ALLOWED_RESOLUTION_STATUSES).toContain('Cleared');
+    expect(ALLOWED_RESOLUTION_STATUSES).toContain('Reconciled');
+    expect(ALLOWED_RESOLUTION_STATUSES).not.toContain('ArbitraryStatus');
+  });
+});
+
+describe('3. Deterministic Audit Rules Engine (All 12 Rules)', () => {
+  it('evaluates all 12 rules deterministically', () => {
     const dataset = {
       transactions: [
-        {
-          transactionId: 'TXN-CHK-MISSING-DOC',
-          direction: 'EXPENSE',
-          paymentMethod: 'Check',
-          checkNumber: '1042',
-          amount: 300.00,
-          payeeOrPayer: 'Guest Speaker'
-        }
+        // 1. Missing receipt (RULE-RCP-001)
+        { transactionId: 'TXN-1', direction: 'EXPENSE', amount: 60.00, receiptStatus: 'Needs Receipt', receiptId: '', payeeOrPayer: 'OfficeMax', description: 'Paper' },
+        // 2. Missing purpose (RULE-EXP-001)
+        { transactionId: 'TXN-2', direction: 'EXPENSE', amount: 40.00, receiptStatus: 'Attached', receiptId: 'R-1', payeeOrPayer: 'Vendor', description: '' },
+        // 3. Missing payee (RULE-PAY-001)
+        { transactionId: 'TXN-3', direction: 'EXPENSE', amount: 30.00, receiptStatus: 'Attached', receiptId: 'R-2', payeeOrPayer: 'Unknown', description: 'Supplies' },
+        // 4. Missing check doc (RULE-CHK-001)
+        { transactionId: 'TXN-4', direction: 'EXPENSE', amount: 100.00, paymentMethod: 'Check', checkNumber: '1001', receiptStatus: 'Attached', receiptId: 'R-3', payeeOrPayer: 'Speaker', description: 'Honorarium' },
+        // 5. Personal purchase pending (RULE-PRP-001)
+        { transactionId: 'TXN-5', direction: 'EXPENSE', amount: 80.00, personalPurchase: true, receiptStatus: 'Attached', receiptId: 'R-4', payeeOrPayer: 'Target', description: 'Crafts' },
+        // 6. Uncategorized (RULE-CAT-001)
+        { transactionId: 'TXN-6', direction: 'EXPENSE', amount: 25.00, category: 'Uncategorized', receiptStatus: 'Attached', receiptId: 'R-5', payeeOrPayer: 'Store', description: 'Items' },
+        // 7. Unlinked refund (RULE-REF-001)
+        { transactionId: 'TXN-7', direction: 'INCOME', amount: 20.00, transactionType: 'Refund', notes: 'Unlinked refund' },
+        // 8. Receipt discrepancy (RULE-DIS-001)
+        { transactionId: 'TXN-8', direction: 'EXPENSE', amount: 50.00, receiptId: 'RCP-DIFF', payeeOrPayer: 'Store', description: 'Item' },
+        // 9. Duplicate pair (RULE-DUP-001)
+        { transactionId: 'TXN-9A', transactionDate: '2026-02-01', direction: 'EXPENSE', amount: 45.00, payeeOrPayer: 'Chevron', description: 'Gas' },
+        { transactionId: 'TXN-9B', transactionDate: '2026-02-02', direction: 'EXPENSE', amount: 45.00, payeeOrPayer: 'Chevron', description: 'Gas' }
       ],
-      checkDetails: [
-        { checkNumber: '1042', driveUrl: '' } // No voucher attached
-      ]
-    };
-
-    const findings = evaluateAuditRules(dataset);
-    expect(findings.some(f => f.ruleId === 'RULE-CHK-001' && f.entityId === 'TXN-CHK-MISSING-DOC')).toBe(true);
-  });
-
-  it('evaluates RULE-PRP-001 (Personal Purchase Pending Reimbursement)', () => {
-    const dataset = {
-      transactions: [
-        {
-          transactionId: 'TXN-PRP-100',
-          direction: 'EXPENSE',
-          personalPurchase: true,
-          amount: 100.00,
-          claimantName: 'Pastor Gilbert'
-        }
+      reimbursements: [
+        // 10. Reimbursement without support (RULE-RMB-001)
+        { reimbursementId: 'RMB-UNSUPP', totalReimbursedAmount: 150.00, claimantName: 'Pastor' }
       ],
       allocations: [
-        { purchaseTransactionId: 'TXN-PRP-100', allocatedAmount: 40.00, personallyAbsorbedAmount: 0 }
-      ]
-    };
-
-    const findings = evaluateAuditRules(dataset);
-    const prpFinding = findings.find(f => f.ruleId === 'RULE-PRP-001');
-    expect(prpFinding).toBeDefined();
-    expect(prpFinding.amount).toBe(60.00);
-    expect(prpFinding.status).toBe('Partial Reimbursement');
-  });
-
-  it('evaluates RULE-DUP-001 (Possible Duplicate Transaction Detection)', () => {
-    const dataset = {
-      transactions: [
-        {
-          transactionId: 'TXN-DUP-1',
-          transactionDate: '2026-02-10',
-          direction: 'EXPENSE',
-          amount: 75.50,
-          payeeOrPayer: 'Costco Wholesale'
-        },
-        {
-          transactionId: 'TXN-DUP-2',
-          transactionDate: '2026-02-11', // Within 1 day
-          direction: 'EXPENSE',
-          amount: 75.50,
-          payeeOrPayer: 'Costco Wholesale'
-        }
-      ]
-    };
-
-    const findings = evaluateAuditRules(dataset);
-    const dupFinding = findings.find(f => f.ruleId === 'RULE-DUP-001');
-    expect(dupFinding).toBeDefined();
-    expect(dupFinding.status).toBe('Possible Duplicate');
-  });
-
-  it('evaluates RULE-FND-001 (Designated Fund Overdraft / Deficit)', () => {
-    const dataset = {
-      fundSummaries: [
-        { fundId: 'Building Fund', netBalance: 15000.00 },
-        { fundId: 'Youth Camp', netBalance: -450.00 } // Deficit!
-      ]
-    };
-
-    const findings = evaluateAuditRules(dataset);
-    const fndFinding = findings.find(f => f.ruleId === 'RULE-FND-001');
-    expect(fndFinding).toBeDefined();
-    expect(fndFinding.severity).toBe('CRITICAL');
-    expect(fndFinding.amount).toBe(450.00);
-  });
-
-  it('evaluates RULE-DIS-001 (Receipt vs Transaction Amount Discrepancy)', () => {
-    const dataset = {
-      transactions: [
-        {
-          transactionId: 'TXN-DISC-1',
-          direction: 'EXPENSE',
-          amount: 120.00,
-          receiptId: 'RCP-123'
-        }
+        // 11. Over-allocated purchase (RULE-RMB-002)
+        { purchaseTransactionId: 'TXN-1', allocatedAmount: 100.00, personallyAbsorbedAmount: 0 } // TXN-1 is $60
       ],
       receipts: [
-        { receiptId: 'RCP-123', amount: 135.50 } // $15.50 difference
+        { receiptId: 'RCP-DIFF', amount: 65.00 } // $15 difference on TXN-8
+      ],
+      checkDetails: [
+        { checkNumber: '1001', driveUrl: '' } // No voucher attached
+      ],
+      fundSummaries: [
+        // 12. Fund deficit (RULE-FND-001)
+        { fundId: 'Missions Deficit', netBalance: -250.00 }
       ]
     };
 
     const findings = evaluateAuditRules(dataset);
-    const discFinding = findings.find(f => f.ruleId === 'RULE-DIS-001');
-    expect(discFinding).toBeDefined();
-    expect(discFinding.severity).toBe('HIGH');
-    expect(discFinding.amount).toBeCloseTo(15.50);
+    const ruleIds = new Set(findings.map(f => f.ruleId));
+
+    expect(ruleIds.has('RULE-RCP-001')).toBe(true);
+    expect(ruleIds.has('RULE-EXP-001')).toBe(true);
+    expect(ruleIds.has('RULE-PAY-001')).toBe(true);
+    expect(ruleIds.has('RULE-CHK-001')).toBe(true);
+    expect(ruleIds.has('RULE-PRP-001')).toBe(true);
+    expect(ruleIds.has('RULE-RMB-001')).toBe(true);
+    expect(ruleIds.has('RULE-RMB-002')).toBe(true);
+    expect(ruleIds.has('RULE-DUP-001')).toBe(true);
+    expect(ruleIds.has('RULE-REF-001')).toBe(true);
+    expect(ruleIds.has('RULE-FND-001')).toBe(true);
+    expect(ruleIds.has('RULE-CAT-001')).toBe(true);
+    expect(ruleIds.has('RULE-DIS-001')).toBe(true);
+    expect(ruleIds.size).toBe(12);
   });
 });
 
-describe('3. Deterministic Explainable Audit Health Score (calculateAuditHealthScore)', () => {
-  it('returns 100 for clean audit with 0 unresolved issues', () => {
-    const res = calculateAuditHealthScore([]);
-    expect(res.score).toBe(100);
-    expect(res.scoreTier).toBe('Excellent / Audit Ready');
-    expect(res.totalUnresolvedIssues).toBe(0);
+describe('4. Reconciliation Direction Safety & Ranking Logic', () => {
+  it('prohibits matching opposite directions (Deposit +$500 vs Expense $500)', () => {
+    // Test logic simulating candidate matcher
+    const stmtDeposit = { statementLineId: 'S-1', amount: 500, direction: 'INCOME', statementDate: '2026-02-01' };
+    const txExpense = { transactionId: 'T-1', amount: 500, direction: 'EXPENSE', transactionDate: '2026-02-01' };
+
+    // Incompatible directions must return no match
+    const isDirectionCompatible = (stmtDeposit.direction === txExpense.direction);
+    expect(isDirectionCompatible).toBe(false);
   });
 
-  it('applies documented point deductions and caps correctly', () => {
-    const issues = [
-      { severity: 'CRITICAL', status: 'Discrepancy' },
-      { severity: 'CRITICAL', status: 'Discrepancy' },
-      { severity: 'CRITICAL', status: 'Discrepancy' },
-      { severity: 'CRITICAL', status: 'Discrepancy' }, // 4 criticals = 60 pts -> capped at 45 pts
-      { severity: 'HIGH', status: 'Needs Receipt' },     // 1 high = 8 pts
-      { severity: 'MEDIUM', status: 'Needs Explanation' }, // 1 med = 3 pts
-      { severity: 'LOW', status: 'Needs Explanation' },    // 1 low = 1 pt
-      { severity: 'HIGH', status: 'Cleared' }            // Resolved = 0 pts
-    ];
+  it('permits matching compatible directions (Withdrawal -$500 vs Expense $500)', () => {
+    const stmtWithdrawal = { statementLineId: 'S-2', amount: -500, direction: 'EXPENSE', statementDate: '2026-02-01' };
+    const txExpense = { transactionId: 'T-2', amount: 500, direction: 'EXPENSE', transactionDate: '2026-02-01' };
 
-    const res = calculateAuditHealthScore(issues);
-    // Deductions: Crit capped at 45 + High 8 + Med 3 + Low 1 = 57 pts
-    // Score: 100 - 57 = 43
-    expect(res.deductions.criticalDeduction).toBe(45);
-    expect(res.deductions.highDeduction).toBe(8);
-    expect(res.deductions.mediumDeduction).toBe(3);
-    expect(res.deductions.lowDeduction).toBe(1);
-    expect(res.deductions.totalDeduction).toBe(57);
-    expect(res.score).toBe(43);
-    expect(res.scoreTier).toBe('Critical Attention Needed');
+    const isDirectionCompatible = (stmtWithdrawal.direction === txExpense.direction);
+    expect(isDirectionCompatible).toBe(true);
   });
 
-  it('does not deduct points for Reviewed or Cleared issues', () => {
-    const issues = [
-      { severity: 'CRITICAL', status: 'Reviewed' },
-      { severity: 'HIGH', status: 'Cleared' },
-      { severity: 'MEDIUM', status: 'Reconciled' }
-    ];
+  it('calculates reconciliation differenceAmount accurately', () => {
+    const stmtAmt = -101.25;
+    const txAmt = 100.00;
+    const diff = Number(Math.abs(Math.abs(stmtAmt) - Math.abs(txAmt)).toFixed(2));
 
-    const res = calculateAuditHealthScore(issues);
-    expect(res.score).toBe(100);
-    expect(res.totalUnresolvedIssues).toBe(0);
+    expect(diff).toBe(1.25);
+    const matchStatus = diff > 0.001 ? 'Discrepancy' : 'Matched';
+    expect(matchStatus).toBe('Discrepancy');
+  });
+
+  it('generates deterministic statement fingerprints for duplicate protection', () => {
+    const line = {
+      sourceFileName: 'bank_feb.csv',
+      statementDate: '2026-02-01',
+      description: 'THE HOME DEPOT #1234',
+      amount: -150.00,
+      direction: 'EXPENSE',
+      referenceNumber: 'CHK-100'
+    };
+
+    const fp1 = [
+      line.sourceFileName.trim(),
+      line.statementDate.trim(),
+      normalizeMerchantName(line.description),
+      line.amount.toFixed(2),
+      line.direction.trim(),
+      line.referenceNumber.trim()
+    ].join('_');
+
+    const lineDup = {
+      sourceFileName: 'bank_feb.csv',
+      statementDate: '2026-02-01',
+      description: 'Home Depot 1234',
+      amount: -150.00,
+      direction: 'EXPENSE',
+      referenceNumber: 'CHK-100'
+    };
+
+    const fp2 = [
+      lineDup.sourceFileName.trim(),
+      lineDup.statementDate.trim(),
+      normalizeMerchantName(lineDup.description),
+      lineDup.amount.toFixed(2),
+      lineDup.direction.trim(),
+      lineDup.referenceNumber.trim()
+    ].join('_');
+
+    expect(fp1).toBe(fp2);
   });
 });

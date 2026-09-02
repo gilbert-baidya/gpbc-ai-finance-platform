@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../auth/AuthContext';
 import { auditApi } from '../api/auditApi';
+import { parseStatementCsv } from '../utils/csvParser';
 
 export const AuditCenter = () => {
   const { user } = useAuth();
@@ -133,34 +134,37 @@ export const AuditCenter = () => {
     if (!rawCsvText.trim()) return;
     try {
       setStagingCsv(true);
-      // Simple CSV parsing: Date, Description, Amount
-      const lines = rawCsvText.trim().split('\n');
-      const parsedLines = [];
-      lines.forEach((line) => {
-        const parts = line.split(',').map(s => s.trim().replace(/^["']|["']$/g, ''));
-        if (parts.length >= 3 && !isNaN(Number(parts[2]))) {
-          parsedLines.push({
-            date: parts[0],
-            description: parts[1],
-            amount: Number(parts[2]),
-            statementType: statementType
-          });
-        }
-      });
+      const parseResult = parseStatementCsv(rawCsvText, statementType);
 
-      if (parsedLines.length === 0) {
-        alert('Could not parse any valid statement rows. Expected format: YYYY-MM-DD, Description, Amount');
+      if (parseResult.errors.length > 0) {
+        const errorSummary = parseResult.errors
+          .slice(0, 3)
+          .map(err => `Row ${err.rowNumber}: ${err.reason}`)
+          .join('\n');
+        const proceed = confirm(
+          `CSV parser found ${parseResult.errors.length} invalid row(s):\n\n${errorSummary}\n\nDo you want to stage the ${parseResult.validLines.length} valid row(s)?`
+        );
+        if (!proceed) {
+          setStagingCsv(false);
+          return;
+        }
+      }
+
+      if (parseResult.validLines.length === 0) {
+        alert('Could not parse any valid statement rows. Check CSV formatting.');
+        setStagingCsv(false);
         return;
       }
 
-      await auditApi.stageBankStatementLines({
-        statementLines: parsedLines,
+      const res = await auditApi.stageBankStatementLines({
+        statementLines: parseResult.validLines,
         sourceFileName: statementType + '_Import.csv'
       });
 
       setRawCsvText('');
       loadReconciliation();
-      alert(`Successfully staged ${parsedLines.length} statement rows for reconciliation.`);
+      const dupMsg = res.duplicateCount > 0 ? ` (${res.duplicateCount} duplicates skipped)` : '';
+      alert(`Successfully staged ${res.count || parseResult.validLines.length} statement rows for reconciliation${dupMsg}.`);
     } catch (err) {
       alert(err.message || 'Failed to stage statement lines');
     } finally {
@@ -478,10 +482,14 @@ export const AuditCenter = () => {
                               borderRadius: '4px',
                               fontSize: '0.75rem',
                               fontWeight: 700,
-                              background: isResolved ? '#DCFCE7' : '#F1F5F9',
-                              color: isResolved ? '#166534' : 'var(--slate-blue)'
+                              background: issue.status === 'Cleared' || issue.status === 'Reconciled'
+                                ? '#DCFCE7'
+                                : (issue.status === 'Reviewed' ? '#FEF3C7' : '#F1F5F9'),
+                              color: issue.status === 'Cleared' || issue.status === 'Reconciled'
+                                ? '#166534'
+                                : (issue.status === 'Reviewed' ? '#92400E' : 'var(--slate-blue)')
                             }}>
-                              {issue.status}
+                              {issue.status === 'Reviewed' ? 'Reviewed (Active)' : issue.status}
                             </span>
                           </td>
                           <td style={{ padding: '12px 16px', fontSize: '0.8rem', color: 'var(--warm-gray)', maxWidth: '280px' }}>
@@ -717,8 +725,8 @@ export const AuditCenter = () => {
                   onChange={(e) => setResolveStatus(e.target.value)}
                   required
                 >
-                  <option value="Reviewed">Reviewed (Legitimate exception confirmed)</option>
-                  <option value="Cleared">Cleared (Corrective documentation attached)</option>
+                  <option value="Reviewed">Reviewed — investigated, still tracked</option>
+                  <option value="Cleared">Cleared — documentation attached / corrected</option>
                 </select>
               </div>
 
