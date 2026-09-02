@@ -542,15 +542,16 @@ export const AuditCenter = () => {
 
             <form onSubmit={handleStageCsv}>
               <div className="form-group" style={{ marginBottom: '12px' }}>
-                <label htmlFor={statementTypeSelectId} className="form-label" style={{ fontSize: '0.8rem' }}>Statement Account</label>
+                <label htmlFor={statementTypeSelectId} className="form-label" style={{ fontSize: '0.8rem' }}>Statement Account & Format</label>
                 <select
                   id={statementTypeSelectId}
                   className="form-control"
                   value={statementType}
                   onChange={(e) => setStatementType(e.target.value)}
                 >
-                  <option value="Bank Checking">Bank Checking Statement</option>
-                  <option value="Capital One Card">Capital One Card Statement</option>
+                  <option value="Bank Checking">Bank Checking (Deposits +, Withdrawals -)</option>
+                  <option value="Capital One Card (Debits Positive)">Capital One Card (Charges +, Credits -)</option>
+                  <option value="Capital One Card (Charges Negative)">Capital One Card (Charges -, Payments +)</option>
                 </select>
               </div>
 

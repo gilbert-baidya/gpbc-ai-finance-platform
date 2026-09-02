@@ -179,3 +179,28 @@
   - Production data: 100% untouched.
   - Production writes: Disarmed (`GPBC_PRODUCTION_WRITES_ENABLED=false`).
   - Sandbox status: `LIVE SANDBOX INTEGRATION PENDING`.
+
+---
+
+## 7. Final Accounting Consistency Gate
+
+- **Date Completed**: 2026-09-01
+- **Feature Branch**: `feature/gpbc-finance-desk-refactor`
+- **Actions Completed**:
+  - Unified canonical purchase balance helper `calculatePurchaseBalance` across `Reimbursements.gs` and `Audit.gs` with formula: $\text{netCovered} = \text{allocated} + \text{absorbed} + \text{refundAdj}$.
+  - Reimbursement remaining balance derived accurately including refund adjustments.
+  - Reimbursement cash payout cap strictly enforced in `addReimbursementAllocation()`.
+  - `RULE-RMB-001` detects both under-supported and over-allocated reimbursement payouts.
+  - Server-side direct reconciliation transaction-reuse protection in `matchReconciliationLine()`.
+  - Discrepancy reconciliation sets transaction status to `Discrepancy` (not `Reconciled`).
+  - Explicit sign normalization for Bank Checking and Capital One Card statements in `src/utils/csvParser.ts` and `src/pages/AuditCenter.jsx`.
+  - Server-side statement line validation in `stageBankStatementLines()`.
+  - `LockService` acquisition explicitly checked and verified.
+  - `refundTransactionId` added to schema and types.
+- **Verification**:
+  - Automated tests: 66/66 passing across 7 test suites.
+  - TypeScript: 0 errors (`tsc --noEmit`).
+  - Build: Vite production build passed cleanly in 4.62s.
+  - Production data: 100% untouched.
+  - Production writes: Disarmed (`GPBC_PRODUCTION_WRITES_ENABLED=false`).
+  - Sandbox status: `LIVE SANDBOX INTEGRATION PENDING`.

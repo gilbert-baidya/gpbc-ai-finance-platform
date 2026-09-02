@@ -4,6 +4,40 @@
  *************************************************/
 
 /**
+ * Shared canonical purchase balance and allocation calculation helper
+ * Invariant: netCovered = allocatedAmount + personallyAbsorbedAmount + refundCreditAdjustment
+ */
+function calculatePurchaseBalance(purchaseAmount, allocations) {
+  purchaseAmount = Number(purchaseAmount || 0);
+  allocations = Array.isArray(allocations) ? allocations : [];
+  let totalAllocated = 0;
+  let totalAbsorbed = 0;
+  let totalRefundAdj = 0;
+
+  allocations.forEach(function(a) {
+    totalAllocated += Number(a.allocatedAmount || 0);
+    totalAbsorbed += Number(a.personallyAbsorbedAmount || 0);
+    totalRefundAdj += Number(a.refundCreditAdjustment || 0);
+  });
+
+  const netCovered = totalAllocated + totalAbsorbed + totalRefundAdj;
+  const remainingBalance = Number(Math.max(0, purchaseAmount - netCovered).toFixed(2));
+  const isOverAllocated = (netCovered > purchaseAmount + 0.01);
+  const overageAmount = isOverAllocated ? Number((netCovered - purchaseAmount).toFixed(2)) : 0;
+
+  return {
+    purchaseAmount: purchaseAmount,
+    totalAllocated: totalAllocated,
+    totalAbsorbed: totalAbsorbed,
+    totalRefundAdjustment: totalRefundAdj,
+    netCovered: netCovered,
+    remainingBalance: remainingBalance,
+    isOverAllocated: isOverAllocated,
+    overageAmount: overageAmount
+  };
+}
+
+/**
  * Retrieves all reimbursements and their linked allocations
  */
 function getReimbursements() {
@@ -59,7 +93,8 @@ function getReimbursements() {
  * 3. Ordinary church-card, church-check, or income disbursements cannot be reimbursed
  * 4. Allocated & absorbed amounts are finite non-negative numbers
  * 5. Refund adjustments are finite non-negative numbers
- * 6. Sum of (priorAllocated + pendingAllocated + currentAllocated + currentAbsorbed - adjustments) <= originalPurchaseAmount
+ * 6. refundTransactionId is verified if supplied
+ * 7. Sum of (priorAllocated + pendingAllocated + currentAllocated + currentAbsorbed + adjustments) <= originalPurchaseAmount
  */
 function validateAndPrepareAllocation(alc, db, inFlightAllocationsMap) {
   alc = alc || {};
@@ -131,6 +166,14 @@ function validateAndPrepareAllocation(alc, db, inFlightAllocationsMap) {
     throw new Error("refundCreditAdjustment must be a finite non-negative number for purchase " + alc.purchaseTransactionId);
   }
 
+  // Scaffolding: Verify refundTransactionId exists if provided
+  if (alc.refundTransactionId) {
+    const matchedRefundTx = txData.find(function(r) { return r[pIdx] === alc.refundTransactionId; });
+    if (!matchedRefundTx) {
+      throw new Error("Referenced refundTransactionId not found: " + alc.refundTransactionId);
+    }
+  }
+
   // Calculate prior historical allocations from Reimbursement_Allocations tab
   let priorAllocated = 0;
   const alcSheet = db.getSheetByName("Reimbursement_Allocations");
@@ -147,19 +190,19 @@ function validateAndPrepareAllocation(alc, db, inFlightAllocationsMap) {
         const priorAmt = Number(r[amtIdx] || 0);
         const priorAbs = Number(r[absIdx] || 0);
         const priorRef = Number(r[refIdx] || 0);
-        priorAllocated += (priorAmt + priorAbs - priorRef);
+        priorAllocated += (priorAmt + priorAbs + priorRef);
       }
     });
   }
 
   // In-flight allocations within same request batch
   const inFlightPrior = (inFlightAllocationsMap && inFlightAllocationsMap[alc.purchaseTransactionId]) || 0;
-  const totalAllocatedForPurchase = priorAllocated + inFlightPrior + allocAmt + absorbAmt - refundAdj;
+  const totalCoveredForPurchase = priorAllocated + inFlightPrior + allocAmt + absorbAmt + refundAdj;
 
-  if (totalAllocatedForPurchase > purchaseAmount + 0.01) {
+  if (totalCoveredForPurchase > purchaseAmount + 0.01) {
     throw new Error(
       "Allocation overage for purchase " + alc.purchaseTransactionId + ": Total allocated ($" +
-      totalAllocatedForPurchase.toFixed(2) + ") exceeds purchase cost ($" + purchaseAmount.toFixed(2) + ")"
+      totalCoveredForPurchase.toFixed(2) + ") exceeds purchase cost ($" + purchaseAmount.toFixed(2) + ")"
     );
   }
 
@@ -169,6 +212,7 @@ function validateAndPrepareAllocation(alc, db, inFlightAllocationsMap) {
     allocatedAmount: allocAmt,
     personallyAbsorbedAmount: absorbAmt,
     refundCreditAdjustment: refundAdj,
+    refundTransactionId: alc.refundTransactionId || "",
     notes: alc.notes || ""
   };
 }
@@ -230,7 +274,7 @@ function addReimbursement(p, userEmail) {
       validatedAllocations.push(validated);
 
       inFlightMap[validated.purchaseTransactionId] = (inFlightMap[validated.purchaseTransactionId] || 0) +
-        (validated.allocatedAmount + validated.personallyAbsorbedAmount - validated.refundCreditAdjustment);
+        (validated.allocatedAmount + validated.personallyAbsorbedAmount + validated.refundCreditAdjustment);
 
       sumAllocated += validated.allocatedAmount;
       sumAbsorbed += validated.personallyAbsorbedAmount;
@@ -254,13 +298,19 @@ function addReimbursement(p, userEmail) {
     ? validatedAllocations.reduce(function(sum, a) { return sum + a.personallyAbsorbedAmount; }, 0)
     : suppliedAbsorbedAmt;
 
-  const remainingAmt = Number(Math.max(0, purchaseAmt - reimbursedAmt - absorbedAmt).toFixed(2));
+  const refundAmt = validatedAllocations.length > 0
+    ? validatedAllocations.reduce(function(sum, a) { return sum + a.refundCreditAdjustment; }, 0)
+    : 0;
 
-  // Invariant: Reimbursed + Absorbed cannot exceed purchase
-  if (reimbursedAmt + absorbedAmt > purchaseAmt + 0.01) {
+  // Canonical remaining reimbursable calculation accounts for reimbursed + absorbed + refund adjustments
+  const totalCovered = reimbursedAmt + absorbedAmt + refundAmt;
+  const remainingAmt = Number(Math.max(0, purchaseAmt - totalCovered).toFixed(2));
+
+  // Invariant: Total covered cannot exceed purchase cost
+  if (totalCovered > purchaseAmt + 0.01) {
     throw new Error(
-      "Reimbursement invariant violation: Total reimbursed ($" + reimbursedAmt + 
-      ") + absorbed ($" + absorbedAmt + ") exceeds purchase cost ($" + purchaseAmt + ")"
+      "Reimbursement invariant violation: Total resolved ($" + totalCovered.toFixed(2) + 
+      ") exceeds purchase cost ($" + purchaseAmt.toFixed(2) + ")"
     );
   }
 
@@ -279,9 +329,10 @@ function addReimbursement(p, userEmail) {
   const rmbDate = p.reimbursementDate || nowIso.split("T")[0];
 
   let status = "Approved";
-  if (remainingAmt > 0 && reimbursedAmt > 0) status = "Partially Reimbursed";
-  else if (remainingAmt === 0 && reimbursedAmt > 0) status = "Fully Reimbursed";
-  else if (reimbursedAmt === 0 && absorbedAmt > 0) status = "Approved";
+  if (remainingAmt === 0 && reimbursedAmt > 0) status = "Fully Reimbursed";
+  else if (remainingAmt === 0 && reimbursedAmt === 0) status = "Approved";
+  else if (remainingAmt > 0 && reimbursedAmt > 0) status = "Partially Reimbursed";
+  else if (reimbursedAmt === 0 && (absorbedAmt > 0 || refundAmt > 0)) status = "Approved";
 
   // Append Reimbursement Row
   rmbSheet.appendRow([
@@ -313,6 +364,7 @@ function addReimbursement(p, userEmail) {
       alc.allocatedAmount,
       alc.personallyAbsorbedAmount,
       alc.refundCreditAdjustment,
+      alc.refundTransactionId || "",
       alc.notes,
       actor,
       nowIso
@@ -354,7 +406,10 @@ function addReimbursement(p, userEmail) {
 
 /**
  * Adds an individual reimbursement allocation linking a reimbursement to a purchase
- * Enforces: Reimbursement MUST exist in Reimbursements tab (No Orphan Allocations)
+ * Enforces:
+ * 1. Reimbursement exists in Reimbursements tab (No Orphan Allocations)
+ * 2. Purchase exists and is eligible for reimbursement
+ * 3. Reimbursement cash payout cap is strictly enforced
  */
 function addReimbursementAllocation(p, userEmail) {
   p = p || {};
@@ -370,7 +425,7 @@ function addReimbursementAllocation(p, userEmail) {
     alcSheet = db.getSheetByName("Reimbursement_Allocations");
   }
 
-  // A1: Verify Reimbursement exists in Reimbursements tab to prevent orphan allocations
+  // 1. Verify Reimbursement exists in Reimbursements tab
   if (rmbSheet.getLastRow() <= 1) {
     throw new Error("Reimbursement not found: " + p.reimbursementId);
   }
@@ -378,14 +433,40 @@ function addReimbursementAllocation(p, userEmail) {
   const rData = rmbSheet.getDataRange().getValues();
   const rHeaders = rData.shift();
   const rIdCol = rHeaders.indexOf("reimbursementId");
+  const rAmtCol = rHeaders.indexOf("totalReimbursedAmount");
   const matchedRmb = rData.find(function(r) { return r[rIdCol] === p.reimbursementId; });
 
   if (!matchedRmb) {
     throw new Error("Reimbursement not found: " + p.reimbursementId);
   }
 
-  // Authoritative validation against purchase transaction
+  const rmbTotalPayout = Number(matchedRmb[rAmtCol] || 0);
+
+  // 2. Authoritative validation against purchase transaction
   const validated = validateAndPrepareAllocation(p, db, null);
+
+  // 3. Enforce Reimbursement Payout Cap
+  let priorAllocatedPayout = 0;
+  if (alcSheet.getLastRow() > 1) {
+    const aData = alcSheet.getDataRange().getValues();
+    const aHeaders = aData.shift();
+    const rIdIdx = aHeaders.indexOf("reimbursementId");
+    const amtIdx = aHeaders.indexOf("allocatedAmount");
+
+    aData.forEach(function(row) {
+      if (row[rIdIdx] === p.reimbursementId) {
+        priorAllocatedPayout += Number(row[amtIdx] || 0);
+      }
+    });
+  }
+
+  if (priorAllocatedPayout + validated.allocatedAmount > rmbTotalPayout + 0.01) {
+    throw new Error(
+      "Reimbursement payout allocation exceeds total payout: Total allocated ($" + 
+      (priorAllocatedPayout + validated.allocatedAmount).toFixed(2) + 
+      ") exceeds reimbursement cash payout ($" + rmbTotalPayout.toFixed(2) + ")"
+    );
+  }
 
   const alcId = "ALC-" + Date.now();
   const nowIso = new Date().toISOString();
@@ -397,6 +478,7 @@ function addReimbursementAllocation(p, userEmail) {
     validated.allocatedAmount,
     validated.personallyAbsorbedAmount,
     validated.refundCreditAdjustment,
+    validated.refundTransactionId || "",
     validated.notes,
     userEmail || "System",
     nowIso
@@ -407,6 +489,7 @@ function addReimbursementAllocation(p, userEmail) {
 
 if (typeof module !== "undefined" && module.exports) {
   module.exports = {
+    calculatePurchaseBalance,
     getReimbursements,
     addReimbursement,
     addReimbursementAllocation,

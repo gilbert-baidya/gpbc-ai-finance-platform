@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { parseStatementCsv, parseCsvLine } from './csvParser';
 
-describe('Standards-Aware CSV Parser (csvParser.ts)', () => {
+describe('Standards-Aware CSV Parser & Sign Normalization (csvParser.ts)', () => {
   it('parses basic CSV lines correctly', () => {
     const res = parseCsvLine('2026-02-01,Home Depot,-145.20');
     expect(res).toEqual(['2026-02-01', 'Home Depot', '-145.20']);
@@ -17,7 +17,7 @@ describe('Standards-Aware CSV Parser (csvParser.ts)', () => {
     expect(res).toEqual(['2026-02-01', 'Vendor "Special" Order', '-200.00']);
   });
 
-  it('parses full statement text and skips header row', () => {
+  it('parses Bank Checking format (Deposits +, Withdrawals -)', () => {
     const csv = `Date,Description,Amount,Reference\n2026-02-01,"Home Depot #1234",-150.00,CHK-100\n2026-02-02,Sunday Offering,1200.00,DEP-1`;
     const res = parseStatementCsv(csv, 'Bank Checking');
 
@@ -31,6 +31,22 @@ describe('Standards-Aware CSV Parser (csvParser.ts)', () => {
     expect(res.validLines[1].amount).toBe(1200.00);
     expect(res.validLines[1].direction).toBe('INCOME');
     expect(res.errors.length).toBe(0);
+  });
+
+  it('normalizes Capital One Card format where Debits/Charges are Positive', () => {
+    const csv = `Date,Description,Amount\n2026-02-01,Home Depot Purchase,45.20\n2026-02-05,Card Payment Received,-500.00`;
+    const res = parseStatementCsv(csv, 'Capital One Card (Debits Positive)');
+
+    expect(res.validLines.length).toBe(2);
+    // Charge (+45.20) normalized to EXPENSE with -45.20 amount
+    expect(res.validLines[0].description).toBe('Home Depot Purchase');
+    expect(res.validLines[0].amount).toBe(-45.20);
+    expect(res.validLines[0].direction).toBe('EXPENSE');
+
+    // Payment (-500.00) normalized to INCOME with +500.00 amount
+    expect(res.validLines[1].description).toBe('Card Payment Received');
+    expect(res.validLines[1].amount).toBe(500.00);
+    expect(res.validLines[1].direction).toBe('INCOME');
   });
 
   it('catches and reports invalid rows with row numbers', () => {

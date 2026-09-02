@@ -73,6 +73,20 @@ export interface ReimbursementRecord {
   notes?: string;
 }
 
+export interface ReimbursementAllocation {
+  allocationId?: string;
+  reimbursementId?: string;
+  purchaseTransactionId: string;
+  purchaseAmount?: number;
+  allocatedAmount: number;
+  personallyAbsorbedAmount: number;
+  refundCreditAdjustment?: number;
+  refundTransactionId?: string;
+  notes?: string;
+  createdBy?: string;
+  createdAt?: string;
+}
+
 export interface ReceiptRecord {
   receiptId: string;
   date: string;

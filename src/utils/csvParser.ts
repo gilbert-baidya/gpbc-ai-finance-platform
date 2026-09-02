@@ -1,7 +1,13 @@
 /*************************************************
  * GPBC Finance Desk — csvParser.ts
- * Standards-Aware CSV Parser for Bank & Card Statements
+ * Standards-Aware CSV Parser for Bank & Card Statements with Explicit Sign Normalization
  *************************************************/
+
+export type StatementFormatType =
+  | 'Bank Checking'
+  | 'Capital One Card (Debits Positive)'
+  | 'Capital One Card (Charges Negative)'
+  | 'Generic Card Statement';
 
 export interface ParsedStatementLine {
   date: string;
@@ -49,9 +55,12 @@ export function parseCsvLine(line: string): string[] {
 }
 
 /**
- * Parses raw CSV string into normalized statement lines with row-level validation
+ * Parses raw CSV string into normalized statement lines with explicit sign normalization and row validation
  */
-export function parseStatementCsv(csvText: string, defaultStatementType = 'Bank Checking'): ParseCsvResult {
+export function parseStatementCsv(
+  csvText: string,
+  statementType: StatementFormatType | string = 'Bank Checking'
+): ParseCsvResult {
   if (!csvText || typeof csvText !== 'string') {
     return { validLines: [], errors: [], totalRowsProcessed: 0 };
   }
@@ -75,7 +84,7 @@ export function parseStatementCsv(csvText: string, defaultStatementType = 'Bank 
       isFirstNonEmpty = false;
       const firstCol = fields[0]?.toLowerCase() || '';
       const secondCol = fields[1]?.toLowerCase() || '';
-      if (firstCol.includes('date') || secondCol.includes('desc') || secondCol.includes('payee')) {
+      if (firstCol.includes('date') || secondCol.includes('desc') || secondCol.includes('payee') || secondCol.includes('trans')) {
         return; // Skip header row
       }
     }
@@ -129,15 +138,37 @@ export function parseStatementCsv(csvText: string, defaultStatementType = 'Bank 
       return;
     }
 
-    const direction: 'INCOME' | 'EXPENSE' = numAmt > 0 ? 'INCOME' : 'EXPENSE';
+    // Explicit Sign & Direction Normalization
+    let normalizedAmount = numAmt;
+    let direction: 'INCOME' | 'EXPENSE' = 'EXPENSE';
+
+    if (statementType === 'Capital One Card (Debits Positive)') {
+      // Charges are exported as positive (+45.20), payments/credits as negative (-500.00)
+      if (numAmt > 0) {
+        direction = 'EXPENSE';
+        normalizedAmount = -Math.abs(numAmt);
+      } else {
+        direction = 'INCOME';
+        normalizedAmount = Math.abs(numAmt);
+      }
+    } else {
+      // Standard Bank Checking or Charges Negative: Negative = EXPENSE, Positive = INCOME
+      if (numAmt < 0) {
+        direction = 'EXPENSE';
+        normalizedAmount = -Math.abs(numAmt);
+      } else {
+        direction = 'INCOME';
+        normalizedAmount = Math.abs(numAmt);
+      }
+    }
 
     validLines.push({
       date: isoDate,
       description: rawDesc.trim(),
-      amount: numAmt,
+      amount: normalizedAmount,
       direction,
       referenceNumber: rawRef.trim(),
-      statementType: defaultStatementType
+      statementType
     });
   });
 

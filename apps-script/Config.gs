@@ -108,6 +108,7 @@ const SCHEMA_DEFINITIONS = {
     "allocatedAmount",
     "personallyAbsorbedAmount",
     "refundCreditAdjustment",
+    "refundTransactionId",
     "notes",
     "createdBy",
     "createdAt"

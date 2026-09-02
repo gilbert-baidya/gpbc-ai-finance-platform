@@ -73,7 +73,7 @@ function normalizeMerchantName(name) {
 
 /**
  * Shared canonical purchase balance and allocation calculation helper
- * Correctly accounts for refund credit adjustments as a settlement offset
+ * Invariant: netCovered = allocatedAmount + personallyAbsorbedAmount + refundCreditAdjustment
  */
 function calculatePurchaseBalance(purchaseAmount, allocations) {
   purchaseAmount = Number(purchaseAmount || 0);
@@ -355,25 +355,33 @@ function evaluateAuditRules(data) {
     const rAmt = Number(r.totalReimbursedAmount || 0);
     const rAllocs = allocationsByRmb[r.reimbursementId] || [];
     const totalAllocated = rAllocs.reduce(function(sum, a) { return sum + Number(a.allocatedAmount || 0); }, 0);
+    const diff = Number(Math.abs(rAmt - totalAllocated).toFixed(2));
 
-    if (rAmt > 0 && (rAllocs.length === 0 || Math.abs(totalAllocated - rAmt) > 0.01)) {
+    if (rAmt > 0 && (rAllocs.length === 0 || diff > 0.01)) {
+      const isOverAllocated = (totalAllocated > rAmt);
       findings.push({
         ruleId: "RULE-RMB-001",
-        severity: "HIGH",
-        status: "Pending Match",
+        severity: isOverAllocated ? "CRITICAL" : "HIGH",
+        status: isOverAllocated ? "Discrepancy" : "Pending Match",
         entityType: "Reimbursement",
         entityId: r.reimbursementId,
-        title: "Reimbursement payout lacks supporting purchase allocations",
-        description: "Reimbursement " + r.reimbursementId + " for $" + rAmt.toFixed(2) + " to " + (r.claimantName || "Claimant") + " has only $" + totalAllocated.toFixed(2) + " in allocated purchases.",
-        amount: Math.max(0, rAmt - totalAllocated),
-        recommendedAction: "Link reimbursement to underlying personal-card expense transactions.",
+        title: isOverAllocated
+          ? "Reimbursement payout over-allocated ($" + totalAllocated.toFixed(2) + " allocated exceeds $" + rAmt.toFixed(2) + " payout)"
+          : "Reimbursement payout under-supported ($" + totalAllocated.toFixed(2) + " allocated of $" + rAmt.toFixed(2) + " payout)",
+        description: isOverAllocated
+          ? "Reimbursement " + r.reimbursementId + " has $" + totalAllocated.toFixed(2) + " in allocated purchases, exceeding the $" + rAmt.toFixed(2) + " cash payout by $" + diff.toFixed(2) + "."
+          : "Reimbursement " + r.reimbursementId + " for $" + rAmt.toFixed(2) + " to " + (r.claimantName || "Claimant") + " lacks supporting purchase allocations for $" + diff.toFixed(2) + " of payout.",
+        amount: diff,
+        recommendedAction: isOverAllocated
+          ? "Reduce allocation amounts or adjust reimbursement payout to match purchase support."
+          : "Link reimbursement to underlying personal-card expense transactions.",
         evidenceUrl: "",
         fingerprint: "RULE-RMB-001_Reimbursement_" + r.reimbursementId
       });
     }
   });
 
-  // Defensive check for Over-Allocations (RULE-RMB-002)
+  // Defensive check for Over-Allocations on Purchases (RULE-RMB-002)
   // Uses shared canonical balance formula (including refund credit adjustments)
   Object.keys(allocationsByPurchase).forEach(function(pId) {
     const pAllocs = allocationsByPurchase[pId];
@@ -815,7 +823,7 @@ function assignAuditIssue(p, userEmail) {
 }
 
 /**
- * Stages normalized CSV statement lines into Reconciliation_Staging tab with duplicate protection
+ * Stages normalized CSV statement lines into Reconciliation_Staging tab with strict server-side validation & duplicate protection
  */
 function stageBankStatementLines(p, userEmail) {
   p = p || {};
@@ -860,25 +868,33 @@ function stageBankStatementLines(p, userEmail) {
 
   let insertedCount = 0;
   let duplicateCount = 0;
+  let rejectedCount = 0;
 
   lines.forEach(function(line) {
     const amt = Number(line.amount || 0);
-    if (isNaN(amt) || amt === 0 || !isFinite(amt)) {
+    const stmtDate = String(line.statementDate || line.date || "").trim();
+    const desc = String(line.description || "").trim();
+    const direction = String(line.direction || "").trim().toUpperCase();
+    const refNum = String(line.referenceNumber || "").trim();
+
+    // Strict Server-Side Validation: Reject malformed records
+    const isDateValid = Boolean(stmtDate && !isNaN(new Date(stmtDate).getTime()));
+    const isAmountValid = (!isNaN(amt) && isFinite(amt) && amt !== 0);
+    const isDescValid = Boolean(desc.length > 0);
+    const isDirectionValid = (direction === "INCOME" || direction === "EXPENSE");
+
+    if (!isDateValid || !isAmountValid || !isDescValid || !isDirectionValid) {
+      rejectedCount++;
       return;
     }
 
-    const stmtDate = line.statementDate || line.date || nowIso.split("T")[0];
-    const desc = line.description || "Statement Line";
-    const direction = line.direction || (amt < 0 ? "EXPENSE" : "INCOME");
-    const refNum = line.referenceNumber || "";
-
     const fp = [
       sourceFile.trim(),
-      stmtDate.trim(),
+      stmtDate,
       normalizeMerchantName(desc),
       amt.toFixed(2),
-      direction.trim(),
-      refNum.trim()
+      direction,
+      refNum
     ].join("_");
 
     if (existingFingerprints[fp]) {
@@ -911,6 +927,7 @@ function stageBankStatementLines(p, userEmail) {
     count: insertedCount,
     insertedCount: insertedCount,
     duplicateCount: duplicateCount,
+    rejectedCount: rejectedCount,
     totalSubmitted: lines.length
   };
 }
@@ -1049,7 +1066,7 @@ function getReconciliationCandidates() {
 
 /**
  * Reconciles a staged statement line with an authoritative transaction
- * Validate-first sequence: Verifies both records, directions, and differences before writes
+ * Validate-first sequence: Verifies both records, directions, duplicate reuse, differences, and lock before writes
  */
 function matchReconciliationLine(p, userEmail) {
   p = p || {};
@@ -1081,41 +1098,61 @@ function matchReconciliationLine(p, userEmail) {
   // 3. Direction & Eligibility Validation
   const sAmtCol = sHeaders.indexOf("amount");
   const sDirCol = sHeaders.indexOf("direction");
+  const sTxCol = sHeaders.indexOf("matchedTransactionId");
   const tAmtCol = tHeaders.indexOf("amount");
   const tDirCol = tHeaders.indexOf("direction");
+  const tStatusCol = tHeaders.indexOf("reconciliationStatus");
 
   const stmtAmt = Number(matchedStmtRow[sAmtCol] || 0);
   const stmtDir = String(matchedStmtRow[sDirCol] || (stmtAmt < 0 ? "EXPENSE" : "INCOME"));
   const txAmt = Number(matchedTxRow[tAmtCol] || 0);
   const txDir = String(matchedTxRow[tDirCol] || "EXPENSE");
+  const txReconciliationStatus = String(matchedTxRow[tStatusCol] || "");
 
   if (stmtDir !== txDir) {
     throw new Error("Direction mismatch: Statement line is " + stmtDir + " but transaction is " + txDir);
   }
 
-  const diffAmount = Number(Math.abs(Math.abs(stmtAmt) - Math.abs(txAmt)).toFixed(2));
-  const matchStatus = (diffAmount > 0.001) ? "Discrepancy" : "Matched";
+  // 4. Duplicate Reuse Protection
+  // Check if target transaction is already reconciled or matched elsewhere
+  const existingStmtMatch = sData.find(function(r) {
+    return r[sTxCol] === p.transactionId && r[sIdCol] !== p.statementLineId;
+  });
+  if (existingStmtMatch) {
+    throw new Error("Transaction " + p.transactionId + " is already matched to statement line " + existingStmtMatch[sIdCol]);
+  }
+  if (txReconciliationStatus === "Reconciled" && matchedStmtRow[sTxCol] !== p.transactionId) {
+    throw new Error("Transaction " + p.transactionId + " is already reconciled");
+  }
 
-  // 4. Atomic Write Section (Zero writes if validation failed above)
+  const diffAmount = Number(Math.abs(Math.abs(stmtAmt) - Math.abs(txAmt)).toFixed(2));
+  const isDiscrepancy = (diffAmount > 0.001);
+  const statementMatchStatus = isDiscrepancy ? "Discrepancy" : "Matched";
+  const transactionReconcileStatus = isDiscrepancy ? "Discrepancy" : "Reconciled";
+
+  // 5. Atomic Write Section guarded by LockService
   let lock = null;
   if (typeof LockService !== "undefined" && LockService.getScriptLock) {
     lock = LockService.getScriptLock();
-    lock.tryLock(10000);
+    const acquired = lock.tryLock(10000);
+    if (!acquired) {
+      throw new Error("Could not acquire reconciliation lock. Please try again.");
+    }
   }
 
   try {
     const sRowNum = sIdx + 2;
-    const sStatusCol = sHeaders.indexOf("matchStatus") + 1;
-    const sTxCol = sHeaders.indexOf("matchedTransactionId") + 1;
-    const sDiffCol = sHeaders.indexOf("differenceAmount") + 1;
+    const sStatusColIdx = sHeaders.indexOf("matchStatus") + 1;
+    const sTxColIdx = sHeaders.indexOf("matchedTransactionId") + 1;
+    const sDiffColIdx = sHeaders.indexOf("differenceAmount") + 1;
 
-    if (sStatusCol > 0) sSheet.getRange(sRowNum, sStatusCol).setValue(matchStatus);
-    if (sTxCol > 0) sSheet.getRange(sRowNum, sTxCol).setValue(p.transactionId);
-    if (sDiffCol > 0) sSheet.getRange(sRowNum, sDiffCol).setValue(diffAmount);
+    if (sStatusColIdx > 0) sSheet.getRange(sRowNum, sStatusColIdx).setValue(statementMatchStatus);
+    if (sTxColIdx > 0) sSheet.getRange(sRowNum, sTxColIdx).setValue(p.transactionId);
+    if (sDiffColIdx > 0) sSheet.getRange(sRowNum, sDiffColIdx).setValue(diffAmount);
 
     const tRowNum = tIdx + 2;
-    const tStatusCol = tHeaders.indexOf("reconciliationStatus") + 1;
-    if (tStatusCol > 0) tSheet.getRange(tRowNum, tStatusCol).setValue("Reconciled");
+    const tStatusColIdx = tHeaders.indexOf("reconciliationStatus") + 1;
+    if (tStatusColIdx > 0) tSheet.getRange(tRowNum, tStatusColIdx).setValue(transactionReconcileStatus);
   } finally {
     if (lock && lock.releaseLock) lock.releaseLock();
   }
@@ -1124,7 +1161,8 @@ function matchReconciliationLine(p, userEmail) {
     success: true,
     statementLineId: p.statementLineId,
     transactionId: p.transactionId,
-    matchStatus: matchStatus,
+    matchStatus: statementMatchStatus,
+    transactionStatus: transactionReconcileStatus,
     differenceAmount: diffAmount
   };
 }
