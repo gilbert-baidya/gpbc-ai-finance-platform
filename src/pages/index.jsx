@@ -88,36 +88,10 @@ const PhaseCard = ({ icon: IconComponent, title, phase, subtitle, features }) =>
   </div>
 );
 
-// Phase 3 Implemented Pages
+// Phase 3 & 4 Implemented Pages
 export { default as AuditCenter } from './AuditCenter';
-
-export const MonthlyClose = () => (
-  <PhaseCard
-    icon={CalendarCheck}
-    title="Monthly Close"
-    phase="Phase 4"
-    subtitle="Formal 10-step monthly close checklist, period locks, and audited post-close amendments."
-    features={[
-      "Structured reconciliation checklist (Bank, Cards, Receipts, Checks, Reimbursements, Funds)",
-      "Formal MONTH CLOSED status locking period from accidental modifications",
-      "Append-only change log recording user, reason, old value, and new value for any post-close edit"
-    ]}
-  />
-);
-
-export const PresbyterReports = () => (
-  <PhaseCard
-    icon={FileCheck2}
-    title="Presbyter Reports"
-    phase="Phase 4"
-    subtitle="Polished, privacy-conscious PDF reports for church oversight and presbyter review."
-    features={[
-      "Executive summary, income/expense distributions, Sunday offering, and capital projects",
-      "Summary and Detailed views with optional audit appendix",
-      "Automated PDF generation and private save to Google Drive"
-    ]}
-  />
-);
+export { default as MonthlyClose } from './MonthlyClose';
+export { default as PresbyterReports } from './PresbyterReports';
 
 export const Settings = () => (
   <PhaseCard

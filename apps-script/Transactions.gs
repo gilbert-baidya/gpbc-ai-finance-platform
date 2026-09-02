@@ -3,8 +3,18 @@
  * Master Ledger, Income, Expenses, and Canonical Capital Projects
  *************************************************/
 
+// In Node/test environment, load FinanceMath helpers
+if (typeof require !== "undefined" && typeof assertPeriodWritable === "undefined") {
+  const financeMath = require("./FinanceMath.gs");
+  global.assertPeriodWritable = financeMath.assertPeriodWritable;
+  global.getPeriodKey = financeMath.getPeriodKey;
+  global.getPeriodBounds = financeMath.getPeriodBounds;
+  global.isDateInClosedPeriod = financeMath.isDateInClosedPeriod;
+  global.calculatePurchaseBalance = financeMath.calculatePurchaseBalance;
+}
+
 /**
- * Idempotently initializes the Phase 2 schema in the sandbox spreadsheet
+ * Idempotently initializes the schema in the sandbox spreadsheet
  * NEVER creates duplicate header rows.
  */
 function initializeSandboxSchema() {
@@ -191,7 +201,7 @@ function getTransactions(p) {
 }
 
 /**
- * Adds a master transaction with financial invariant validation
+ * Adds a master transaction with financial invariant validation and period-lock protection
  */
 function addTransaction(p, userEmail) {
   p = p || {};
@@ -209,6 +219,10 @@ function addTransaction(p, userEmail) {
   }
 
   const db = getDB(true, "addTransaction");
+
+  // Server-Side Period Lock Guard
+  assertPeriodWritable(p.transactionDate, "addTransaction", userEmail, db);
+
   let sheet = db.getSheetByName("Transactions");
   if (!sheet) {
     initializeSandboxSchema();
@@ -251,6 +265,51 @@ function addTransaction(p, userEmail) {
 }
 
 /**
+ * Updates a transaction with period-lock checking
+ */
+function updateTransaction(p, userEmail) {
+  p = p || {};
+  if (!p.transactionId) throw new Error("transactionId is required");
+
+  const db = getDB(true, "updateTransaction");
+  const sheet = db.getSheetByName("Transactions");
+  if (!sheet) throw new Error("Transactions tab missing");
+
+  const data = sheet.getDataRange().getValues();
+  const headers = data.shift();
+  const idCol = headers.indexOf("transactionId");
+  const dateCol = headers.indexOf("transactionDate");
+  const idx = data.findIndex(function(r) { return r[idCol] === p.transactionId; });
+  if (idx === -1) throw new Error("Transaction not found: " + p.transactionId);
+
+  const existingRow = data[idx];
+  const existingDate = existingRow[dateCol];
+
+  // Period Lock Guard on existing transaction date and target date
+  assertPeriodWritable(existingDate, "updateTransaction (Current Date)", userEmail, db);
+  if (p.transactionDate) {
+    assertPeriodWritable(p.transactionDate, "updateTransaction (New Date)", userEmail, db);
+  }
+
+  const rowNum = idx + 2;
+  const nowIso = new Date().toISOString();
+  const actor = userEmail || "System";
+
+  headers.forEach(function(h, cIdx) {
+    if (p[h] !== undefined && h !== "transactionId" && h !== "createdAt" && h !== "createdBy") {
+      sheet.getRange(rowNum, cIdx + 1).setValue(p[h]);
+    }
+  });
+
+  const updatedByCol = headers.indexOf("updatedBy") + 1;
+  const updatedAtCol = headers.indexOf("updatedAt") + 1;
+  if (updatedByCol > 0) sheet.getRange(rowNum, updatedByCol).setValue(actor);
+  if (updatedAtCol > 0) sheet.getRange(rowNum, updatedAtCol).setValue(nowIso);
+
+  return { success: true, transactionId: p.transactionId };
+}
+
+/**
  * Adds an Income entry and linked Transaction
  */
 function addIncome(p, userEmail) {
@@ -260,6 +319,10 @@ function addIncome(p, userEmail) {
   if (!p.date) throw new Error("Income date is required");
 
   const db = getDB(true, "addIncome");
+
+  // Server-Side Period Lock Guard
+  assertPeriodWritable(p.date, "addIncome", userEmail, db);
+
   let incSheet = db.getSheetByName("Income Detail");
   if (!incSheet) {
     initializeSandboxSchema();
@@ -316,6 +379,10 @@ function addExpense(p, userEmail) {
   if (!p.payee) throw new Error("Payee/Vendor is required");
 
   const db = getDB(true, "addExpense");
+
+  // Server-Side Period Lock Guard
+  assertPeriodWritable(p.date, "addExpense", userEmail, db);
+
   let expSheet = db.getSheetByName("Expense Detail");
   if (!expSheet) {
     initializeSandboxSchema();
@@ -517,6 +584,7 @@ if (typeof module !== "undefined" && module.exports) {
     initializeSandboxSchema,
     getTransactions,
     addTransaction,
+    updateTransaction,
     addIncome,
     addExpense,
     getCapitalProjects,

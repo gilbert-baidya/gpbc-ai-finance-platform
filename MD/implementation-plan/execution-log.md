@@ -204,3 +204,28 @@
   - Production data: 100% untouched.
   - Production writes: Disarmed (`GPBC_PRODUCTION_WRITES_ENABLED=false`).
   - Sandbox status: `LIVE SANDBOX INTEGRATION PENDING`.
+
+---
+
+## 8. Phase 4 — Monthly Close, Period Locking & Presbyter Reporting
+
+- **Date Completed**: 2026-09-01
+- **Feature Branch**: `feature/gpbc-finance-desk-refactor`
+- **Actions Completed**:
+  - Deduplicated `calculatePurchaseBalance` into dedicated shared `apps-script/FinanceMath.gs`.
+  - Defined `Monthly_Close`, `Monthly_Close_History`, and `Presbyter_Reports` tabs in `Config.gs`.
+  - Implemented authoritative `MonthlyClose.gs` with readiness evaluation, close blockers, and period freezing.
+  - Implemented `assertPeriodWritable` server-side lock guard and applied across all write paths.
+  - Restricted close and reopen actions to `Primary Admin` and `Backup Admin` roles in `Auth.gs`.
+  - Implemented `PresbyterReports.gs` with privacy-safe data aggregation and metadata persistence.
+  - Built functional `MonthlyClose.jsx` and `PresbyterReports.jsx` frontend pages.
+  - Added typed APIs `monthlyCloseApi.ts` and `reportApi.ts` and types `monthlyClose.ts` and `reports.ts`.
+  - Added comprehensive test suites `MonthlyClose.test.js` and `PresbyterReports.test.js`.
+- **Verification**:
+  - Automated tests: 85/85 passing across 9 test suites.
+  - TypeScript: 0 errors (`tsc --noEmit`).
+  - Lint in touched modules: 0 errors.
+  - Vite production build: Built cleanly in 4.74s.
+  - Production data: 100% untouched.
+  - Production writes: Disarmed (`GPBC_PRODUCTION_WRITES_ENABLED=false`).
+  - Sandbox status: `LIVE MONTHLY CLOSE INTEGRATION PENDING`.

@@ -212,6 +212,18 @@ function authorizeAction(action, role) {
     "getReconciliationCandidates": ALL_READERS,
     "matchReconciliationLine": FINANCE_WRITERS,
 
+    // Phase 4 Monthly Close & Period Locking (Close/Reopen strictly restricted to Admins)
+    "getMonthlyClose": ALL_READERS,
+    "getMonthlyCloseReadiness": ALL_READERS,
+    "closeMonthlyPeriod": ALL_ADMINS,
+    "reopenMonthlyPeriod": ALL_ADMINS,
+    "getMonthlyCloseHistory": ALL_READERS,
+
+    // Phase 4 Presbyter Reporting
+    "generatePresbyterReport": PRESBYTER_SET.concat(["Finance Editor"]),
+    "getPresbyterReports": ALL_READERS,
+    "sendPresbyterReport": ALL_ADMINS.concat(["Finance Editor"]),
+
     // Intelligence & Automation
     "detectDonorRisk": FINANCE_WRITERS,
     "forecastGivingML": FINANCE_WRITERS,

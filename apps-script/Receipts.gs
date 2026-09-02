@@ -1,7 +1,14 @@
 /*************************************************
  * GPBC Finance Desk — Receipts.gs
- * Receipt Register & Check Details Engine with Validation
+ * Receipt Register & Check Details Engine with Validation and Period Locking
  *************************************************/
+
+// In Node/test environment, load FinanceMath helpers
+if (typeof require !== "undefined" && typeof assertPeriodWritable === "undefined") {
+  const financeMath = require("./FinanceMath.gs");
+  global.assertPeriodWritable = financeMath.assertPeriodWritable;
+  global.getPeriodKey = financeMath.getPeriodKey;
+}
 
 /**
  * Retrieves receipts from Receipt Register
@@ -60,17 +67,20 @@ function addReceipt(p, userEmail) {
     sheet = db.getSheetByName("Receipt_Register");
   }
 
-  const receiptId = "RCP-" + Utilities.formatDate(new Date(), "GMT", "yyyyMMdd") + "-" + Math.floor(1000 + Math.random() * 9000);
+  const receiptId = "RCP-" + Date.now();
   const nowIso = new Date().toISOString();
   const actor = userEmail || "System";
-  const rDate = p.receiptDate || nowIso.split("T")[0];
+  const rDate = p.receiptDate || p.date || nowIso.split("T")[0];
+
+  // Period Lock Guard
+  assertPeriodWritable(rDate, "addReceipt", userEmail, db);
 
   sheet.appendRow([
     receiptId,
     rDate,
     p.merchant,
     amount,
-    p.documentType || "Receipt",
+    p.documentType || "Store Receipt",
     p.driveFileId || "",
     p.driveUrl || "",
     p.source || "Manual Upload",
@@ -87,7 +97,7 @@ function addReceipt(p, userEmail) {
 }
 
 /**
- * Matches a receipt to an authoritative transaction after verifying existence
+ * Matches a receipt to an authoritative Transaction
  */
 function matchReceiptToTransaction(p, userEmail) {
   p = p || {};
@@ -98,38 +108,40 @@ function matchReceiptToTransaction(p, userEmail) {
   const rSheet = db.getSheetByName("Receipt_Register");
   const tSheet = db.getSheetByName("Transactions");
 
-  if (!rSheet) throw new Error("Receipt_Register tab missing");
-  if (!tSheet || tSheet.getLastRow() <= 1) {
-    throw new Error("Transactions tab missing or empty. Cannot match receipt to non-existent transaction.");
-  }
+  if (!rSheet || !tSheet) throw new Error("Receipt or Transaction sheet missing");
 
-  // 1. Verify Transaction exists
+  // 1. Verify Receipt
+  const rData = rSheet.getDataRange().getValues();
+  const rHeaders = rData.shift();
+  const rIdCol = rHeaders.indexOf("receiptId");
+  const rIdx = rData.findIndex(function(r) { return r[rIdCol] === p.receiptId; });
+  if (rIdx === -1) throw new Error("Receipt not found: " + p.receiptId);
+
+  // 2. Verify Transaction
   const tData = tSheet.getDataRange().getValues();
   const tHeaders = tData.shift();
   const tIdCol = tHeaders.indexOf("transactionId");
+  const tDateCol = tHeaders.indexOf("transactionDate");
   const tIdx = tData.findIndex(function(r) { return r[tIdCol] === p.transactionId; });
-  if (tIdx === -1) {
-    throw new Error("Transaction not found: " + p.transactionId);
-  }
+  if (tIdx === -1) throw new Error("Transaction not found: " + p.transactionId);
 
-  // 2. Verify Receipt exists
-  const rData = rSheet.getDataRange().getValues();
-  const rHeaders = rData.shift();
-  const rIdx = rData.findIndex(function(r) { return r[0] === p.receiptId; });
-  if (rIdx === -1) {
-    throw new Error("Receipt not found: " + p.receiptId);
-  }
+  const matchedTx = tData[tIdx];
+  const txDate = matchedTx[tDateCol];
 
+  // Period Lock Guard on Transaction Date
+  assertPeriodWritable(txDate, "matchReceiptToTransaction", userEmail, db);
+
+  // Update Receipt Row
   const rRow = rIdx + 2;
-  const R_TXN_COL = rHeaders.indexOf("matchedTransactionId") + 1;
-  const R_STATUS_COL = rHeaders.indexOf("matchStatus") + 1;
+  const R_MATCH_TX_COL = rHeaders.indexOf("matchedTransactionId") + 1;
+  const R_MATCH_STAT_COL = rHeaders.indexOf("matchStatus") + 1;
   const R_UPDATED_COL = rHeaders.indexOf("updatedAt") + 1;
 
-  if (R_TXN_COL > 0) rSheet.getRange(rRow, R_TXN_COL).setValue(p.transactionId);
-  if (R_STATUS_COL > 0) rSheet.getRange(rRow, R_STATUS_COL).setValue("Matched");
+  if (R_MATCH_TX_COL > 0) rSheet.getRange(rRow, R_MATCH_TX_COL).setValue(p.transactionId);
+  if (R_MATCH_STAT_COL > 0) rSheet.getRange(rRow, R_MATCH_STAT_COL).setValue("Matched");
   if (R_UPDATED_COL > 0) rSheet.getRange(rRow, R_UPDATED_COL).setValue(new Date().toISOString());
 
-  // 3. Update Transactions row
+  // Update Transactions row
   const tRow = tIdx + 2;
   const T_RCP_COL = tHeaders.indexOf("receiptId") + 1;
   const T_STATUS_COL = tHeaders.indexOf("receiptStatus") + 1;
@@ -195,24 +207,32 @@ function addCheckDetail(p, userEmail) {
     }
   }
 
-  // If transactionId is supplied, verify transaction exists
+  const nowIso = new Date().toISOString();
+  const actor = userEmail || "System";
+  const cDate = p.checkDate || nowIso.split("T")[0];
+
+  // Period Lock Guard
+  assertPeriodWritable(cDate, "addCheckDetail", userEmail, db);
+
+  // If transactionId is supplied, verify transaction exists and guard its period
   if (p.transactionId) {
     const tSheet = db.getSheetByName("Transactions");
     if (tSheet && tSheet.getLastRow() > 1) {
       const tData = tSheet.getDataRange().getValues();
       const tHeaders = tData.shift();
       const tIdCol = tHeaders.indexOf("transactionId");
+      const tDateCol = tHeaders.indexOf("transactionDate");
       const matched = tData.find(function(r) { return r[tIdCol] === p.transactionId; });
       if (!matched) {
         throw new Error("Referenced transaction not found: " + p.transactionId);
+      }
+      if (matched[tDateCol]) {
+        assertPeriodWritable(matched[tDateCol], "addCheckDetail (Linked Transaction)", userEmail, db);
       }
     }
   }
 
   const checkId = "CHK-" + Date.now();
-  const nowIso = new Date().toISOString();
-  const actor = userEmail || "System";
-  const cDate = p.checkDate || nowIso.split("T")[0];
 
   sheet.appendRow([
     checkId,

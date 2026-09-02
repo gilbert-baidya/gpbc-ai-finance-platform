@@ -239,22 +239,22 @@ No constitution exception is required.
 
 ### Phase 3 — Audit and Reconciliation
 
-- [ ] T041 [Plan:3.1] Implement versioned pure audit rules and issue lifecycle in `apps-script/Audit.gs` for every REQ-013 condition.
-- [ ] T042 [P] [Plan:3.1] Build filterable issue list, evidence links, explanations, and review actions in `src/pages/AuditCenter.tsx`.
-- [ ] T043 [Plan:3.2] Implement documented health-score weights and contributor output in `apps-script/Audit.gs#calculateAuditHealthScore`.
-- [ ] T044 [P] [Plan:3.2] Adapt `src/components/FinancialHealthScore.jsx` and `src/pages/Dashboard.jsx` to display deterministic contributors and the focused dashboard metrics.
-- [ ] T045 [Plan:3.3] Implement CSV staging, preview, matching, and confirmation in `apps-script/Reconciliation.gs`.
-- [ ] T046 [P] [Plan:3.3] Build bank/card import and difference review in `src/pages/Reconciliation.tsx`.
-- [ ] T047 [Plan:3.1,3.2,3.3] Add rule fixtures, score determinism, duplicate detection, and reconciliation confirmation tests under `apps-script/tests/` and `src/pages/__tests__/`.
+- [x] T041 [Plan:3.1] Implement versioned pure audit rules and issue lifecycle in `apps-script/Audit.gs` for every REQ-013 condition.
+- [x] T042 [P] [Plan:3.1] Build filterable issue list, evidence links, explanations, and review actions in `src/pages/AuditCenter.tsx`.
+- [x] T043 [Plan:3.2] Implement documented health-score weights and contributor output in `apps-script/Audit.gs#calculateAuditHealthScore`.
+- [x] T044 [P] [Plan:3.2] Adapt `src/components/FinancialHealthScore.jsx` and `src/pages/Dashboard.jsx` to display deterministic contributors and the focused dashboard metrics.
+- [x] T045 [Plan:3.3] Implement CSV staging, preview, matching, and confirmation in `apps-script/Reconciliation.gs`.
+- [x] T046 [P] [Plan:3.3] Build bank/card import and difference review in `src/pages/Reconciliation.tsx`.
+- [x] T047 [Plan:3.1,3.2,3.3] Add rule fixtures, score determinism, duplicate detection, and reconciliation confirmation tests under `apps-script/tests/` and `src/pages/__tests__/`.
 
 ### Phase 4 — Reporting and Monthly Close
 
-- [ ] T048 [Plan:4.1] Refactor existing PDF/report helpers into privacy-filtered Presbyter report generation in `apps-script/Reports.gs`.
-- [ ] T049 [P] [Plan:4.1] Build report period/detail/audit-appendix controls and preview in `src/pages/PresbyterReports.tsx`.
-- [ ] T050 [Plan:4.1] Save generated reports to a private Drive Reports folder and gate email sending behind review in `apps-script/Reports.gs`.
-- [ ] T051 [Plan:4.2] Implement checklist state, close authorization, period locks, and amendment audit records in `apps-script/MonthlyClose.gs`.
-- [ ] T052 [P] [Plan:4.2] Build Monthly Close status, blockers, close confirmation, and amendment reason UI in `src/pages/MonthlyClose.tsx`.
-- [ ] T053 [Plan:4.1,4.2] Add report privacy, Drive access, close-lock, and post-close amendment tests under `apps-script/tests/` and `src/pages/__tests__/`.
+- [x] T048 [Plan:4.1] Refactor existing PDF/report helpers into privacy-filtered Presbyter report generation in `apps-script/Reports.gs`.
+- [x] T049 [P] [Plan:4.1] Build report period/detail/audit-appendix controls and preview in `src/pages/PresbyterReports.tsx`.
+- [x] T050 [Plan:4.1] Save generated reports to a private Drive Reports folder and gate email sending behind review in `apps-script/Reports.gs`.
+- [x] T051 [Plan:4.2] Implement checklist state, close authorization, period locks, and amendment audit records in `apps-script/MonthlyClose.gs`.
+- [x] T052 [P] [Plan:4.2] Build Monthly Close status, blockers, close confirmation, and amendment reason UI in `src/pages/MonthlyClose.tsx`.
+- [x] T053 [Plan:4.1,4.2] Add report privacy, Drive access, close-lock, and post-close amendment tests under `apps-script/tests/` and `src/pages/__tests__/`.
 
 ### Phase 5 — Automation and Release
 

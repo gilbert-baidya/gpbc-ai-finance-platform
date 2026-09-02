@@ -3,6 +3,16 @@
  * Deterministic Audit Rule Engine (12 Rules), Health Score, and Reconciliation
  *************************************************/
 
+// In Node/test environment, load FinanceMath helpers
+if (typeof require !== "undefined" && typeof calculatePurchaseBalance === "undefined") {
+  const financeMath = require("./FinanceMath.gs");
+  global.calculatePurchaseBalance = financeMath.calculatePurchaseBalance;
+  global.getPeriodKey = financeMath.getPeriodKey;
+  global.getPeriodBounds = financeMath.getPeriodBounds;
+  global.isDateInClosedPeriod = financeMath.isDateInClosedPeriod;
+  global.assertPeriodWritable = financeMath.assertPeriodWritable;
+}
+
 const AUDIT_SCORING_CONFIG = {
   baselineScore: 100,
   deductions: {
@@ -69,40 +79,6 @@ function normalizeMerchantName(name) {
   // Collapse whitespace
   s = s.replace(/\s+/g, " ").trim();
   return s;
-}
-
-/**
- * Shared canonical purchase balance and allocation calculation helper
- * Invariant: netCovered = allocatedAmount + personallyAbsorbedAmount + refundCreditAdjustment
- */
-function calculatePurchaseBalance(purchaseAmount, allocations) {
-  purchaseAmount = Number(purchaseAmount || 0);
-  allocations = Array.isArray(allocations) ? allocations : [];
-  let totalAllocated = 0;
-  let totalAbsorbed = 0;
-  let totalRefundAdj = 0;
-
-  allocations.forEach(function(a) {
-    totalAllocated += Number(a.allocatedAmount || 0);
-    totalAbsorbed += Number(a.personallyAbsorbedAmount || 0);
-    totalRefundAdj += Number(a.refundCreditAdjustment || 0);
-  });
-
-  const netCovered = totalAllocated + totalAbsorbed + totalRefundAdj;
-  const remainingBalance = Number(Math.max(0, purchaseAmount - netCovered).toFixed(2));
-  const isOverAllocated = (netCovered > purchaseAmount + 0.01);
-  const overageAmount = isOverAllocated ? Number((netCovered - purchaseAmount).toFixed(2)) : 0;
-
-  return {
-    purchaseAmount: purchaseAmount,
-    totalAllocated: totalAllocated,
-    totalAbsorbed: totalAbsorbed,
-    totalRefundAdjustment: totalRefundAdj,
-    netCovered: netCovered,
-    remainingBalance: remainingBalance,
-    isOverAllocated: isOverAllocated,
-    overageAmount: overageAmount
-  };
 }
 
 /**
@@ -1066,7 +1042,7 @@ function getReconciliationCandidates() {
 
 /**
  * Reconciles a staged statement line with an authoritative transaction
- * Validate-first sequence: Verifies both records, directions, duplicate reuse, differences, and lock before writes
+ * Validate-first sequence: Verifies period locks, records, directions, duplicate reuse, differences, and lock before writes
  */
 function matchReconciliationLine(p, userEmail) {
   p = p || {};
@@ -1096,12 +1072,21 @@ function matchReconciliationLine(p, userEmail) {
   const matchedTxRow = tData[tIdx];
 
   // 3. Direction & Eligibility Validation
+  const sDateCol = sHeaders.indexOf("statementDate");
   const sAmtCol = sHeaders.indexOf("amount");
   const sDirCol = sHeaders.indexOf("direction");
   const sTxCol = sHeaders.indexOf("matchedTransactionId");
+  const tDateCol = tHeaders.indexOf("transactionDate");
   const tAmtCol = tHeaders.indexOf("amount");
   const tDirCol = tHeaders.indexOf("direction");
   const tStatusCol = tHeaders.indexOf("reconciliationStatus");
+
+  const stmtDate = matchedStmtRow[sDateCol];
+  const txDate = matchedTxRow[tDateCol];
+
+  // Server-Side Period Lock Guard on both Statement Date and Transaction Date
+  assertPeriodWritable(stmtDate, "matchReconciliationLine (Statement Date)", userEmail, db);
+  assertPeriodWritable(txDate, "matchReconciliationLine (Transaction Date)", userEmail, db);
 
   const stmtAmt = Number(matchedStmtRow[sAmtCol] || 0);
   const stmtDir = String(matchedStmtRow[sDirCol] || (stmtAmt < 0 ? "EXPENSE" : "INCOME"));

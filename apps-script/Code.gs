@@ -155,6 +155,26 @@ function doPost(e) {
       case "matchReconciliationLine":
         return jsonResponse(matchReconciliationLine(p, userEmail));
 
+      // PHASE 4: MONTHLY CLOSE & PERIOD LOCKING
+      case "getMonthlyClose":
+        return jsonResponse(getMonthlyClose(p));
+      case "getMonthlyCloseReadiness":
+        return jsonResponse(getMonthlyCloseReadiness(p));
+      case "closeMonthlyPeriod":
+        return jsonResponse(closeMonthlyPeriod(p, userEmail));
+      case "reopenMonthlyPeriod":
+        return jsonResponse(reopenMonthlyPeriod(p, userEmail));
+      case "getMonthlyCloseHistory":
+        return jsonResponse(getMonthlyCloseHistory(p));
+
+      // PHASE 4: PRESBYTER REPORTING
+      case "generatePresbyterReport":
+        return jsonResponse(generatePresbyterReport(p, userEmail));
+      case "getPresbyterReports":
+        return jsonResponse(getPresbyterReports(p));
+      case "sendPresbyterReport":
+        return jsonResponse(sendPresbyterReport(p, userEmail));
+
       // MEMBERS
       case "addMember":
         return jsonResponse(addMember(p));

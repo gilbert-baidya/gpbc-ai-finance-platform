@@ -3,38 +3,14 @@
  * Authoritative Many-to-Many Reimbursements & Unified Allocation Engine
  *************************************************/
 
-/**
- * Shared canonical purchase balance and allocation calculation helper
- * Invariant: netCovered = allocatedAmount + personallyAbsorbedAmount + refundCreditAdjustment
- */
-function calculatePurchaseBalance(purchaseAmount, allocations) {
-  purchaseAmount = Number(purchaseAmount || 0);
-  allocations = Array.isArray(allocations) ? allocations : [];
-  let totalAllocated = 0;
-  let totalAbsorbed = 0;
-  let totalRefundAdj = 0;
-
-  allocations.forEach(function(a) {
-    totalAllocated += Number(a.allocatedAmount || 0);
-    totalAbsorbed += Number(a.personallyAbsorbedAmount || 0);
-    totalRefundAdj += Number(a.refundCreditAdjustment || 0);
-  });
-
-  const netCovered = totalAllocated + totalAbsorbed + totalRefundAdj;
-  const remainingBalance = Number(Math.max(0, purchaseAmount - netCovered).toFixed(2));
-  const isOverAllocated = (netCovered > purchaseAmount + 0.01);
-  const overageAmount = isOverAllocated ? Number((netCovered - purchaseAmount).toFixed(2)) : 0;
-
-  return {
-    purchaseAmount: purchaseAmount,
-    totalAllocated: totalAllocated,
-    totalAbsorbed: totalAbsorbed,
-    totalRefundAdjustment: totalRefundAdj,
-    netCovered: netCovered,
-    remainingBalance: remainingBalance,
-    isOverAllocated: isOverAllocated,
-    overageAmount: overageAmount
-  };
+// In Node/test environment, load FinanceMath helpers
+if (typeof require !== "undefined" && typeof calculatePurchaseBalance === "undefined") {
+  const financeMath = require("./FinanceMath.gs");
+  global.calculatePurchaseBalance = financeMath.calculatePurchaseBalance;
+  global.getPeriodKey = financeMath.getPeriodKey;
+  global.getPeriodBounds = financeMath.getPeriodBounds;
+  global.isDateInClosedPeriod = financeMath.isDateInClosedPeriod;
+  global.assertPeriodWritable = financeMath.assertPeriodWritable;
 }
 
 /**
@@ -220,6 +196,7 @@ function validateAndPrepareAllocation(alc, db, inFlightAllocationsMap) {
 /**
  * Validates and records a reimbursement payout with verified many-to-many allocations.
  * Invariant: Reimbursed payout is recorded as a liability SETTLEMENT, preventing double-counting.
+ * Protected: Server-side Period Lock (assertPeriodWritable)
  */
 function addReimbursement(p, userEmail) {
   p = p || {};
@@ -233,8 +210,16 @@ function addReimbursement(p, userEmail) {
     throw new Error("Invalid reimbursement or purchase amount");
   }
 
-  const rawAllocations = Array.isArray(p.allocations) ? p.allocations : [];
+  const nowIso = new Date().toISOString();
+  const actor = userEmail || "System";
+  const rmbDate = p.reimbursementDate || nowIso.split("T")[0];
+
   const db = getDB(true, "addReimbursement");
+
+  // Server-Side Period Lock Guard
+  assertPeriodWritable(rmbDate, "addReimbursement", userEmail, db);
+
+  const rawAllocations = Array.isArray(p.allocations) ? p.allocations : [];
 
   // Validate allocations using the authoritative unified validator
   const validatedAllocations = [];
@@ -324,9 +309,6 @@ function addReimbursement(p, userEmail) {
   }
 
   const rmbId = "RMB-" + Utilities.formatDate(new Date(), "GMT", "yyyyMMdd") + "-" + Math.floor(1000 + Math.random() * 9000);
-  const nowIso = new Date().toISOString();
-  const actor = userEmail || "System";
-  const rmbDate = p.reimbursementDate || nowIso.split("T")[0];
 
   let status = "Approved";
   if (remainingAmt === 0 && reimbursedAmt > 0) status = "Fully Reimbursed";
@@ -410,6 +392,7 @@ function addReimbursement(p, userEmail) {
  * 1. Reimbursement exists in Reimbursements tab (No Orphan Allocations)
  * 2. Purchase exists and is eligible for reimbursement
  * 3. Reimbursement cash payout cap is strictly enforced
+ * 4. Protected by server-side Period Lock
  */
 function addReimbursementAllocation(p, userEmail) {
   p = p || {};
@@ -433,6 +416,7 @@ function addReimbursementAllocation(p, userEmail) {
   const rData = rmbSheet.getDataRange().getValues();
   const rHeaders = rData.shift();
   const rIdCol = rHeaders.indexOf("reimbursementId");
+  const rDateCol = rHeaders.indexOf("reimbursementDate");
   const rAmtCol = rHeaders.indexOf("totalReimbursedAmount");
   const matchedRmb = rData.find(function(r) { return r[rIdCol] === p.reimbursementId; });
 
@@ -440,7 +424,11 @@ function addReimbursementAllocation(p, userEmail) {
     throw new Error("Reimbursement not found: " + p.reimbursementId);
   }
 
+  const rmbDate = matchedRmb[rDateCol];
   const rmbTotalPayout = Number(matchedRmb[rAmtCol] || 0);
+
+  // Server-Side Period Lock Guard on reimbursement date
+  assertPeriodWritable(rmbDate, "addReimbursementAllocation", userEmail, db);
 
   // 2. Authoritative validation against purchase transaction
   const validated = validateAndPrepareAllocation(p, db, null);
