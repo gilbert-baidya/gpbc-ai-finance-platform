@@ -99,3 +99,29 @@
   - `tsc --noEmit`: 0 errors.
   - `npm run build`: Vite build passes cleanly.
   - Production data: 100% untouched.
+
+---
+
+## 4. Phase 2 Hardening & Accounting Correctness Gate
+
+- **Date Completed**: 2026-09-01
+- **Feature Branch**: `feature/gpbc-finance-desk-refactor`
+- **Fail-Closed Safety**:
+  - `apps-script/Config.gs#assertSandboxSheet` blocks operations if `GPBC_SHEET_ID` or `GPBC_ENVIRONMENT` is missing.
+  - Development utilities unconditionally block targeting production ID `1zLercJPwPvdl7YEU31Hbu4zcmakulOYrNrpnddxNC6s`.
+- **Authentication & Authorization Hardening**:
+  - Removed `"dev-mock-token"` runtime bypass.
+  - `GOOGLE_CLIENT_ID` configuration is mandatory (fails closed).
+  - Deny-by-default allowlist: `getApprovedUser()` only assigns roles present in `GPBC_APPROVED_USERS`. Unknown accounts return `null` and are denied.
+  - Token cache keys hashed with SHA-256 digests.
+- **Accounting Treatment**:
+  - Reimbursed payouts classified as `accountingImpact: SETTLEMENT`, eliminating double-counting with personal-card church purchases.
+  - Capital project balances derived dynamically from canonical `Transactions`.
+  - Multi-allocation defaulting bug fixed with invariant checking (`reimbursed + absorbed <= purchase`).
+- **Validation**:
+  - Vitest: 39/39 passing tests (direct testing of actual Apps Script functions).
+  - TypeScript: 0 errors (`tsc --noEmit`).
+  - ESLint: 31 errors (matches Phase 1 baseline, 0 in touched files).
+  - Production build: Clean Vite build.
+  - Sandbox status: `SANDBOX CONFIGURATION PENDING` (awaiting owner Sheet copy).
+  - Production data: 100% untouched.

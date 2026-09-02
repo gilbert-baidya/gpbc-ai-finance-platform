@@ -1,6 +1,6 @@
 /*************************************************
  * GPBC Finance Desk — Transactions.gs
- * Master Ledger, Income, Expenses, and Capital Projects
+ * Master Ledger, Income, Expenses, and Canonical Capital Projects
  *************************************************/
 
 /**
@@ -71,6 +71,7 @@ function getTransactions(p) {
       headers.forEach(function(h, i) { obj[h] = row[i]; });
       obj.amount = Number(obj.amount || 0);
       obj.personalPurchase = (obj.personalPurchase === true || obj.personalPurchase === "TRUE" || obj.personalPurchase === "true");
+      obj.accountingImpact = obj.accountingImpact || (obj.transactionType === "Reimbursement" ? "SETTLEMENT" : obj.direction);
       return obj;
     });
   } else {
@@ -78,7 +79,7 @@ function getTransactions(p) {
     const contribSheet = db.getSheetByName("CONTRIBUTIONS");
     if (contribSheet && contribSheet.getLastRow() > 1) {
       const cData = contribSheet.getDataRange().getValues();
-      const cHeaders = cData.shift();
+      cData.shift();
       cData.forEach(function(r) {
         const d = r[3] ? new Date(r[3]).toISOString().split("T")[0] : "";
         const cType = String(r[5] || "General Offering");
@@ -88,6 +89,7 @@ function getTransactions(p) {
           transactionDate: d,
           transactionType: cType.includes("Tithe") ? "General Donation" : (cType.includes("Building") ? "Designated Donation" : "Sunday Offering"),
           direction: "INCOME",
+          accountingImpact: "INCOME",
           amount: Number(r[6] || 0),
           payeeOrPayer: String(r[2] || "Member"),
           description: String(r[4] || "") + (r[8] ? " - " + String(r[8]) : ""),
@@ -111,7 +113,7 @@ function getTransactions(p) {
     const expSheet = db.getSheetByName("EXPENSES");
     if (expSheet && expSheet.getLastRow() > 1) {
       const eData = expSheet.getDataRange().getValues();
-      const eHeaders = eData.shift();
+      eData.shift();
       eData.forEach(function(r) {
         const d = r[1] ? new Date(r[1]).toISOString().split("T")[0] : "";
         transactions.push({
@@ -119,6 +121,7 @@ function getTransactions(p) {
           transactionDate: d,
           transactionType: "Expense",
           direction: "EXPENSE",
+          accountingImpact: "EXPENSE",
           amount: Number(r[4] || 0),
           payeeOrPayer: String(r[3] || "Vendor"),
           description: String(r[2] || "Expense") + (r[6] ? " - " + String(r[6]) : ""),
@@ -143,6 +146,9 @@ function getTransactions(p) {
   // Apply filters
   if (p.direction) {
     transactions = transactions.filter(function(t) { return t.direction === p.direction; });
+  }
+  if (p.accountingImpact) {
+    transactions = transactions.filter(function(t) { return t.accountingImpact === p.accountingImpact; });
   }
   if (p.transactionType) {
     transactions = transactions.filter(function(t) { return t.transactionType === p.transactionType; });
@@ -212,12 +218,15 @@ function addTransaction(p, userEmail) {
   const id = p.transactionId || ("TXN-" + Utilities.formatDate(new Date(), "GMT", "yyyyMMdd") + "-" + Math.floor(10000 + Math.random() * 90000));
   const nowIso = new Date().toISOString();
   const actor = userEmail || "Anonymous";
+  const type = p.transactionType || (p.direction === "INCOME" ? "Sunday Offering" : "Expense");
+  const impact = p.accountingImpact || (type === "Reimbursement" ? "SETTLEMENT" : p.direction);
 
   sheet.appendRow([
     id,
     p.transactionDate,
-    p.transactionType || (p.direction === "INCOME" ? "Sunday Offering" : "Expense"),
+    type,
     p.direction,
+    impact,
     Number(p.amount),
     p.payeeOrPayer,
     p.description || "",
@@ -262,6 +271,7 @@ function addIncome(p, userEmail) {
     transactionDate: p.date,
     transactionType: p.incomeType || "Sunday Offering",
     direction: "INCOME",
+    accountingImpact: "INCOME",
     amount: amount,
     payeeOrPayer: p.donorName || "Anonymous Donor",
     description: (p.serviceType ? p.serviceType + " - " : "") + (p.notes || "Donation"),
@@ -314,11 +324,13 @@ function addExpense(p, userEmail) {
 
   const expenseId = "EXP-" + Date.now();
   const isPersonal = (p.personalCardPurchase === true || p.personalPurchase === true);
+  const txnType = isPersonal ? "Personal-Card Church Purchase" : (p.capitalProjectId ? "Capital Project Expense" : "Expense");
 
   const txResult = addTransaction({
     transactionDate: p.date,
-    transactionType: isPersonal ? "Personal-Card Church Purchase" : (p.capitalProjectId ? "Capital Project Expense" : "Expense"),
+    transactionType: txnType,
     direction: "EXPENSE",
+    accountingImpact: "EXPENSE", // Personal purchases recognize church operating expense at purchase time
     amount: amount,
     payeeOrPayer: p.payee,
     description: p.purpose || p.category || "Church Expense",
@@ -358,12 +370,16 @@ function addExpense(p, userEmail) {
 }
 
 /**
- * Retrieves Capital Projects with live aggregated income/expense balances
+ * Retrieves Capital Projects with CANONICAL DERIVED financial totals from Transactions
  */
 function getCapitalProjects() {
   const db = getDB(false, "getCapitalProjects");
   const sheet = db.getSheetByName("Capital_Projects");
   const projects = [];
+
+  // Read transactions to derive canonical project totals
+  const txRes = getTransactions();
+  const allTxs = txRes.transactions || [];
 
   if (sheet && sheet.getLastRow() > 1) {
     const data = sheet.getDataRange().getValues();
@@ -373,13 +389,29 @@ function getCapitalProjects() {
       const obj = {};
       headers.forEach(function(h, i) { obj[h] = row[i]; });
       obj.approvedBudget = Number(obj.approvedBudget || 0);
-      obj.designatedDonationsReceived = Number(obj.designatedDonationsReceived || 0);
-      obj.otherFunding = Number(obj.otherFunding || 0);
-      obj.expensesPaid = Number(obj.expensesPaid || 0);
       obj.pendingCommitments = Number(obj.pendingCommitments || 0);
-      obj.remainingDesignatedBalance = Number(
-        (obj.designatedDonationsReceived + obj.otherFunding - obj.expensesPaid).toFixed(2)
-      );
+
+      // Derive totals strictly from canonical transactions matching projectId
+      const pId = obj.projectId;
+      const projectTxs = allTxs.filter(function(t) { return t.capitalProjectId === pId; });
+
+      const donations = projectTxs
+        .filter(function(t) { return t.direction === "INCOME"; })
+        .reduce(function(sum, t) { return sum + Number(t.amount || 0); }, 0);
+
+      const other = projectTxs
+        .filter(function(t) { return t.direction === "TRANSFER"; })
+        .reduce(function(sum, t) { return sum + Number(t.amount || 0); }, 0);
+
+      const expenses = projectTxs
+        .filter(function(t) { return t.accountingImpact === "EXPENSE"; })
+        .reduce(function(sum, t) { return sum + Number(t.amount || 0); }, 0);
+
+      obj.designatedDonationsReceived = Number(donations.toFixed(2));
+      obj.otherFunding = Number(other.toFixed(2));
+      obj.expensesPaid = Number(expenses.toFixed(2));
+      obj.remainingDesignatedBalance = Number((donations + other - expenses).toFixed(2));
+
       projects.push(obj);
     });
   }
@@ -388,7 +420,7 @@ function getCapitalProjects() {
 }
 
 /**
- * Adds a new Capital Project record
+ * Adds a new Capital Project record (metadata only)
  */
 function addCapitalProject(p, userEmail) {
   p = p || {};
@@ -410,11 +442,7 @@ function addCapitalProject(p, userEmail) {
     p.projectName,
     p.status || "Active",
     budget,
-    Number(p.designatedDonationsReceived || 0),
-    Number(p.otherFunding || 0),
-    0,
     Number(p.pendingCommitments || 0),
-    budget,
     p.notes || "",
     userEmail || "System",
     nowIso,
@@ -456,6 +484,7 @@ function updateCapitalProject(p, userEmail) {
 
 /**
  * Aggregates designated gifts and expenses by fundId
+ * Excludes SETTLEMENT payouts to prevent reimbursement double-counting
  */
 function getDesignatedFundsSummary() {
   const txResult = getTransactions();
@@ -468,7 +497,8 @@ function getDesignatedFundsSummary() {
       fundMap[fund] = { fundId: fund, totalIncome: 0, totalExpenses: 0, netBalance: 0 };
     }
     if (t.direction === "INCOME") fundMap[fund].totalIncome += Number(t.amount || 0);
-    if (t.direction === "EXPENSE") fundMap[fund].totalExpenses += Number(t.amount || 0);
+    // Only count recognized expenses, exclude settlement payouts
+    if (t.accountingImpact === "EXPENSE") fundMap[fund].totalExpenses += Number(t.amount || 0);
   });
 
   const funds = Object.keys(fundMap).map(function(f) {
@@ -480,4 +510,18 @@ function getDesignatedFundsSummary() {
   });
 
   return { success: true, funds: funds };
+}
+
+if (typeof module !== "undefined" && module.exports) {
+  module.exports = {
+    initializeSandboxSchema,
+    getTransactions,
+    addTransaction,
+    addIncome,
+    addExpense,
+    getCapitalProjects,
+    addCapitalProject,
+    updateCapitalProject,
+    getDesignatedFundsSummary
+  };
 }

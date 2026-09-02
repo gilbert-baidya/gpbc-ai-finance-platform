@@ -1,6 +1,6 @@
 /*************************************************
  * GPBC Finance Desk — Receipts.gs
- * Receipt Register & Check Details Engine
+ * Receipt Register & Check Details Engine with Validation
  *************************************************/
 
 /**
@@ -87,7 +87,7 @@ function addReceipt(p, userEmail) {
 }
 
 /**
- * Matches a receipt to a transaction and updates both records
+ * Matches a receipt to an authoritative transaction after verifying existence
  */
 function matchReceiptToTransaction(p, userEmail) {
   p = p || {};
@@ -99,12 +99,26 @@ function matchReceiptToTransaction(p, userEmail) {
   const tSheet = db.getSheetByName("Transactions");
 
   if (!rSheet) throw new Error("Receipt_Register tab missing");
+  if (!tSheet || tSheet.getLastRow() <= 1) {
+    throw new Error("Transactions tab missing or empty. Cannot match receipt to non-existent transaction.");
+  }
 
-  // Update Receipt_Register row
+  // 1. Verify Transaction exists
+  const tData = tSheet.getDataRange().getValues();
+  const tHeaders = tData.shift();
+  const tIdCol = tHeaders.indexOf("transactionId");
+  const tIdx = tData.findIndex(function(r) { return r[tIdCol] === p.transactionId; });
+  if (tIdx === -1) {
+    throw new Error("Transaction not found: " + p.transactionId);
+  }
+
+  // 2. Verify Receipt exists
   const rData = rSheet.getDataRange().getValues();
   const rHeaders = rData.shift();
   const rIdx = rData.findIndex(function(r) { return r[0] === p.receiptId; });
-  if (rIdx === -1) throw new Error("Receipt not found: " + p.receiptId);
+  if (rIdx === -1) {
+    throw new Error("Receipt not found: " + p.receiptId);
+  }
 
   const rRow = rIdx + 2;
   const R_TXN_COL = rHeaders.indexOf("matchedTransactionId") + 1;
@@ -115,19 +129,12 @@ function matchReceiptToTransaction(p, userEmail) {
   if (R_STATUS_COL > 0) rSheet.getRange(rRow, R_STATUS_COL).setValue("Matched");
   if (R_UPDATED_COL > 0) rSheet.getRange(rRow, R_UPDATED_COL).setValue(new Date().toISOString());
 
-  // Update Transactions row if tab exists
-  if (tSheet && tSheet.getLastRow() > 1) {
-    const tData = tSheet.getDataRange().getValues();
-    const tHeaders = tData.shift();
-    const tIdx = tData.findIndex(function(r) { return r[0] === p.transactionId; });
-    if (tIdx !== -1) {
-      const tRow = tIdx + 2;
-      const T_RCP_COL = tHeaders.indexOf("receiptId") + 1;
-      const T_STATUS_COL = tHeaders.indexOf("receiptStatus") + 1;
-      if (T_RCP_COL > 0) tSheet.getRange(tRow, T_RCP_COL).setValue(p.receiptId);
-      if (T_STATUS_COL > 0) tSheet.getRange(tRow, T_STATUS_COL).setValue("Attached");
-    }
-  }
+  // 3. Update Transactions row
+  const tRow = tIdx + 2;
+  const T_RCP_COL = tHeaders.indexOf("receiptId") + 1;
+  const T_STATUS_COL = tHeaders.indexOf("receiptStatus") + 1;
+  if (T_RCP_COL > 0) tSheet.getRange(tRow, T_RCP_COL).setValue(p.receiptId);
+  if (T_STATUS_COL > 0) tSheet.getRange(tRow, T_STATUS_COL).setValue("Attached");
 
   return { success: true, receiptId: p.receiptId, matchedTransactionId: p.transactionId };
 }
@@ -156,7 +163,7 @@ function getCheckDetails() {
 }
 
 /**
- * Adds a Check disbursement record
+ * Adds a Check disbursement record with duplicate checking and transaction verification
  */
 function addCheckDetail(p, userEmail) {
   p = p || {};
@@ -170,6 +177,36 @@ function addCheckDetail(p, userEmail) {
   if (!sheet) {
     initializeSandboxSchema();
     sheet = db.getSheetByName("Check_Details");
+  }
+
+  // Check for duplicate active check numbers
+  if (sheet.getLastRow() > 1) {
+    const existing = sheet.getDataRange().getValues();
+    const headers = existing.shift();
+    const chkNumCol = headers.indexOf("checkNumber");
+    const statusCol = headers.indexOf("reconciliationStatus");
+
+    const duplicate = existing.find(function(r) {
+      return String(r[chkNumCol]).trim() === String(p.checkNumber).trim() && r[statusCol] !== "Voided";
+    });
+
+    if (duplicate) {
+      throw new Error("Duplicate check number #" + p.checkNumber + " already exists in register");
+    }
+  }
+
+  // If transactionId is supplied, verify transaction exists
+  if (p.transactionId) {
+    const tSheet = db.getSheetByName("Transactions");
+    if (tSheet && tSheet.getLastRow() > 1) {
+      const tData = tSheet.getDataRange().getValues();
+      const tHeaders = tData.shift();
+      const tIdCol = tHeaders.indexOf("transactionId");
+      const matched = tData.find(function(r) { return r[tIdCol] === p.transactionId; });
+      if (!matched) {
+        throw new Error("Referenced transaction not found: " + p.transactionId);
+      }
+    }
   }
 
   const checkId = "CHK-" + Date.now();
@@ -196,4 +233,14 @@ function addCheckDetail(p, userEmail) {
   ]);
 
   return { success: true, checkId: checkId };
+}
+
+if (typeof module !== "undefined" && module.exports) {
+  module.exports = {
+    getReceipts,
+    addReceipt,
+    matchReceiptToTransaction,
+    getCheckDetails,
+    addCheckDetail
+  };
 }

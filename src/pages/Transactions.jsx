@@ -100,13 +100,17 @@ export const Transactions = () => {
     }
   };
 
-  // Compute live summary stats
+  // Compute live summary stats (accounting-correct: exclude reimbursement payouts from operating expenses)
   const totalIncome = transactions
     .filter(t => t.direction === 'INCOME')
     .reduce((sum, t) => sum + Number(t.amount || 0), 0);
 
   const totalExpense = transactions
-    .filter(t => t.direction === 'EXPENSE')
+    .filter(t => t.accountingImpact === 'EXPENSE' || (t.direction === 'EXPENSE' && t.transactionType !== 'Reimbursement'))
+    .reduce((sum, t) => sum + Number(t.amount || 0), 0);
+
+  const totalSettlements = transactions
+    .filter(t => t.accountingImpact === 'SETTLEMENT' || t.transactionType === 'Reimbursement')
     .reduce((sum, t) => sum + Number(t.amount || 0), 0);
 
   const netBalance = totalIncome - totalExpense;
@@ -126,7 +130,7 @@ export const Transactions = () => {
             Master Transactions
           </h1>
           <p style={{ color: 'var(--warm-gray)', fontSize: '0.9rem', margin: '4px 0 0 0' }}>
-            Unified ledger for church income, expenses, reimbursements, and designated funds
+            Unified ledger for church income, operating expenses, reimbursement settlements, and designated funds
           </p>
         </div>
 
@@ -170,13 +174,13 @@ export const Transactions = () => {
 
         <div className="glass-panel" style={{ padding: '20px', background: '#FAF6F0' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--warm-gray)', fontSize: '0.85rem', fontWeight: 600 }}>
-            <span>TOTAL OUTFLOW</span>
+            <span>OPERATING EXPENSES</span>
             <ArrowDownLeft size={18} color="#C05621" />
           </div>
           <div style={{ fontSize: '1.6rem', fontWeight: 800, color: '#991B1B', marginTop: '8px' }}>
             ${totalExpense.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </div>
-          <span style={{ fontSize: '0.75rem', color: 'var(--warm-gray)' }}>Expenses & disbursements</span>
+          <span style={{ fontSize: '0.75rem', color: 'var(--warm-gray)' }}>Recognized expenses (settlements: ${totalSettlements.toFixed(2)})</span>
         </div>
 
         <div className="glass-panel" style={{ padding: '20px', background: '#FAF6F0' }}>

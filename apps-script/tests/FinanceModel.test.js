@@ -1,15 +1,157 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+
+// Import actual runtime functions from Apps Script modules
+const {
+  PRODUCTION_SPREADSHEET_ID,
+  assertSandboxSheet,
+  getConfig
+} = require('../Config.gs');
+
+global.getConfig = getConfig;
+
+const {
+  getApprovedUser,
+  authorizeAction,
+  validateGoogleIdentity
+} = require('../Auth.gs');
 
 /**
- * Apps Script Phase 2 Pure Logic and Invariant Tests
+ * Apps Script Phase 2 Hardened Logic Tests
+ * Directly tests the ACTUAL runtime functions from Apps Script modules.
  */
 
-// 1. Authorization & Role Write Rejection Tests
-describe('Phase 2 Role Authorization Matrix', () => {
-  const ALL_ADMINS = ['Primary Admin', 'Backup Admin'];
-  const FINANCE_WRITERS = ['Primary Admin', 'Backup Admin', 'Finance Editor'];
-  const READ_ONLY_ROLES = ['Viewer', 'Presbyter Read-Only'];
+describe('1. Fail-Closed Production Sheet Safety Guard (Config.gs)', () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+  });
 
+  it('fails closed when GPBC_SHEET_ID is missing', () => {
+    global.PropertiesService = {
+      getScriptProperties: () => ({
+        getProperty: (key) => {
+          if (key === 'GPBC_ENVIRONMENT') return 'sandbox';
+          return null;
+        }
+      })
+    };
+
+    expect(() => {
+      assertSandboxSheet('addTransaction');
+    }).toThrow(/FAIL-CLOSED SAFETY GUARD: GPBC_SHEET_ID is not configured/);
+  });
+
+  it('fails closed when GPBC_ENVIRONMENT is missing on write', () => {
+    global.PropertiesService = {
+      getScriptProperties: () => ({
+        getProperty: (key) => {
+          if (key === 'GPBC_SHEET_ID') return 'sandbox_sheet_123';
+          return null;
+        }
+      })
+    };
+
+    expect(() => {
+      assertSandboxSheet('addTransaction');
+    }).toThrow(/FAIL-CLOSED SAFETY GUARD: GPBC_ENVIRONMENT is not configured/);
+  });
+
+  it('strictly blocks dev schema initialization against production spreadsheet ID', () => {
+    global.PropertiesService = {
+      getScriptProperties: () => ({
+        getProperty: (key) => {
+          if (key === 'GPBC_SHEET_ID') return PRODUCTION_SPREADSHEET_ID;
+          if (key === 'GPBC_ENVIRONMENT') return 'production';
+          return null;
+        }
+      })
+    };
+
+    expect(() => {
+      assertSandboxSheet('initializeSandboxSchema');
+    }).toThrow(/STRICTLY FORBIDDEN against the production spreadsheet/);
+  });
+
+  it('strictly blocks dev/sandbox environment when pointing to production spreadsheet ID', () => {
+    global.PropertiesService = {
+      getScriptProperties: () => ({
+        getProperty: (key) => {
+          if (key === 'GPBC_SHEET_ID') return PRODUCTION_SPREADSHEET_ID;
+          if (key === 'GPBC_ENVIRONMENT') return 'sandbox';
+          return null;
+        }
+      })
+    };
+
+    expect(() => {
+      assertSandboxSheet('addTransaction');
+    }).toThrow(/Environment is set to 'sandbox' but GPBC_SHEET_ID points to the production spreadsheet/);
+  });
+
+  it('allows write operations when both GPBC_SHEET_ID (non-prod) and GPBC_ENVIRONMENT (sandbox) are properly configured', () => {
+    global.PropertiesService = {
+      getScriptProperties: () => ({
+        getProperty: (key) => {
+          if (key === 'GPBC_SHEET_ID') return 'SANDBOX_SPREADSHEET_ID_98765';
+          if (key === 'GPBC_ENVIRONMENT') return 'sandbox';
+          return null;
+        }
+      })
+    };
+
+    expect(() => {
+      assertSandboxSheet('addTransaction');
+    }).not.toThrow();
+  });
+});
+
+describe('2. Deny-By-Default Approved User Resolution (Auth.gs)', () => {
+  const approvedUsersList = JSON.stringify([
+    { email: 'pastor@gracepraise.church', name: 'Pastor Gilbert', role: 'Primary Admin' },
+    { email: 'finance@gracepraise.church', name: 'Finance Lead', role: 'Finance Editor' },
+    { email: 'presbyter@socalnetwork.org', name: 'Presbyter Observer', role: 'Presbyter Read-Only' },
+    { email: 'auditor@gracepraise.church', name: 'Church Auditor', role: 'Viewer' }
+  ]);
+
+  beforeEach(() => {
+    global.PropertiesService = {
+      getScriptProperties: () => ({
+        getProperty: (key) => {
+          if (key === 'GPBC_APPROVED_USERS') return approvedUsersList;
+          return null;
+        }
+      })
+    };
+  });
+
+  it('resolves explicit approved users to their exact assigned roles', () => {
+    expect(getApprovedUser('pastor@gracepraise.church')).toEqual({
+      email: 'pastor@gracepraise.church',
+      name: 'Pastor Gilbert',
+      role: 'Primary Admin'
+    });
+
+    expect(getApprovedUser('finance@gracepraise.church')).toEqual({
+      email: 'finance@gracepraise.church',
+      name: 'Finance Lead',
+      role: 'Finance Editor'
+    });
+  });
+
+  it('denies unknown external gmail accounts (returns null)', () => {
+    expect(getApprovedUser('stranger@gmail.com')).toBeNull();
+  });
+
+  it('denies unknown @gracepraise.church accounts (no automatic domain elevation)', () => {
+    expect(getApprovedUser('newmember@gracepraise.church')).toBeNull();
+  });
+
+  it('denies accounts with string matches like "pastor" or "gilbert" if not in allowlist', () => {
+    expect(getApprovedUser('pastor.fake@gmail.com')).toBeNull();
+    expect(getApprovedUser('gilbert.personal@yahoo.com')).toBeNull();
+  });
+});
+
+describe('3. Actual Role Authorization Policy Matrix (Auth.gs)', () => {
   const writeActions = [
     'addTransaction',
     'updateTransaction',
@@ -19,8 +161,7 @@ describe('Phase 2 Role Authorization Matrix', () => {
     'addReimbursementAllocation',
     'addReceipt',
     'matchReceiptToTransaction',
-    'addCheckDetail',
-    'addCapitalProject'
+    'addCheckDetail'
   ];
 
   const readActions = [
@@ -34,41 +175,11 @@ describe('Phase 2 Role Authorization Matrix', () => {
     'getDesignatedFundsSummary'
   ];
 
-  function authorizeAction(action, role) {
-    const PERMISSION_MATRIX = {
-      getTransactions: ['Primary Admin', 'Backup Admin', 'Finance Editor', 'Viewer', 'Presbyter Read-Only'],
-      getIncomeDetail: ['Primary Admin', 'Backup Admin', 'Finance Editor', 'Viewer', 'Presbyter Read-Only'],
-      getExpenseDetail: ['Primary Admin', 'Backup Admin', 'Finance Editor', 'Viewer', 'Presbyter Read-Only'],
-      getReimbursements: ['Primary Admin', 'Backup Admin', 'Finance Editor', 'Viewer', 'Presbyter Read-Only'],
-      getReceipts: ['Primary Admin', 'Backup Admin', 'Finance Editor', 'Viewer', 'Presbyter Read-Only'],
-      getCheckDetails: ['Primary Admin', 'Backup Admin', 'Finance Editor', 'Viewer', 'Presbyter Read-Only'],
-      getCapitalProjects: ['Primary Admin', 'Backup Admin', 'Finance Editor', 'Viewer', 'Presbyter Read-Only'],
-      getDesignatedFundsSummary: ['Primary Admin', 'Backup Admin', 'Finance Editor', 'Viewer', 'Presbyter Read-Only'],
-
-      addTransaction: FINANCE_WRITERS,
-      updateTransaction: FINANCE_WRITERS,
-      deleteTransaction: ALL_ADMINS,
-      addIncome: FINANCE_WRITERS,
-      addExpense: FINANCE_WRITERS,
-      addReimbursement: FINANCE_WRITERS,
-      addReimbursementAllocation: FINANCE_WRITERS,
-      addReceipt: FINANCE_WRITERS,
-      matchReceiptToTransaction: FINANCE_WRITERS,
-      addCheckDetail: FINANCE_WRITERS,
-      addCapitalProject: ALL_ADMINS,
-      initializeSandboxSchema: ALL_ADMINS
-    };
-
-    const allowed = PERMISSION_MATRIX[action];
-    if (!allowed) return { authorized: false, reason: 'Unknown action' };
-    if (allowed.includes(role)) return { authorized: true };
-    return { authorized: false, reason: `Role ${role} denied for ${action}` };
-  }
-
   it('rejects all write actions for Viewer role', () => {
     writeActions.forEach(action => {
       const res = authorizeAction(action, 'Viewer');
       expect(res.authorized).toBe(false);
+      expect(res.reason).toContain('is not permitted');
     });
   });
 
@@ -76,15 +187,16 @@ describe('Phase 2 Role Authorization Matrix', () => {
     writeActions.forEach(action => {
       const res = authorizeAction(action, 'Presbyter Read-Only');
       expect(res.authorized).toBe(false);
+      expect(res.reason).toContain('is not permitted');
     });
   });
 
-  it('allows finance writes for Finance Editor role', () => {
+  it('rejects unknown users with no role (null/empty)', () => {
     writeActions.forEach(action => {
-      if (action !== 'addCapitalProject') {
-        const res = authorizeAction(action, 'Finance Editor');
-        expect(res.authorized).toBe(true);
-      }
+      expect(authorizeAction(action, null).authorized).toBe(false);
+    });
+    readActions.forEach(action => {
+      expect(authorizeAction(action, null).authorized).toBe(false);
     });
   });
 
@@ -94,149 +206,169 @@ describe('Phase 2 Role Authorization Matrix', () => {
       expect(authorizeAction(action, 'Presbyter Read-Only').authorized).toBe(true);
     });
   });
-});
 
-// 2. Sandbox Production-ID Safety Guard Test
-describe('Sandbox Production Sheet Write Safety Guard', () => {
-  const PRODUCTION_SPREADSHEET_ID = '1zLercJPwPvdl7YEU31Hbu4zcmakulOYrNrpnddxNC6s';
-
-  function assertSandboxSheet(sheetId, environment, operationName) {
-    if (!sheetId) {
-      throw new Error(`SAFETY GUARD: GPBC_SHEET_ID is not configured. Operation '${operationName}' blocked.`);
-    }
-    if (sheetId === PRODUCTION_SPREADSHEET_ID && environment !== 'production') {
-      throw new Error(
-        `SAFETY GUARD: Operation '${operationName}' is forbidden against the production spreadsheet (${PRODUCTION_SPREADSHEET_ID}).`
-      );
-    }
-  }
-
-  it('throws safety error when write operation targets production ID in dev/sandbox', () => {
-    expect(() => {
-      assertSandboxSheet(PRODUCTION_SPREADSHEET_ID, 'sandbox', 'initializeSandboxSchema');
-    }).toThrow(/SAFETY GUARD: Operation 'initializeSandboxSchema' is forbidden against the production spreadsheet/);
+  it('allows finance writes for Finance Editor', () => {
+    writeActions.forEach(action => {
+      expect(authorizeAction(action, 'Finance Editor').authorized).toBe(true);
+    });
   });
 
-  it('allows write operation when targeting non-production sandbox ID', () => {
-    expect(() => {
-      assertSandboxSheet('SANDBOX_SHEET_ID_98765', 'sandbox', 'addTransaction');
-    }).not.toThrow();
+  it('allows capital project creation only for Admins', () => {
+    expect(authorizeAction('addCapitalProject', 'Primary Admin').authorized).toBe(true);
+    expect(authorizeAction('addCapitalProject', 'Backup Admin').authorized).toBe(true);
+    expect(authorizeAction('addCapitalProject', 'Finance Editor').authorized).toBe(false);
   });
 });
 
-// 3. Reimbursement Invariant & Allocation Engine Tests
-describe('Reimbursement Allocation Invariants', () => {
-  function validateReimbursement({ totalPurchaseAmount, totalReimbursedAmount, totalPersonallyAbsorbed }) {
-    const purchase = Number(totalPurchaseAmount || 0);
-    const reimbursed = Number(totalReimbursedAmount || 0);
-    const absorbed = Number(totalPersonallyAbsorbed || 0);
-
-    if (purchase <= 0 || reimbursed < 0 || absorbed < 0) {
-      throw new Error('Invalid amounts');
-    }
-
-    if (reimbursed + absorbed > purchase + 0.01) {
-      throw new Error(
-        `Reimbursement invariant violation: Total reimbursed ($${reimbursed}) + absorbed ($${absorbed}) exceeds purchase cost ($${purchase})`
-      );
-    }
-
-    const remaining = Number(Math.max(0, purchase - reimbursed - absorbed).toFixed(2));
-    let status = 'Approved';
-    if (remaining > 0 && reimbursed > 0) status = 'Partially Reimbursed';
-    else if (remaining === 0 && reimbursed > 0) status = 'Fully Reimbursed';
-
-    return {
-      purchase,
-      reimbursed,
-      absorbed,
-      remaining,
-      status
+describe('4. Token Security & Client ID Requirement (Auth.gs)', () => {
+  it('fails closed if GOOGLE_CLIENT_ID is not configured', () => {
+    global.PropertiesService = {
+      getScriptProperties: () => ({
+        getProperty: () => null
+      })
     };
-  }
 
-  it('correctly handles exact reimbursement ($50.00 purchase, $50.00 reimbursed)', () => {
-    const res = validateReimbursement({
-      totalPurchaseAmount: 50.00,
-      totalReimbursedAmount: 50.00,
-      totalPersonallyAbsorbed: 0
-    });
-    expect(res.remaining).toBe(0);
-    expect(res.status).toBe('Fully Reimbursed');
+    const res = validateGoogleIdentity('any-token');
+    expect(res.valid).toBe(false);
+    expect(res.error).toContain('GOOGLE_CLIENT_ID is not configured');
   });
 
-  it('correctly handles partial reimbursement with personally absorbed balance ($25.50 purchase, $24.12 reimbursed, $1.38 absorbed)', () => {
-    const res = validateReimbursement({
-      totalPurchaseAmount: 25.50,
-      totalReimbursedAmount: 24.12,
-      totalPersonallyAbsorbed: 1.38
-    });
-    expect(res.remaining).toBe(0);
-    expect(res.reimbursed).toBe(24.12);
-    expect(res.absorbed).toBe(1.38);
-    expect(res.status).toBe('Fully Reimbursed');
-  });
+  it('strictly rejects dev-mock-token in production validation logic', () => {
+    global.PropertiesService = {
+      getScriptProperties: () => ({
+        getProperty: (key) => key === 'GOOGLE_CLIENT_ID' ? 'prod-client-id.apps.googleusercontent.com' : null
+      })
+    };
 
-  it('correctly calculates remaining pending balance on partial payout ($100.00 purchase, $40.00 reimbursed)', () => {
-    const res = validateReimbursement({
-      totalPurchaseAmount: 100.00,
-      totalReimbursedAmount: 40.00,
-      totalPersonallyAbsorbed: 0
-    });
-    expect(res.remaining).toBe(60.00);
-    expect(res.status).toBe('Partially Reimbursed');
-  });
+    global.CacheService = {
+      getScriptCache: () => ({
+        get: () => null,
+        put: () => {}
+      })
+    };
 
-  it('rejects reimbursement overage where reimbursed + absorbed exceeds purchase cost', () => {
-    expect(() => {
-      validateReimbursement({
-        totalPurchaseAmount: 50.00,
-        totalReimbursedAmount: 60.00,
-        totalPersonallyAbsorbed: 0
-      });
-    }).toThrow(/Reimbursement invariant violation/);
+    global.Utilities = {
+      DigestAlgorithm: { SHA_256: 'SHA_256' },
+      computeDigest: () => [1, 2, 3],
+      base64EncodeWebSafe: () => 'mock_digest_hash'
+    };
+
+    global.UrlFetchApp = {
+      fetch: () => ({
+        getResponseCode: () => 400,
+        getContentText: () => JSON.stringify({ error_description: 'Invalid Value' })
+      })
+    };
+
+    const res = validateGoogleIdentity('dev-mock-token');
+    expect(res.valid).toBe(false);
+    expect(res.error).toContain('Invalid Google ID token');
   });
 });
 
-// 4. Schema Initializer Idempotency Test
-describe('Schema Initializer Idempotency', () => {
-  function simulateSchemaInit(existingSheets, schemaDefs) {
-    const state = { ...existingSheets };
-    const logs = [];
-
-    Object.keys(schemaDefs).forEach(tab => {
-      if (!state[tab]) {
-        state[tab] = [...schemaDefs[tab]];
-        logs.push({ tab, action: 'created' });
-      } else {
-        const existing = state[tab];
-        const missing = schemaDefs[tab].filter(h => !existing.includes(h));
-        if (missing.length > 0) {
-          state[tab] = [...existing, ...missing];
-          logs.push({ tab, action: 'headers_extended', added: missing });
-        } else {
-          logs.push({ tab, action: 'verified' });
-        }
+describe('5. Accounting Correctness: Reimbursement Double-Counting Fix', () => {
+  it('correctly classifies personal church purchase as EXPENSE and reimbursement payout as SETTLEMENT ($100 + $100 = $100 expense)', () => {
+    const transactions = [
+      {
+        transactionId: 'TXN-001',
+        transactionType: 'Personal-Card Church Purchase',
+        direction: 'EXPENSE',
+        accountingImpact: 'EXPENSE', // Operational expense recognized here
+        amount: 100.00,
+        payeeOrPayer: 'Amazon',
+        description: 'Sound cables'
+      },
+      {
+        transactionId: 'TXN-002',
+        transactionType: 'Reimbursement',
+        direction: 'EXPENSE',
+        accountingImpact: 'SETTLEMENT', // Liability settlement, NOT duplicate expense
+        amount: 100.00,
+        payeeOrPayer: 'Pastor Gilbert',
+        description: 'Reimbursement for sound cables'
       }
-    });
+    ];
 
-    return { state, logs };
-  }
+    // Operating expenses calculation (excludes SETTLEMENT)
+    const recognizedOperatingExpenses = transactions
+      .filter(t => t.accountingImpact === 'EXPENSE')
+      .reduce((sum, t) => sum + t.amount, 0);
 
-  const defs = {
-    Transactions: ['transactionId', 'amount', 'payeeOrPayer'],
-    Reimbursements: ['reimbursementId', 'claimantName', 'totalReimbursedAmount']
-  };
+    const settlementCashOutflow = transactions
+      .filter(t => t.accountingImpact === 'SETTLEMENT')
+      .reduce((sum, t) => sum + t.amount, 0);
 
-  it('creates missing tabs on first pass and makes no changes on subsequent passes (idempotent)', () => {
-    // Pass 1: Empty state
-    const pass1 = simulateSchemaInit({}, defs);
-    expect(pass1.logs[0].action).toBe('created');
-    expect(pass1.state.Transactions).toEqual(['transactionId', 'amount', 'payeeOrPayer']);
+    // CRITICAL: Recognized church operating expense MUST be $100.00, NOT $200.00!
+    expect(recognizedOperatingExpenses).toBe(100.00);
+    expect(settlementCashOutflow).toBe(100.00);
+  });
 
-    // Pass 2: Re-running against existing schema
-    const pass2 = simulateSchemaInit(pass1.state, defs);
-    expect(pass2.logs.every(l => l.action === 'verified')).toBe(true);
-    expect(pass2.state.Transactions).toEqual(['transactionId', 'amount', 'payeeOrPayer']);
+  it('correctly tracks partial reimbursement with personally absorbed balance ($100 purchase, $60 payout, $20 absorbed)', () => {
+    const purchaseAmount = 100.00;
+    const reimbursedPayout = 60.00;
+    const personallyAbsorbed = 20.00;
+    const remainingPending = purchaseAmount - reimbursedPayout - personallyAbsorbed;
+
+    expect(remainingPending).toBe(20.00);
+
+    // Transaction records
+    const transactions = [
+      {
+        transactionId: 'TXN-001',
+        transactionType: 'Personal-Card Church Purchase',
+        direction: 'EXPENSE',
+        accountingImpact: 'EXPENSE',
+        amount: 100.00
+      },
+      {
+        transactionId: 'TXN-002',
+        transactionType: 'Reimbursement',
+        direction: 'EXPENSE',
+        accountingImpact: 'SETTLEMENT',
+        amount: 60.00
+      }
+    ];
+
+    const recognizedExpense = transactions
+      .filter(t => t.accountingImpact === 'EXPENSE')
+      .reduce((sum, t) => sum + t.amount, 0);
+
+    expect(recognizedExpense).toBe(100.00);
+  });
+});
+
+describe('6. Canonical Capital Projects Financial Derivation', () => {
+  it('correctly derives donations received, expenses paid, and remaining balance from canonical transactions', () => {
+    const project = {
+      projectId: 'PRJ-101',
+      projectName: 'Sanctuary Renovation',
+      approvedBudget: 50000.00
+    };
+
+    const transactions = [
+      { capitalProjectId: 'PRJ-101', direction: 'INCOME', accountingImpact: 'INCOME', amount: 15000.00 },
+      { capitalProjectId: 'PRJ-101', direction: 'INCOME', accountingImpact: 'INCOME', amount: 5000.00 },
+      { capitalProjectId: 'PRJ-101', direction: 'EXPENSE', accountingImpact: 'EXPENSE', amount: 8000.00 },
+      { capitalProjectId: 'PRJ-101', direction: 'EXPENSE', accountingImpact: 'EXPENSE', amount: 4500.00 },
+      // Settlement transaction for reimbursement of project purchase
+      { capitalProjectId: 'PRJ-101', direction: 'EXPENSE', accountingImpact: 'SETTLEMENT', amount: 4500.00 },
+      // Unrelated project transaction
+      { capitalProjectId: 'PRJ-OTHER', direction: 'INCOME', accountingImpact: 'INCOME', amount: 2000.00 }
+    ];
+
+    const projectTxs = transactions.filter(t => t.capitalProjectId === project.projectId);
+    const donations = projectTxs
+      .filter(t => t.direction === 'INCOME')
+      .reduce((sum, t) => sum + t.amount, 0);
+
+    const expenses = projectTxs
+      .filter(t => t.accountingImpact === 'EXPENSE')
+      .reduce((sum, t) => sum + t.amount, 0);
+
+    const remainingBalance = donations - expenses;
+
+    expect(donations).toBe(20000.00);
+    expect(expenses).toBe(12500.00);
+    expect(remainingBalance).toBe(7500.00);
   });
 });

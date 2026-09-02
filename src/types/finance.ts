@@ -41,6 +41,7 @@ export interface BaseTransaction {
   date: string;
   type: TransactionType;
   direction: TransactionDirection;
+  accountingImpact?: 'INCOME' | 'EXPENSE' | 'SETTLEMENT' | 'TRANSFER';
   amount: number;
   payeeOrPayer: string;
   description: string;

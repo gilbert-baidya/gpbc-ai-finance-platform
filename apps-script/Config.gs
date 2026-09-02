@@ -1,6 +1,6 @@
 /*************************************************
  * GPBC Finance Desk — Config.gs
- * Server-Side Configuration, Schema Definitions, and Sandbox Safety
+ * Server-Side Configuration, Schema Definitions, and Fail-Closed Safety
  *************************************************/
 
 const PRODUCTION_SPREADSHEET_ID = "1zLercJPwPvdl7YEU31Hbu4zcmakulOYrNrpnddxNC6s";
@@ -18,6 +18,7 @@ const CHURCH_INFO = {
 
 /**
  * Phase 2 Schema Tab Header Definitions
+ * Canonical Master Schema across ONE workbook
  */
 const SCHEMA_DEFINITIONS = {
   "Transactions": [
@@ -25,6 +26,7 @@ const SCHEMA_DEFINITIONS = {
     "transactionDate",
     "transactionType",
     "direction",
+    "accountingImpact",
     "amount",
     "payeeOrPayer",
     "description",
@@ -149,11 +151,7 @@ const SCHEMA_DEFINITIONS = {
     "projectName",
     "status",
     "approvedBudget",
-    "designatedDonationsReceived",
-    "otherFunding",
-    "expensesPaid",
     "pendingCommitments",
-    "remainingDesignatedBalance",
     "notes",
     "createdBy",
     "createdAt",
@@ -162,46 +160,72 @@ const SCHEMA_DEFINITIONS = {
 };
 
 /**
- * Retrieves script configuration from ScriptProperties
+ * Retrieves script configuration from ScriptProperties — FAILS CLOSED
+ * Never silently defaults missing sheetId or environment to production.
  */
 function getConfig() {
   const props = PropertiesService.getScriptProperties();
   return {
-    sheetId: props.getProperty("GPBC_SHEET_ID") || PRODUCTION_SPREADSHEET_ID,
+    sheetId: props.getProperty("GPBC_SHEET_ID") || "",
     googleClientId: props.getProperty("GOOGLE_CLIENT_ID") || "",
     approvedUsersJson: props.getProperty("GPBC_APPROVED_USERS") || "[]",
-    environment: props.getProperty("GPBC_ENVIRONMENT") || "production"
+    environment: props.getProperty("GPBC_ENVIRONMENT") || ""
   };
 }
 
 /**
- * Hard Safety Guard: Throws an exception if a development/schema write operation attempts
- * to target the known production spreadsheet ID.
+ * Fail-Closed Hard Safety Guard:
+ * Throws an exception if:
+ * 1. GPBC_SHEET_ID is missing
+ * 2. GPBC_ENVIRONMENT is missing on write
+ * 3. Any development/sandbox/schema/test operation attempts to target PRODUCTION_SPREADSHEET_ID
  */
 function assertSandboxSheet(operationName) {
   const config = getConfig();
+  const op = operationName || "write";
+
   if (!config.sheetId) {
-    throw new Error("SAFETY GUARD: GPBC_SHEET_ID is not configured. Operation '" + (operationName || "write") + "' blocked.");
+    throw new Error("FAIL-CLOSED SAFETY GUARD: GPBC_SHEET_ID is not configured in Script Properties. Operation '" + op + "' blocked.");
   }
-  
-  if (config.sheetId === PRODUCTION_SPREADSHEET_ID && config.environment !== "production") {
+
+  if (!config.environment) {
+    throw new Error("FAIL-CLOSED SAFETY GUARD: GPBC_ENVIRONMENT is not configured in Script Properties. Operation '" + op + "' blocked.");
+  }
+
+  // Development utilities (schema initialization, migration, test seeds) must NEVER run against production
+  const DEV_ONLY_OPERATIONS = [
+    "initializeSandboxSchema",
+    "migrateHistoricalData",
+    "seedTestData",
+    "resetSandboxData"
+  ];
+
+  if (DEV_ONLY_OPERATIONS.indexOf(op) !== -1 && config.sheetId === PRODUCTION_SPREADSHEET_ID) {
     throw new Error(
-      "SAFETY GUARD: Operation '" + (operationName || "write") + "' is forbidden against the production spreadsheet (" + 
-      PRODUCTION_SPREADSHEET_ID + "). Please configure a non-production sandbox ID in Script Properties."
+      "FAIL-CLOSED SAFETY GUARD: Development operation '" + op + "' is STRICTLY FORBIDDEN against the production spreadsheet (" +
+      PRODUCTION_SPREADSHEET_ID + ") regardless of environment setting. Configure a sandbox spreadsheet ID."
+    );
+  }
+
+  // Sandbox/development environment must not point to production spreadsheet ID
+  if ((config.environment === "sandbox" || config.environment === "development") && config.sheetId === PRODUCTION_SPREADSHEET_ID) {
+    throw new Error(
+      "FAIL-CLOSED SAFETY GUARD: Environment is set to '" + config.environment + "' but GPBC_SHEET_ID points to the production spreadsheet (" +
+      PRODUCTION_SPREADSHEET_ID + "). Operation '" + op + "' blocked."
     );
   }
 }
 
 /**
- * Retrieves the active Spreadsheet database instance
+ * Retrieves the active Spreadsheet database instance — FAILS CLOSED on writes
  * 
  * @param {boolean} isWrite - Set to true if performing a write/modification operation
- * @param {string} operationName - Name of the operation for safety logging
+ * @param {string} operationName - Name of the operation for safety validation
  */
 function getDB(isWrite, operationName) {
   const config = getConfig();
   if (!config.sheetId) {
-    throw new Error("GPBC_SHEET_ID is not configured in Script Properties");
+    throw new Error("FAIL-CLOSED SAFETY GUARD: GPBC_SHEET_ID is not configured in Script Properties");
   }
 
   if (isWrite) {
@@ -216,6 +240,9 @@ function getDB(isWrite, operationName) {
  */
 function assertEnvironment(requiredEnv) {
   const current = getConfig().environment;
+  if (!current) {
+    throw new Error("GPBC_ENVIRONMENT is not configured in Script Properties");
+  }
   if (requiredEnv && current !== requiredEnv) {
     throw new Error("Action restricted to " + requiredEnv + " environment (current: " + current + ")");
   }
@@ -256,6 +283,19 @@ function getSchemaInventory() {
     isProductionId: db.getId() === PRODUCTION_SPREADSHEET_ID,
     sheetCount: sheets.length,
     sheets: inventory,
-    environment: getConfig().environment
+    environment: getConfig().environment || "UNCONFIGURED"
+  };
+}
+
+if (typeof module !== "undefined" && module.exports) {
+  module.exports = {
+    PRODUCTION_SPREADSHEET_ID,
+    CHURCH_INFO,
+    SCHEMA_DEFINITIONS,
+    getConfig,
+    assertSandboxSheet,
+    getDB,
+    assertEnvironment,
+    getSchemaInventory
   };
 }

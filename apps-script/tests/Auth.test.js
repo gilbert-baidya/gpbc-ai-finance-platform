@@ -1,81 +1,34 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 
-// Simulate Apps Script Auth logic
-function getApprovedUser(email, approvedListJson = '[]') {
-  if (!email) return null;
-  const normalizedEmail = String(email).toLowerCase().trim();
+const { getConfig } = require('../Config.gs');
+global.getConfig = getConfig;
 
-  let approvedList = [];
-  try {
-    approvedList = JSON.parse(approvedListJson || '[]');
-  } catch {
-    approvedList = [];
-  }
+const {
+  getApprovedUser,
+  authorizeAction
+} = require('../Auth.gs');
 
-  for (let i = 0; i < approvedList.length; i++) {
-    const item = approvedList[i];
-    if (item && item.email && String(item.email).toLowerCase().trim() === normalizedEmail) {
-      return {
-        email: normalizedEmail,
-        name: item.name || normalizedEmail,
-        role: item.role || 'Viewer'
-      };
-    }
-  }
+describe('Apps Script Server-Side Authorization (Auth.gs)', () => {
+  const approvedList = JSON.stringify([
+    { email: 'pastor.gilbert@gracepraise.church', role: 'Primary Admin', name: 'Pastor Gilbert' },
+    { email: 'treasurer@gracepraise.church', role: 'Finance Editor', name: 'Treasurer' },
+    { email: 'presbyter@socal.org', role: 'Presbyter Read-Only', name: 'Presbyter' },
+    { email: 'backup@gmail.com', role: 'Backup Admin', name: 'Backup' },
+    { email: 'auditor@gracepraise.church', role: 'Viewer', name: 'Auditor' }
+  ]);
 
-  if (normalizedEmail.endsWith('@gracepraise.church')) {
-    if (normalizedEmail.includes('pastor') || normalizedEmail.includes('gilbert')) {
-      return { email: normalizedEmail, name: 'Pastor Gilbert', role: 'Primary Admin' };
-    }
-    return { email: normalizedEmail, name: normalizedEmail.split('@')[0], role: 'Finance Editor' };
-  }
+  beforeEach(() => {
+    global.PropertiesService = {
+      getScriptProperties: () => ({
+        getProperty: (key) => {
+          if (key === 'GPBC_APPROVED_USERS') return approvedList;
+          return null;
+        }
+      })
+    };
+  });
 
-  return {
-    email: normalizedEmail,
-    name: normalizedEmail,
-    role: 'Viewer'
-  };
-}
-
-function authorizeAction(action, role) {
-  if (!action) return { authorized: false, reason: 'No action specified' };
-
-  const ALL_ADMINS = ['Primary Admin', 'Backup Admin'];
-  const FINANCE_WRITERS = ['Primary Admin', 'Backup Admin', 'Finance Editor'];
-  const ALL_READERS = ['Primary Admin', 'Backup Admin', 'Finance Editor', 'Viewer', 'Presbyter Read-Only'];
-  const PRESBYTER_SET = ['Primary Admin', 'Backup Admin', 'Presbyter Read-Only'];
-
-  const PERMISSION_MATRIX = {
-    verifySession: ALL_READERS,
-    getSchemaInventory: ALL_ADMINS,
-    getDashboardSummary: ALL_READERS,
-    getMembers: FINANCE_WRITERS,
-    getTaxLetterData: FINANCE_WRITERS,
-    getMemberYearlyContributions: FINANCE_WRITERS,
-    addMember: FINANCE_WRITERS,
-    addContribution: FINANCE_WRITERS,
-    generateYearlyTaxLettersBatch: FINANCE_WRITERS,
-    generateIRSPdfLetter: FINANCE_WRITERS,
-    generateBatchIRS: FINANCE_WRITERS,
-    generateSocalMonthlyReport: [...PRESBYTER_SET, 'Finance Editor'],
-    runMonthlyAutomation: ALL_ADMINS,
-    logAuditEvent: ALL_READERS
-  };
-
-  const allowedRoles = PERMISSION_MATRIX[action];
-  if (!allowedRoles) {
-    return { authorized: false, reason: 'Action not recognized in authorization policy: ' + action };
-  }
-
-  if (allowedRoles.includes(role)) {
-    return { authorized: true };
-  }
-
-  return { authorized: false, reason: `Role '${role}' is not permitted to perform '${action}'` };
-}
-
-describe('Apps Script Server-Side Authorization', () => {
-  it('correctly maps church domain users to administrative roles', () => {
+  it('correctly maps explicitly approved users to administrative roles', () => {
     const pastor = getApprovedUser('pastor.gilbert@gracepraise.church');
     expect(pastor.role).toBe('Primary Admin');
 
@@ -83,17 +36,17 @@ describe('Apps Script Server-Side Authorization', () => {
     expect(financeTeam.role).toBe('Finance Editor');
   });
 
-  it('correctly uses explicit approved user list when provided', () => {
-    const list = JSON.stringify([
-      { email: 'presbyter@socal.org', role: 'Presbyter Read-Only', name: 'Presbyter' },
-      { email: 'backup@gmail.com', role: 'Backup Admin', name: 'Backup' }
-    ]);
-
-    const presbyter = getApprovedUser('presbyter@socal.org', list);
+  it('correctly resolves presbyter and backup admin from approved user list', () => {
+    const presbyter = getApprovedUser('presbyter@socal.org');
     expect(presbyter.role).toBe('Presbyter Read-Only');
 
-    const backup = getApprovedUser('backup@gmail.com', list);
+    const backup = getApprovedUser('backup@gmail.com');
     expect(backup.role).toBe('Backup Admin');
+  });
+
+  it('denies unknown users by default (returns null)', () => {
+    expect(getApprovedUser('stranger@example.com')).toBeNull();
+    expect(getApprovedUser('unapproved@gracepraise.church')).toBeNull();
   });
 
   it('allows Primary Admin and Backup Admin to run schema inventory and monthly automation', () => {

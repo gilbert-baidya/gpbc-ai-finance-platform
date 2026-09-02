@@ -1,6 +1,6 @@
 /*************************************************
  * GPBC Finance Desk — Reimbursements.gs
- * Many-to-Many Reimbursements & Allocation Engine
+ * Authoritative Many-to-Many Reimbursements & Allocation Engine
  *************************************************/
 
 /**
@@ -50,8 +50,8 @@ function getReimbursements() {
 }
 
 /**
- * Creates a reimbursement record with many-to-many allocations
- * Preserves exact purchase, church reimbursement, and personally absorbed amounts.
+ * Validates and records a reimbursement payout with verified many-to-many allocations.
+ * Invariant: Reimbursed payout is recorded as a liability SETTLEMENT, preventing double-counting.
  */
 function addReimbursement(p, userEmail) {
   p = p || {};
@@ -66,12 +66,33 @@ function addReimbursement(p, userEmail) {
     throw new Error("Invalid reimbursement or purchase amount");
   }
 
-  // Prevent allocation overage: Reimbursed + Absorbed cannot exceed original purchase unless explicit adjustment
+  // Prevent allocation overage: Reimbursed + Absorbed cannot exceed original purchase
   if (reimbursedAmt + absorbedAmt > purchaseAmt + 0.01) {
     throw new Error(
       "Reimbursement invariant violation: Total reimbursed ($" + reimbursedAmt + 
       ") + absorbed ($" + absorbedAmt + ") exceeds purchase cost ($" + purchaseAmt + ")"
     );
+  }
+
+  const rawAllocations = Array.isArray(p.allocations) ? p.allocations : [];
+
+  // Multi-Allocation Defaulting Fix: If multiple allocations provided, explicit amounts are required
+  if (rawAllocations.length > 1) {
+    let sumAllocated = 0;
+    rawAllocations.forEach(function(alc, idx) {
+      const amt = Number(alc.allocatedAmount);
+      if (isNaN(amt) || amt < 0) {
+        throw new Error("Allocation row #" + (idx + 1) + " requires an explicit non-negative allocated amount");
+      }
+      sumAllocated += amt;
+    });
+
+    if (Math.abs(sumAllocated - reimbursedAmt) > 0.01) {
+      throw new Error(
+        "Allocation mismatch: Sum of multi-purchase allocations ($" + sumAllocated.toFixed(2) +
+        ") does not match reimbursement total ($" + reimbursedAmt.toFixed(2) + ")"
+      );
+    }
   }
 
   const db = getDB(true, "addReimbursement");
@@ -114,16 +135,23 @@ function addReimbursement(p, userEmail) {
     nowIso
   ]);
 
-  // Append Allocations if provided
-  const allocations = Array.isArray(p.allocations) ? p.allocations : [];
-  allocations.forEach(function(alc) {
+  // Process Allocations
+  rawAllocations.forEach(function(alc) {
+    const singleAllocAmt = rawAllocations.length === 1 && (alc.allocatedAmount === undefined || alc.allocatedAmount === "")
+      ? reimbursedAmt
+      : Number(alc.allocatedAmount || 0);
+
+    const singleAbsorbAmt = rawAllocations.length === 1 && (alc.personallyAbsorbedAmount === undefined || alc.personallyAbsorbedAmount === "")
+      ? absorbedAmt
+      : Number(alc.personallyAbsorbedAmount || 0);
+
     const alcId = "ALC-" + Date.now() + "-" + Math.floor(100 + Math.random() * 900);
     alcSheet.appendRow([
       alcId,
       rmbId,
       alc.purchaseTransactionId || "",
-      Number(alc.allocatedAmount || reimbursedAmt),
-      Number(alc.personallyAbsorbedAmount || absorbedAmt),
+      singleAllocAmt,
+      singleAbsorbAmt,
       Number(alc.refundCreditAdjustment || 0),
       alc.notes || "",
       actor,
@@ -132,14 +160,16 @@ function addReimbursement(p, userEmail) {
   });
 
   // Record Disbursement Transaction in canonical Transactions tab
+  // CRITICAL: accountingImpact is SETTLEMENT so it is NOT double-counted as an operating expense
   if (reimbursedAmt > 0) {
     addTransaction({
       transactionDate: rmbDate,
       transactionType: "Reimbursement",
       direction: "EXPENSE",
+      accountingImpact: "SETTLEMENT", // SETTLEMENT of payable liability, NOT a duplicate expense
       amount: reimbursedAmt,
       payeeOrPayer: p.claimantName,
-      description: "Reimbursement to " + p.claimantName + (p.notes ? " - " + p.notes : ""),
+      description: "Reimbursement settlement to " + p.claimantName + (p.notes ? " - " + p.notes : ""),
       category: "Reimbursement",
       fundId: "General",
       paymentMethod: p.paymentMethod || "Check",
@@ -164,17 +194,60 @@ function addReimbursement(p, userEmail) {
 
 /**
  * Adds an individual reimbursement allocation linking a reimbursement to a purchase
+ * Validates purchase existence and prevents allocation overage
  */
 function addReimbursementAllocation(p, userEmail) {
   p = p || {};
   if (!p.reimbursementId) throw new Error("reimbursementId is required");
   if (!p.purchaseTransactionId) throw new Error("purchaseTransactionId is required");
+  const allocAmt = Number(p.allocatedAmount || 0);
+  if (allocAmt < 0) throw new Error("Allocated amount cannot be negative");
 
   const db = getDB(true, "addReimbursementAllocation");
   let alcSheet = db.getSheetByName("Reimbursement_Allocations");
   if (!alcSheet) {
     initializeSandboxSchema();
     alcSheet = db.getSheetByName("Reimbursement_Allocations");
+  }
+
+  // Verify purchase transaction exists and check prior allocations
+  const txSheet = db.getSheetByName("Transactions");
+  if (txSheet && txSheet.getLastRow() > 1) {
+    const txData = txSheet.getDataRange().getValues();
+    const txHeaders = txData.shift();
+    const pIdx = txHeaders.indexOf("transactionId");
+    const aIdx = txHeaders.indexOf("amount");
+    const matchedTx = txData.find(function(r) { return r[pIdx] === p.purchaseTransactionId; });
+
+    if (!matchedTx) {
+      throw new Error("Purchase transaction not found: " + p.purchaseTransactionId);
+    }
+
+    const purchaseAmount = Number(matchedTx[aIdx] || 0);
+
+    // Sum existing allocations for this purchase
+    let priorAllocated = 0;
+    if (alcSheet.getLastRow() > 1) {
+      const aData = alcSheet.getDataRange().getValues();
+      const aHeaders = aData.shift();
+      const pTxIdx = aHeaders.indexOf("purchaseTransactionId");
+      const amtIdx = aHeaders.indexOf("allocatedAmount");
+      const absIdx = aHeaders.indexOf("personallyAbsorbedAmount");
+
+      aData.forEach(function(r) {
+        if (r[pTxIdx] === p.purchaseTransactionId) {
+          priorAllocated += Number(r[amtIdx] || 0) + Number(r[absIdx] || 0);
+        }
+      });
+    }
+
+    const newAbsorbed = Number(p.personallyAbsorbedAmount || 0);
+    if (priorAllocated + allocAmt + newAbsorbed > purchaseAmount + 0.01) {
+      throw new Error(
+        "Allocation overage: Total allocated ($" + (priorAllocated + allocAmt + newAbsorbed).toFixed(2) +
+        ") exceeds purchase amount ($" + purchaseAmount.toFixed(2) + ")"
+      );
+    }
   }
 
   const alcId = "ALC-" + Date.now();
@@ -184,7 +257,7 @@ function addReimbursementAllocation(p, userEmail) {
     alcId,
     p.reimbursementId,
     p.purchaseTransactionId,
-    Number(p.allocatedAmount || 0),
+    allocAmt,
     Number(p.personallyAbsorbedAmount || 0),
     Number(p.refundCreditAdjustment || 0),
     p.notes || "",
@@ -193,4 +266,12 @@ function addReimbursementAllocation(p, userEmail) {
   ]);
 
   return { success: true, allocationId: alcId };
+}
+
+if (typeof module !== "undefined" && module.exports) {
+  module.exports = {
+    getReimbursements,
+    addReimbursement,
+    addReimbursementAllocation
+  };
 }

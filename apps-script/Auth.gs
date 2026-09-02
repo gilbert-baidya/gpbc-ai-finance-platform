@@ -1,12 +1,12 @@
 /*************************************************
  * GPBC Finance Desk — Auth.gs
- * Google ID Token Cryptographic Verification and Server-Side Authorization
+ * Google ID Token Cryptographic Verification and Fail-Closed Authorization
  *************************************************/
 
 /**
  * Validates a Google ID Token using Google's authoritative cryptographic verification endpoint.
  * Validates issuer, audience, expiry, verified email, and account subject.
- * Caches validated claims in ScriptCache for 5 minutes.
+ * Caches validated claims in ScriptCache for 5 minutes using SHA-256 digest keys.
  * 
  * @param {string} idToken - The Google ID Token from client
  * @returns {object} { valid: boolean, claims?: object, error?: string }
@@ -16,22 +16,17 @@ function validateGoogleIdentity(idToken) {
     return { valid: false, error: "Missing or invalid identity token" };
   }
 
-  // Development bypass token for local unit tests only when not running in production
-  if (idToken === "dev-mock-token") {
-    return {
-      valid: true,
-      claims: {
-        email: "pastor@gracepraise.church",
-        name: "Rev. Gilbert S. Baidya",
-        email_verified: true,
-        aud: getConfig().googleClientId || "dev-client",
-        sub: "dev-sub-12345"
-      }
-    };
+  const config = getConfig();
+
+  // Fail closed if Google Client ID is not configured
+  if (!config.googleClientId) {
+    return { valid: false, error: "Configuration error: GOOGLE_CLIENT_ID is not configured in Script Properties" };
   }
 
   const cache = CacheService.getScriptCache();
-  const cacheKey = "tok_" + Utilities.base64EncodeWebSafe(idToken.slice(-32));
+  // Generate deterministic SHA-256 digest cache key
+  const digest = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, idToken);
+  const cacheKey = "tok_" + Utilities.base64EncodeWebSafe(digest);
   const cachedClaims = cache.get(cacheKey);
 
   if (cachedClaims) {
@@ -60,9 +55,8 @@ function validateGoogleIdentity(idToken) {
       return { valid: false, error: "Token subject claim missing" };
     }
 
-    // 2. Validate Audience
-    const config = getConfig();
-    if (config.googleClientId && claims.aud !== config.googleClientId) {
+    // 2. Validate Audience (Mandatory)
+    if (claims.aud !== config.googleClientId) {
       return { valid: false, error: "Token audience mismatch" };
     }
 
@@ -92,10 +86,12 @@ function validateGoogleIdentity(idToken) {
 }
 
 /**
- * Resolves the user record and assigned canonical role from configured approved users
+ * Resolves the user record and assigned canonical role from explicit GPBC_APPROVED_USERS configuration.
+ * FAILS CLOSED (DENY-BY-DEFAULT): If user email is not in the explicit approved list, returns null.
+ * NEVER infers roles based on email domain or string matching.
  * 
  * @param {string} email - Verified user email address
- * @returns {object} { email: string, name: string, role: string }
+ * @returns {object|null} { email: string, name: string, role: string } or null if unapproved
  */
 function getApprovedUser(email) {
   if (!email) return null;
@@ -109,7 +105,7 @@ function getApprovedUser(email) {
     approvedList = [];
   }
 
-  // Look for exact match in approved user list
+  // Exact lookup in approved user list
   for (let i = 0; i < approvedList.length; i++) {
     const item = approvedList[i];
     if (item && item.email && String(item.email).toLowerCase().trim() === normalizedEmail) {
@@ -121,20 +117,8 @@ function getApprovedUser(email) {
     }
   }
 
-  // Domain fallback rule: Church workspace users receive Primary Admin or Finance Editor role
-  if (normalizedEmail.endsWith("@gracepraise.church")) {
-    if (normalizedEmail.includes("pastor") || normalizedEmail.includes("gilbert")) {
-      return { email: normalizedEmail, name: "Pastor Gilbert", role: "Primary Admin" };
-    }
-    return { email: normalizedEmail, name: normalizedEmail.split("@")[0], role: "Finance Editor" };
-  }
-
-  // Default unapproved user
-  return {
-    email: normalizedEmail,
-    name: normalizedEmail,
-    role: "Viewer"
-  };
+  // Deny by default: Unknown users receive NO role and NO access
+  return null;
 }
 
 /**
@@ -153,6 +137,7 @@ function getApprovedUser(email) {
  */
 function authorizeAction(action, role) {
   if (!action) return { authorized: false, reason: "No action specified" };
+  if (!role) return { authorized: false, reason: "Unauthorized: User not in approved user list" };
 
   // Role hierarchy definitions
   const ALL_ADMINS = ["Primary Admin", "Backup Admin"];
@@ -166,7 +151,7 @@ function authorizeAction(action, role) {
     "getSchemaInventory": ALL_ADMINS,
     "initializeSandboxSchema": ALL_ADMINS,
 
-    // Phase 2: Core Finance Reads
+    // Core Finance Reads
     "getTransactions": ALL_READERS,
     "getIncomeDetail": ALL_READERS,
     "getExpenseDetail": ALL_READERS,
@@ -180,7 +165,7 @@ function authorizeAction(action, role) {
     "getTaxLetterData": FINANCE_WRITERS,
     "getMemberYearlyContributions": FINANCE_WRITERS,
 
-    // Phase 2: Core Finance Writes (Restricted to Primary Admin, Backup Admin, Finance Editor)
+    // Core Finance Writes (Restricted to Primary Admin, Backup Admin, Finance Editor)
     "addTransaction": FINANCE_WRITERS,
     "updateTransaction": FINANCE_WRITERS,
     "deleteTransaction": ALL_ADMINS,
@@ -225,4 +210,12 @@ function authorizeAction(action, role) {
   }
 
   return { authorized: false, reason: "Role '" + role + "' is not permitted to perform '" + action + "'" };
+}
+
+if (typeof module !== "undefined" && module.exports) {
+  module.exports = {
+    validateGoogleIdentity,
+    getApprovedUser,
+    authorizeAction
+  };
 }
