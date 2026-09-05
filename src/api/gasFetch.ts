@@ -7,6 +7,7 @@
  */
 
 import { GasRequestEnvelope, GasResponseEnvelope } from './types';
+import { apiBaseUrl } from '../config/env';
 
 // In-memory token storage for current active session
 let currentIdToken: string | null = null;
@@ -29,7 +30,7 @@ export async function gasFetch<T = Record<string, unknown>>(
   payload: Record<string, unknown> = {},
   idTokenOverride?: string
 ): Promise<GasResponseEnvelope<T>> {
-  const GAS_URL = import.meta.env.VITE_GPBC_API_URL as string | undefined;
+  const GAS_URL = apiBaseUrl;
   const isDev = import.meta.env.DEV;
 
   if (!GAS_URL) {
