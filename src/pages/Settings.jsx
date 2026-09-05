@@ -109,13 +109,13 @@ export default function Settings() {
         <div className="glass-panel" style={{ padding: '16px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', color: 'var(--slate-blue-dark)', fontWeight: '600' }}>
             <Database size={18} />
-            <span>Production Master Sheet</span>
+            <span>Production Data Source</span>
           </div>
-          <div style={{ fontSize: '0.85rem', fontWeight: '600', fontFamily: 'monospace', color: 'var(--slate-blue-dark)', wordBreak: 'break-all' }}>
-            1zLercJPwPvdl7YEU31Hbu4zcmakulOYrNrpnddxNC6s
+          <div style={{ fontSize: '1rem', fontWeight: '700', color: 'var(--slate-blue)' }}>
+            Workspace: GPBC Finance Production
           </div>
           <div style={{ fontSize: '0.8rem', color: '#059669', marginTop: '4px', fontWeight: '500' }}>
-            Strict Read-Only Mode (0 Writes)
+            Connected
           </div>
         </div>
 

@@ -337,8 +337,9 @@ function addMember(p) {
 }
 
 function getMembers() {
-  const sheet = getDB().getSheetByName("MEMBERS");
-  if (!sheet) throw new Error("MEMBERS sheet missing");
+  const db = getDB(false, "getMembers");
+  const sheet = db.getSheetByName("MEMBERS");
+  if (!sheet) return { success: true, members: [] };
 
   const data = sheet.getDataRange().getValues();
   if (data.length <= 1) return { success: true, members: [] };
@@ -1039,6 +1040,7 @@ if (typeof module !== "undefined" && module.exports) {
     doGet,
     doPost,
     jsonResponse,
-    repairSandboxTestState
+    repairSandboxTestState,
+    getMembers
   };
 }
