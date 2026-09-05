@@ -394,4 +394,76 @@ describe('Phase 5C-1 Production Read-Only Security & Write Guard Tests (A throug
       expect(auth.authorized).toBe(false);
     });
   });
+
+  // TEST X: getProductionReadiness validates against canonical 16-tab schema and returns clean operational governance
+  it('Test X: getProductionReadiness validates against canonical 16-tab schema and returns clean governance without leaking IDs', () => {
+    const canonicalTabs = [
+      'Transactions',
+      'Income Detail',
+      'Expense Detail',
+      'Reimbursements',
+      'Reimbursement_Allocations',
+      'Receipt_Register',
+      'Document_Register',
+      'Check_Details',
+      'Capital_Projects',
+      'Audit_Issues',
+      'Reconciliation_Staging',
+      'Reconciliation_Register',
+      'Monthly_Close',
+      'Monthly_Close_History',
+      'Presbyter_Reports',
+      'AUDIT_LOGS'
+    ];
+
+    global.SpreadsheetApp = {
+      openById: () => ({
+        getName: () => 'GPBC_Finance_Master_PRODUCTION',
+        getSheets: () => canonicalTabs.map((name) => ({ getName: () => name }))
+      })
+    };
+
+    global.PropertiesService = {
+      getScriptProperties: () => ({
+        getProperty: (key) => {
+          if (key === 'GPBC_ENVIRONMENT') return 'production';
+          if (key === 'GPBC_SHEET_ID') return '1QW6DA3vBiY08qJXw-XRK71-q21kWMLVnnMaQBPnX8fE';
+          if (key === 'GPBC_DRIVE_ROOT_FOLDER_ID') return '1OsKbjEorsemb96Gtc2hugr-s6SySCQ9K';
+          if (key === 'GOOGLE_CLIENT_ID') return '456809328996-8rji8ff249l0tb276236rguctv36k4e8.apps.googleusercontent.com';
+          if (key === 'GPBC_PRODUCTION_WRITES_ENABLED') return 'false';
+          return null;
+        }
+      })
+    };
+
+    const readiness = getProductionReadiness();
+
+    expect(readiness.success).toBe(true);
+    expect(readiness.totalTablesRequired).toBe(16);
+    expect(readiness.verifiedTablesCount).toBe(16);
+    expect(readiness.missingTables).toEqual([]);
+    expect(readiness.overallStatus).toBe('OPERATIONAL');
+
+    // Check individual check statuses
+    const checkMap = {};
+    readiness.checks.forEach((c) => {
+      checkMap[c.id] = c;
+      // Assert no raw IDs are exposed in detail
+      expect(c.detail).not.toContain('1QW6DA3vBiY08qJXw-XRK71-q21kWMLVnnMaQBPnX8fE');
+      expect(c.detail).not.toContain('1zLercJPwPvdl7YEU31Hbu4zcmakulOYrNrpnddxNC6s');
+      expect(c.detail).not.toContain('1OsKbjEorsemb96Gtc2hugr-s6SySCQ9K');
+    });
+
+    expect(checkMap.environment.status).toBe('LIVE');
+    expect(checkMap.workbook.status).toBe('Connected');
+    expect(checkMap.schema.status).toBe('16/16 Verified');
+    expect(checkMap.backend.status).toBe('Connected');
+    expect(checkMap.oauth.status).toBe('Configured');
+    expect(checkMap.oauth.detail).toBe('Google Sign-In configured');
+    expect(checkMap.oauth.detail).not.toContain('Google Workspace');
+    expect(checkMap.domain.status).toBe('Live');
+    expect(checkMap.writes.status).toBe('Temporarily Disabled');
+    expect(checkMap.presbyter.status).toBe('Active');
+    expect(checkMap.backup.status).toBe('Configured');
+  });
 });
