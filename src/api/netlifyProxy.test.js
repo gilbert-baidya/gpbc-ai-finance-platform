@@ -98,4 +98,55 @@ describe('Netlify API Proxy Function (gpbc.js)', () => {
     expect(res.statusCode).toBe(502);
     expect(JSON.parse(res.body).error).toBe('Upstream gateway error');
   });
+
+  it('proxies getProductionReadiness POST, preserves idToken, and returns HTTP 200 JSON without exposing redirect URL', async () => {
+    const payload = JSON.stringify({
+      action: 'getProductionReadiness',
+      payload: {},
+      idToken: 'valid-admin-google-id-token'
+    });
+    const mockReadinessResponse = JSON.stringify({
+      success: true,
+      overallStatus: 'OPERATIONAL',
+      totalTablesRequired: 16,
+      verifiedTablesCount: 16
+    });
+
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      status: 200,
+      headers: {
+        get: (name) => {
+          if (name.toLowerCase() === 'content-type') return 'application/json; charset=utf-8';
+          if (name.toLowerCase() === 'location') return 'https://script.googleusercontent.com/macros/echo?user_content_key=secret';
+          return null;
+        }
+      },
+      text: async () => mockReadinessResponse,
+    });
+
+    const res = await handler({
+      httpMethod: 'POST',
+      body: payload,
+    });
+
+    expect(res.statusCode).toBe(200);
+    expect(res.body).toBe(mockReadinessResponse);
+    expect(res.headers['Location']).toBeUndefined();
+    expect(res.headers['location']).toBeUndefined();
+    expect(res.body).not.toContain('script.googleusercontent.com');
+
+    expect(globalThis.fetch).toHaveBeenCalledWith(
+      'https://script.google.com/macros/s/AKfycbwx3CYYFDu_wUIepfOuY3rVu9OE9lC5woV1X01lcDYFz_QMMx25wsyviSamIKkhILG5/exec',
+      expect.objectContaining({
+        method: 'POST',
+        headers: expect.objectContaining({ 'Content-Type': 'text/plain' }),
+        body: payload,
+        redirect: 'follow',
+      })
+    );
+
+    const sentPayload = JSON.parse(globalThis.fetch.mock.calls[0][1].body);
+    expect(sentPayload.action).toBe('getProductionReadiness');
+    expect(sentPayload.idToken).toBe('valid-admin-google-id-token');
+  });
 });

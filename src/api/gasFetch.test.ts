@@ -68,4 +68,20 @@ describe('gasFetch Client API Wrapper', () => {
 
     await expect(gasFetch('getDashboardSummary')).rejects.toThrow('HTTP 500: Internal Server Error');
   });
+
+  it('routes requests to same-origin /api/gpbc path and never produces script.googleusercontent.com URLs', async () => {
+    const mockResponse = { success: true, overallStatus: 'OPERATIONAL' };
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => mockResponse,
+    });
+
+    const result = await gasFetch('getProductionReadiness', {});
+    expect(result).toEqual(mockResponse);
+
+    const [calledUrl] = (globalThis.fetch as any).mock.calls[0];
+    expect(calledUrl).toBe('/api/gpbc');
+    expect(calledUrl).not.toContain('script.google.com');
+    expect(calledUrl).not.toContain('script.googleusercontent.com');
+  });
 });
