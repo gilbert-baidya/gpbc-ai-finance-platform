@@ -1,4 +1,5 @@
 import { useTenant } from "../tenants/TenantContext";
+import { gasFetch } from "./gasFetch";
 
 /**
  * Get tenant-specific API configuration
@@ -11,13 +12,9 @@ export function useTenantApi() {
   }
 
   const apiUrl = import.meta.env[tenant.apiUrlEnv] || import.meta.env.VITE_GPBC_API_URL;
-  const apiKey = import.meta.env[tenant.apiKeyEnv] || import.meta.env.VITE_GPBC_API_KEY;
-  const sheetId = import.meta.env[tenant.sheetIdEnv];
 
   return {
     apiUrl,
-    apiKey,
-    sheetId,
     tenantKey,
     tenant
   };
@@ -27,22 +24,9 @@ export function useTenantApi() {
  * Make tenant-aware API call (CORS-safe for Google Apps Script)
  */
 export async function tenantApiFetch(action, payload = {}) {
-  const { apiUrl, apiKey, tenantKey } = useTenantApi();
-
-  const response = await fetch(apiUrl, {
-    method: "POST",
-    headers: {
-      "Content-Type": "text/plain"  // CRITICAL: text/plain for simple CORS request
-    },
-    body: JSON.stringify({
-      apiKey,
-      action,
-      payload: {
-        tenant: tenantKey,
-        ...payload
-      }
-    })
+  const { tenantKey } = useTenantApi();
+  return gasFetch(action, {
+    tenant: tenantKey,
+    ...payload
   });
-
-  return response.json();
 }

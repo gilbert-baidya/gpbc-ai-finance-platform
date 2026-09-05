@@ -1,8 +1,9 @@
+import { gasFetch } from './gasFetch';
+
 /**
  * Tax API Service
  * 
  * Handles fetching tax letter data from Google Apps Script API
- * Uses CORS-safe text/plain Content-Type
  */
 
 /**
@@ -12,17 +13,8 @@
  * @returns {Promise<Object>} Tax letter data
  */
 export async function fetchTaxLetterData(memberId, year) {
-  const res = await fetch(import.meta.env.VITE_GPBC_API_URL, {
-    method: "POST",
-    headers: { "Content-Type": "text/plain" },
-    body: JSON.stringify({
-      apiKey: import.meta.env.VITE_GPBC_API_KEY,
-      action: "getTaxLetterData",
-      payload: { memberId, year }
-    })
-  });
-
-  return res.json();
+  const res = await gasFetch('getTaxLetterData', { memberId, year });
+  return res;
 }
 
 /**
@@ -32,15 +24,6 @@ export async function fetchTaxLetterData(memberId, year) {
  * @returns {Promise<Object>} Contribution data
  */
 export async function fetchMemberYearlyContributions(memberId, year) {
-  const res = await fetch(import.meta.env.VITE_GPBC_API_URL, {
-    method: "POST",
-    headers: { "Content-Type": "text/plain" },
-    body: JSON.stringify({
-      apiKey: import.meta.env.VITE_GPBC_API_KEY,
-      action: "getMemberYearlyContributions",
-      payload: { memberId, year }
-    })
-  });
-
-  return res.json();
+  const res = await gasFetch('getMemberYearlyContributions', { memberId, year });
+  return res;
 }
