@@ -10,6 +10,7 @@ export type GasResponseEnvelope<T = Record<string, unknown>> = {
   success: boolean;
   error?: string;
   message?: string;
+  diagnosticCode?: string;
   data?: T;
 } & T;
 

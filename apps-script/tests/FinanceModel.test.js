@@ -3,11 +3,16 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 // Import actual runtime functions from Apps Script modules
 const {
   PRODUCTION_SPREADSHEET_ID,
+  SCHEMA_DEFINITIONS,
   assertSandboxSheet,
-  getConfig
+  getConfig,
+  getSchemaInventory
 } = require('../Config.gs');
 
 global.getConfig = getConfig;
+
+const { getIncomeDetail, normalizeTransactionDateValue } = require('../Transactions.gs');
+const { normalizeReceiptDateValue } = require('../Receipts.gs');
 
 const {
   getApprovedUser,
@@ -18,6 +23,14 @@ const {
 const {
   validateAndPrepareAllocation
 } = require('../Reimbursements.gs');
+
+describe('0. Canonical Sheet Value Normalization', () => {
+  it('normalizes Sheets Date objects while preserving approved month precision', () => {
+    expect(normalizeTransactionDateValue(new Date(2026, 6, 1))).toBe('2026-07-01');
+    expect(normalizeReceiptDateValue(new Date(2026, 7, 10))).toBe('2026-08-10');
+    expect(normalizeTransactionDateValue('2026-06')).toBe('2026-06');
+  });
+});
 
 describe('1. Fail-Closed Production Sheet Safety Guard (Config.gs)', () => {
   beforeEach(() => {
@@ -118,6 +131,79 @@ describe('1. Fail-Closed Production Sheet Safety Guard (Config.gs)', () => {
     expect(() => {
       assertSandboxSheet('addTransaction');
     }).not.toThrow();
+  });
+
+  it('defines the documented append-only audit log schema for sandbox initialization', () => {
+    expect(SCHEMA_DEFINITIONS.AUDIT_LOGS).toEqual([
+      'Timestamp',
+      'Actor',
+      'Action',
+      'Status',
+      'Details'
+    ]);
+  });
+
+  it('reports the selected spreadsheet title and normalized production-write state', () => {
+    global.PropertiesService = {
+      getScriptProperties: () => ({
+        getProperty: (key) => {
+          if (key === 'GPBC_SHEET_ID') return 'SANDBOX_SPREADSHEET_ID_98765';
+          if (key === 'GPBC_ENVIRONMENT') return 'sandbox';
+          if (key === 'GPBC_PRODUCTION_WRITES_ENABLED') return 'false';
+          return null;
+        }
+      })
+    };
+    global.SpreadsheetApp = {
+      openById: () => ({
+        getId: () => 'SANDBOX_SPREADSHEET_ID_98765',
+        getName: () => 'GPBC_Finance_Master_SANDBOX',
+        getSheets: () => []
+      })
+    };
+
+    expect(getSchemaInventory()).toMatchObject({
+      success: true,
+      spreadsheetTitle: 'GPBC_Finance_Master_SANDBOX',
+      isProductionId: false,
+      productionWritesEnabled: false,
+      environment: 'sandbox'
+    });
+  });
+});
+
+describe('Canonical Income Detail Reads', () => {
+  it('returns one linked income row without creating a duplicate', () => {
+    const originalGetDB = global.getDB;
+    global.getDB = () => ({
+      getSheetByName: () => ({
+        getLastRow: () => 2,
+        getDataRange: () => ({
+          getValues: () => [
+            ['incomeId', 'date', 'donorName', 'incomeType', 'amount', 'paymentMethod', 'transactionId'],
+            ['INC-TEST-1', '2026-09-02', 'TEST Sandbox Donor', 'Sunday Offering', 10, 'Cash', 'TXN-TEST-1']
+          ]
+        })
+      })
+    });
+
+    try {
+      expect(getIncomeDetail()).toEqual({
+        success: true,
+        count: 1,
+        incomeEntries: [{
+          incomeId: 'INC-TEST-1',
+          date: '2026-09-02',
+          donorName: 'TEST Sandbox Donor',
+          incomeType: 'Sunday Offering',
+          amount: 10,
+          paymentMethod: 'Cash',
+          transactionId: 'TXN-TEST-1'
+        }]
+      });
+    } finally {
+      global.getDB = originalGetDB;
+    }
   });
 });
 
@@ -238,11 +324,12 @@ describe('3. Actual Role Authorization Policy Matrix (Auth.gs)', () => {
     });
   });
 
-  it('allows all read actions for Viewer and Presbyter Read-Only', () => {
+  it('allows all read actions for Viewer and denies operational reads for Presbyter Read-Only', () => {
     readActions.forEach(action => {
       expect(authorizeAction(action, 'Viewer').authorized).toBe(true);
-      expect(authorizeAction(action, 'Presbyter Read-Only').authorized).toBe(true);
+      expect(authorizeAction(action, 'Presbyter Read-Only').authorized).toBe(false);
     });
+    expect(authorizeAction('getPresbyterReport', 'Presbyter Read-Only').authorized).toBe(true);
   });
 
   it('allows finance writes for Finance Editor', () => {

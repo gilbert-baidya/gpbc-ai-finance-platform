@@ -4,16 +4,20 @@
  * Product: GPBC Finance Desk — Finance • Audit • Reporting
  *************************************************/
 
+
 /**
  * Health Check Endpoint (GET)
+ * Returns strictly safe status information. Exposes zero spreadsheet IDs,
+ * Drive folder IDs, or migration execution triggers.
  */
-function doGet() {
+function doGet(e) {
+  const config = getConfig();
   return jsonResponse({
+    success: true,
+    status: "Healthy",
     service: "GPBC Finance Desk API",
-    version: "1.0.0",
-    status: "Running",
-    environment: getConfig().environment,
-    time: new Date().toISOString()
+    environment: config.environment || "production",
+    timestamp: new Date().toISOString()
   });
 }
 
@@ -105,12 +109,20 @@ function doPost(e) {
       // SCHEMA INVENTORY & INITIALIZATION
       case "getSchemaInventory":
         return jsonResponse(getSchemaInventory());
+      case "getProductionReadiness":
+        return jsonResponse(getProductionReadiness());
       case "initializeSandboxSchema":
         return jsonResponse(initializeSandboxSchema());
+      case "verifyCandidateWorkbook":
+        return jsonResponse(verifyCandidateWorkbook(p.candidateSpreadsheetId));
+      case "verifyLegacyWorkbookIntegrity":
+        return jsonResponse(verifyLegacyWorkbookIntegrity());
 
       // PHASE 2: MASTER TRANSACTIONS, INCOME, EXPENSES
       case "getTransactions":
         return jsonResponse(getTransactions(p));
+      case "getIncomeDetail":
+        return jsonResponse(getIncomeDetail());
       case "addTransaction":
         return jsonResponse(addTransaction(p, userEmail));
       case "addIncome":
@@ -140,6 +152,18 @@ function doPost(e) {
       case "addCheckDetail":
         return jsonResponse(addCheckDetail(p, userEmail));
 
+      // DOCUMENT CENTER & CANONICAL EVIDENCE
+      case "getDocuments":
+        return jsonResponse(getDocuments(p));
+      case "uploadDocument":
+        return jsonResponse(uploadDocument(p, userEmail));
+      case "linkDocumentToEntity":
+        return jsonResponse(linkDocumentToEntity(p, userEmail));
+      case "updateDocumentStatus":
+        return jsonResponse(updateDocumentStatus(p, userEmail));
+      case "deleteDocument":
+        return jsonResponse(deleteDocument(p, userEmail));
+
       // PHASE 2: CAPITAL PROJECTS
       case "getCapitalProjects":
         return jsonResponse(getCapitalProjects());
@@ -167,6 +191,12 @@ function doPost(e) {
         return jsonResponse(getReconciliationCandidates());
       case "matchReconciliationLine":
         return jsonResponse(matchReconciliationLine(p, userEmail));
+      case "getReconciliationRecords":
+        return jsonResponse(getReconciliationRecords(p));
+      case "reconcileTransactionRecord":
+        return jsonResponse(reconcileTransactionRecord(p, userEmail));
+      case "autoReconcilePeriod":
+        return jsonResponse(autoReconcilePeriod(p, userEmail));
 
       // PHASE 4: MONTHLY CLOSE & PERIOD LOCKING
       case "getMonthlyClose":
@@ -179,8 +209,15 @@ function doPost(e) {
         return jsonResponse(reopenMonthlyPeriod(p, userEmail));
       case "getMonthlyCloseHistory":
         return jsonResponse(getMonthlyCloseHistory(p));
+      case "generateMonthEndReportPackage":
+      case "getMonthEndReportPackage":
+        return jsonResponse(generateMonthEndReportPackage(p));
+      case "archiveMonthEndReportPackage":
+        return jsonResponse(archiveMonthEndReportPackage(p, userEmail));
 
       // PHASE 4: PRESBYTER REPORTING
+      case "getPresbyterReport":
+        return jsonResponse(getPresbyterReport(p, userEmail));
       case "generatePresbyterReport":
         return jsonResponse(generatePresbyterReport(p, userEmail));
       case "getPresbyterReports":
@@ -236,18 +273,26 @@ function doPost(e) {
       case "runMonthlyAutomation":
         return jsonResponse(runMonthlyAutomation());
 
-      // AUDIT
-      case "logAuditEvent":
-        return jsonResponse({ success: true });
+      // REPAIR
+      case "repairSandboxTestState":
+        return jsonResponse(repairSandboxTestState());
 
       default:
         return jsonResponse({ success: false, error: "Unknown or unsupported action: " + action });
     }
   } catch (err) {
-    Logger.log("API ERROR: " + (err && err.message ? err.message : String(err)));
+    Logger.log("API ERROR: " + (err && err.message ? err.message : String(err)) + (err && err.stack ? "\n" + err.stack : ""));
+    const config = getConfig();
+    if (config && (config.environment === "sandbox" || config.environment === "development")) {
+      return jsonResponse({
+        success: false,
+        error: "Server processing error",
+        diagnosticCode: err.diagnosticCode || "DO_POST_UNHANDLED_EXCEPTION"
+      });
+    }
     return jsonResponse({
       success: false,
-      error: "Server processing error"
+      error: "Unable to process this request. Please contact a Finance Desk administrator."
     });
   }
 }
@@ -914,4 +959,86 @@ function linearRegression(arr) {
   if (denom === 0) return 0;
 
   return (n * sumXY - sumX * sumY) / denom;
+}
+
+/**
+ * ONE-TIME CONTROLLED REPAIR FOR SANDBOX TEST TRANSACTION (TXN-20260902-17336)
+ * Resets partial state left by failed Version 44 browser test before Version 45 validation.
+ */
+function repairSandboxTestState() {
+  assertSandboxSheet("repairSandboxTestState");
+  const db = getDB(true, "repairSandboxTestState");
+
+  const txSheet = db.getSheetByName("Transactions");
+  if (!txSheet) throw new Error("Transactions sheet missing");
+
+  const txData = txSheet.getDataRange().getValues();
+  const txHeaders = txData.shift();
+  const idCol = txHeaders.indexOf("transactionId");
+  const statusCol = txHeaders.indexOf("reconciliationStatus");
+
+  const targetTxId = "TXN-20260902-17336";
+  const idx = txData.findIndex(function(r) { return r[idCol] === targetTxId; });
+
+  if (idx === -1) {
+    throw new Error("Target transaction not found: " + targetTxId);
+  }
+
+  const matchedRow = txData[idx];
+  const preRepairStatus = String(matchedRow[statusCol] || "");
+
+  // 1. Verify before modifying
+  const normPreStatus = preRepairStatus.toUpperCase();
+  if (normPreStatus !== "MATCHED") {
+    throw new Error("PRE-CHECK FAILED: Transaction " + targetTxId + " status is not MATCHED (current: " + preRepairStatus + ")");
+  }
+
+  // Check Reconciliation_Register
+  let regSheet = db.getSheetByName("Reconciliation_Register");
+  let regRowExisted = false;
+  if (regSheet && regSheet.getLastRow() > 1) {
+    const regData = regSheet.getDataRange().getValues();
+    const regHeaders = regData.shift();
+    const regTxCol = regHeaders.indexOf("transactionId");
+    const regIdx = regData.findIndex(function(r) { return r[regTxCol] === targetTxId; });
+    if (regIdx !== -1) {
+      regRowExisted = true;
+      throw new Error("PRE-CHECK FAILED: Reconciliation_Register row already exists for " + targetTxId);
+    }
+  }
+
+  // 2. Perform Controlled One-Time Reset
+  const rowNum = idx + 2;
+  txSheet.getRange(rowNum, statusCol + 1).setValue("Unreconciled");
+
+  // 3. Log Audit Event
+  logAuditEvent({
+    actor: "Primary Admin",
+    action: "SANDBOX_TEST_STATE_REPAIR",
+    entityType: "TRANSACTION",
+    entityId: targetTxId,
+    details: "Reset partial reconciliation state left by failed Version 44 browser test before Version 45 validation."
+  });
+
+  return {
+    success: true,
+    transactionId: targetTxId,
+    preRepairStatus: preRepairStatus,
+    postRepairStatus: "Unreconciled",
+    registerRowExisted: regRowExisted,
+    reconciliationRowCreated: false,
+    amountChanged: false,
+    accountingDataChangedOtherwise: false,
+    auditLogged: true
+  };
+}
+
+if (typeof module !== "undefined" && module.exports) {
+  module.exports = {
+    ...module.exports,
+    doGet,
+    doPost,
+    jsonResponse,
+    repairSandboxTestState
+  };
 }

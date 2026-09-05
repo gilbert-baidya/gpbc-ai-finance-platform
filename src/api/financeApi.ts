@@ -59,6 +59,20 @@ export interface AddIncomePayload {
   notes?: string;
 }
 
+export interface IncomeDetailRecord {
+  incomeId: string;
+  date: string;
+  memberOrDonorId?: string;
+  donorName: string;
+  incomeType: string;
+  serviceType?: string;
+  amount: number;
+  fundId?: string;
+  paymentMethod?: string;
+  notes?: string;
+  transactionId: string;
+}
+
 export interface AddExpensePayload {
   date: string;
   payee: string;
@@ -131,6 +145,9 @@ export const financeApi = {
   // Transactions
   getTransactions: async (filters: TransactionFilters = {}) => {
     return gasFetch<{ transactions: BaseTransaction[]; totalCount: number }>('getTransactions', filters as Record<string, unknown>);
+  },
+  getIncomeDetail: async () => {
+    return gasFetch<{ incomeEntries: IncomeDetailRecord[]; count: number }>('getIncomeDetail');
   },
   addTransaction: async (payload: AddTransactionPayload) => {
     return gasFetch<{ transactionId: string }>('addTransaction', payload as unknown as Record<string, unknown>);

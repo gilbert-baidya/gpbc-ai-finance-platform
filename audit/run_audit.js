@@ -1,8 +1,8 @@
 
 import fs from 'fs';
 
-const API_URL = 'https://script.google.com/macros/s/AKfycbw-TRD7CS-DRrdqypWslAt7sBeGinALyhhfFhB7VDaijq2wq4mibtIFVrfouxS37YeT/exec';
-const API_KEY = 'gpbc_secure_rev_2026_finance';
+const API_URL = process.env.GPBC_AUDIT_API_URL;
+const API_KEY = process.env.GPBC_AUDIT_API_KEY;
 
 const auditReport = {
     runTime: new Date().toISOString(),
@@ -69,12 +69,6 @@ async function runAudit() {
         if (membersRes.success && membersRes.data.success) {
             members = membersRes.data.data || membersRes.data.members || []; // Adjust based on actual response structure
 
-            members = membersRes.data.data || membersRes.data.members || []; // Adjust based on actual response structure
-
-            if (members.length > 0) {
-                console.log('DEBUG: First member structure:', JSON.stringify(members[0], null, 2));
-            }
-
             // Analyze Members
             let missingEmail = 0;
             let missingName = 0;
@@ -88,7 +82,6 @@ async function runAudit() {
             // Check individual member data (Contract Validation)
             if (members.length > 0) {
                 const testMember = members[0];
-                console.log(`Testing member endpoints for: ${testMember.FullName} (${testMember.MemberID})`);
 
                 const contributionsRes = await callApi('getMemberYearlyContributions', { memberId: testMember.MemberID, year: 2025 });
                 if (!contributionsRes.success || !contributionsRes.data.success) {
@@ -126,4 +119,9 @@ async function runAudit() {
     console.log('Audit complete. Report saved to audit/audit_results.json');
 }
 
-runAudit();
+if (!API_URL || !API_KEY) {
+    console.error('Set GPBC_AUDIT_API_URL and GPBC_AUDIT_API_KEY before running the audit.');
+    process.exitCode = 1;
+} else {
+    runAudit();
+}

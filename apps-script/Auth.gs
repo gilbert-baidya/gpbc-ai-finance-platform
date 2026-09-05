@@ -23,11 +23,14 @@ function validateGoogleIdentity(idToken) {
     return { valid: false, error: "Configuration error: GOOGLE_CLIENT_ID is not configured in Script Properties" };
   }
 
-  const cache = CacheService.getScriptCache();
-  // Generate deterministic SHA-256 digest cache key
-  const digest = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, idToken);
-  const cacheKey = "tok_" + Utilities.base64EncodeWebSafe(digest);
-  const cachedClaims = cache.get(cacheKey);
+  const cache = (typeof CacheService !== "undefined") ? CacheService.getScriptCache() : null;
+  let cachedClaims = null;
+  let cacheKey = "";
+  if (cache && typeof Utilities !== "undefined") {
+    const digest = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, idToken);
+    cacheKey = "tok_" + Utilities.base64EncodeWebSafe(digest);
+    cachedClaims = cache.get(cacheKey);
+  }
 
   if (cachedClaims) {
     try {
@@ -55,7 +58,7 @@ function validateGoogleIdentity(idToken) {
       return { valid: false, error: "Token subject claim missing" };
     }
 
-    // 2. Validate Audience (Mandatory)
+    // 2. Validate Audience (Mandatory - strict single Finance Desk client ID)
     if (claims.aud !== config.googleClientId) {
       return { valid: false, error: "Token audience mismatch" };
     }
@@ -77,7 +80,9 @@ function validateGoogleIdentity(idToken) {
     }
 
     // Cache valid claims for 300 seconds (5 minutes)
-    cache.put(cacheKey, JSON.stringify(claims), 300);
+    if (cache && cacheKey) {
+      cache.put(cacheKey, JSON.stringify(claims), 300);
+    }
 
     return { valid: true, claims: claims };
   } catch (err) {
@@ -98,12 +103,16 @@ function getApprovedUser(email) {
   const normalizedEmail = String(email).toLowerCase().trim();
 
   const config = getConfig();
+  if (!config.approvedUsersJson) return null;
+
   let approvedList = [];
   try {
-    approvedList = JSON.parse(config.approvedUsersJson || "[]");
+    approvedList = JSON.parse(config.approvedUsersJson);
   } catch (e) {
-    approvedList = [];
+    return null;
   }
+
+  if (!Array.isArray(approvedList)) return null;
 
   const CANONICAL_ROLES = [
     "Primary Admin",
@@ -156,6 +165,7 @@ function authorizeAction(action, role) {
   // Role hierarchy definitions
   const ALL_ADMINS = ["Primary Admin", "Backup Admin"];
   const FINANCE_WRITERS = ["Primary Admin", "Backup Admin", "Finance Editor"];
+  const OPERATIONAL_READERS = ["Primary Admin", "Backup Admin", "Finance Editor", "Viewer"];
   const ALL_READERS = ["Primary Admin", "Backup Admin", "Finance Editor", "Viewer", "Presbyter Read-Only"];
   const PRESBYTER_SET = ["Primary Admin", "Backup Admin", "Presbyter Read-Only"];
 
@@ -163,18 +173,32 @@ function authorizeAction(action, role) {
     // Session & Diagnostics
     "verifySession": ALL_READERS,
     "getSchemaInventory": ALL_ADMINS,
+    "getProductionReadiness": ALL_ADMINS,
     "initializeSandboxSchema": ALL_ADMINS,
+    "verifyCandidateWorkbook": ALL_ADMINS,
+    "verifyLegacyWorkbookIntegrity": ALL_ADMINS,
+    "repairSandboxTestState": ALL_ADMINS,
 
-    // Core Finance Reads
-    "getTransactions": ALL_READERS,
-    "getIncomeDetail": ALL_READERS,
-    "getExpenseDetail": ALL_READERS,
-    "getReimbursements": ALL_READERS,
-    "getReceipts": ALL_READERS,
-    "getCheckDetails": ALL_READERS,
-    "getCapitalProjects": ALL_READERS,
-    "getDesignatedFundsSummary": ALL_READERS,
-    "getDashboardSummary": ALL_READERS,
+    // Migration Executors (REMOVED FROM API SURFACE - DENY ALL ROLES)
+    "getLegacyMigrationDryRun": [],
+    "getLegacyMigrationStatus": [],
+    "executeLegacyFinanceMigration": [],
+    "createLegacyPreMigrationBackup": [],
+    "createProductionCandidateMaster": [],
+    "executeControlledCandidateMigration": [],
+    "linkProductionDriveEvidence": [],
+
+    // Core Finance Reads (Restricted to Operational Readers — Presbyter DENIED direct access)
+    "getTransactions": OPERATIONAL_READERS,
+    "getIncomeDetail": OPERATIONAL_READERS,
+    "getExpenseDetail": OPERATIONAL_READERS,
+    "getReimbursements": OPERATIONAL_READERS,
+    "getReceipts": OPERATIONAL_READERS,
+    "getCheckDetails": OPERATIONAL_READERS,
+    "getCapitalProjects": OPERATIONAL_READERS,
+    "getDesignatedFundsSummary": OPERATIONAL_READERS,
+    "getDashboardSummary": OPERATIONAL_READERS,
+    "getDocuments": OPERATIONAL_READERS,
     "getMembers": FINANCE_WRITERS,
     "getTaxLetterData": FINANCE_WRITERS,
     "getMemberYearlyContributions": FINANCE_WRITERS,
@@ -192,6 +216,10 @@ function authorizeAction(action, role) {
     "addCheckDetail": FINANCE_WRITERS,
     "addCapitalProject": ALL_ADMINS,
     "updateCapitalProject": ALL_ADMINS,
+    "uploadDocument": FINANCE_WRITERS,
+    "linkDocumentToEntity": FINANCE_WRITERS,
+    "updateDocumentStatus": FINANCE_WRITERS,
+    "deleteDocument": ALL_ADMINS,
 
     // Legacy & Tax Actions
     "addMember": FINANCE_WRITERS,
@@ -199,28 +227,35 @@ function authorizeAction(action, role) {
     "generateYearlyTaxLettersBatch": FINANCE_WRITERS,
     "generateIRSPdfLetter": FINANCE_WRITERS,
     "generateBatchIRS": FINANCE_WRITERS,
-    "generateSocalMonthlyReport": PRESBYTER_SET.concat(["Finance Editor"]),
+    "generateSocalMonthlyReport": FINANCE_WRITERS,
 
-    // Phase 3 Audit & Reconciliation Center
+    // Phase 3 Audit & Reconciliation Center (Restricted to Operational Readers — Presbyter DENIED)
     "runAudit": FINANCE_WRITERS,
-    "getAuditIssues": ALL_READERS,
-    "getAuditSummary": ALL_READERS,
+    "getAuditIssues": OPERATIONAL_READERS,
+    "getAuditSummary": OPERATIONAL_READERS,
     "resolveAuditIssue": FINANCE_WRITERS,
     "reopenAuditIssue": FINANCE_WRITERS,
     "assignAuditIssue": FINANCE_WRITERS,
     "stageBankStatementLines": FINANCE_WRITERS,
-    "getReconciliationCandidates": ALL_READERS,
+    "getReconciliationCandidates": OPERATIONAL_READERS,
     "matchReconciliationLine": FINANCE_WRITERS,
+    "getReconciliationRecords": OPERATIONAL_READERS,
+    "reconcileTransactionRecord": FINANCE_WRITERS,
+    "autoReconcilePeriod": FINANCE_WRITERS,
 
-    // Phase 4 Monthly Close & Period Locking (Close/Reopen strictly restricted to Admins)
-    "getMonthlyClose": ALL_READERS,
-    "getMonthlyCloseReadiness": ALL_READERS,
+    // Phase 4 Monthly Close & Period Locking (Restricted to Operational Readers — Presbyter DENIED)
+    "getMonthlyClose": OPERATIONAL_READERS,
+    "getMonthlyCloseReadiness": OPERATIONAL_READERS,
     "closeMonthlyPeriod": ALL_ADMINS,
     "reopenMonthlyPeriod": ALL_ADMINS,
-    "getMonthlyCloseHistory": ALL_READERS,
+    "getMonthlyCloseHistory": OPERATIONAL_READERS,
+    "generateMonthEndReportPackage": OPERATIONAL_READERS,
+    "getMonthEndReportPackage": OPERATIONAL_READERS,
+    "archiveMonthEndReportPackage": ALL_ADMINS,
 
-    // Phase 4 Presbyter Reporting
-    "generatePresbyterReport": PRESBYTER_SET.concat(["Finance Editor"]),
+    // Phase 4 Presbyter Reporting (Read-only allowed for Presbyter Read-Only; Persistent write restricted to FINANCE_WRITERS)
+    "getPresbyterReport": ALL_READERS,
+    "generatePresbyterReport": FINANCE_WRITERS,
     "getPresbyterReports": ALL_READERS,
     "sendPresbyterReport": ALL_ADMINS.concat(["Finance Editor"]),
 
@@ -233,7 +268,9 @@ function authorizeAction(action, role) {
     "analyzeHouseholdGiving": ALL_ADMINS,
     "detectGivingSeasonality": FINANCE_WRITERS,
     "runMonthlyAutomation": ALL_ADMINS,
-    "logAuditEvent": ALL_READERS
+
+    // Audit Logging Direct API (REMOVED FROM API SURFACE - DENY ALL ROLES)
+    "logAuditEvent": []
   };
 
   const allowedRoles = PERMISSION_MATRIX[action];

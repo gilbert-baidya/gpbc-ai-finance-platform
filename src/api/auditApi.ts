@@ -33,7 +33,9 @@ export interface AuditIssuesResult {
 
 export interface AuditSummaryResult {
   success: boolean;
-  healthScore: AuditHealthScoreBreakdown;
+  calculated: boolean;
+  calculatedAt: string | null;
+  healthScore: AuditHealthScoreBreakdown | null;
 }
 
 export async function logAuditEvent(event: Record<string, unknown>): Promise<void> {

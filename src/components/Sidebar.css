@@ -187,3 +187,20 @@
     display: flex;
   }
 }
+
+.sidebar-loading-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px 4px;
+}
+
+.sidebar-skeleton-pulse {
+  animation: sidebarPulse 1.5s ease-in-out infinite;
+}
+
+@keyframes sidebarPulse {
+  0% { opacity: 0.4; }
+  50% { opacity: 0.8; }
+  100% { opacity: 0.4; }
+}

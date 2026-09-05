@@ -13,6 +13,20 @@ if (typeof require !== "undefined" && typeof assertPeriodWritable === "undefined
   global.calculatePurchaseBalance = financeMath.calculatePurchaseBalance;
 }
 
+function normalizeTransactionDateValue(value) {
+  if (!value) return "";
+  if (value instanceof Date && !isNaN(value.getTime())) {
+    if (typeof Utilities !== "undefined" && typeof Session !== "undefined") {
+      return Utilities.formatDate(value, Session.getScriptTimeZone(), "yyyy-MM-dd");
+    }
+    const year = value.getFullYear();
+    const month = String(value.getMonth() + 1).padStart(2, "0");
+    const day = String(value.getDate()).padStart(2, "0");
+    return year + "-" + month + "-" + day;
+  }
+  return String(value);
+}
+
 /**
  * Idempotently initializes the schema in the sandbox spreadsheet
  * NEVER creates duplicate header rows.
@@ -79,6 +93,7 @@ function getTransactions(p) {
     transactions = data.map(function(row) {
       const obj = {};
       headers.forEach(function(h, i) { obj[h] = row[i]; });
+      obj.transactionDate = normalizeTransactionDateValue(obj.transactionDate);
       obj.amount = Number(obj.amount || 0);
       obj.personalPurchase = (obj.personalPurchase === true || obj.personalPurchase === "TRUE" || obj.personalPurchase === "true");
       obj.accountingImpact = obj.accountingImpact || (obj.transactionType === "Reimbursement" ? "SETTLEMENT" : obj.direction);
@@ -154,6 +169,17 @@ function getTransactions(p) {
   }
 
   // Apply filters
+  if (p.periodKey && (!p.startDate || !p.endDate)) {
+    if (typeof getPeriodBounds === "function") {
+      const bounds = getPeriodBounds(p.periodKey);
+      p.startDate = bounds.startDate;
+      p.endDate = bounds.endDate;
+    } else {
+      p.startDate = String(p.periodKey) + "-01";
+      p.endDate = String(p.periodKey) + "-31";
+    }
+  }
+
   if (p.direction) {
     transactions = transactions.filter(function(t) { return t.direction === p.direction; });
   }
@@ -197,6 +223,37 @@ function getTransactions(p) {
     success: true,
     totalCount: transactions.length,
     transactions: transactions
+  };
+}
+
+/**
+ * Retrieves canonical income-detail rows.
+ */
+function getIncomeDetail() {
+  const db = getDB(false, "getIncomeDetail");
+  const sheet = db.getSheetByName("Income Detail");
+  const incomeEntries = [];
+
+  if (sheet && sheet.getLastRow() > 1) {
+    const data = sheet.getDataRange().getValues();
+    const headers = data.shift();
+
+    data.forEach(function(row) {
+      const entry = {};
+      headers.forEach(function(header, index) { entry[header] = row[index]; });
+      entry.amount = Number(entry.amount || 0);
+      incomeEntries.push(entry);
+    });
+  }
+
+  incomeEntries.sort(function(a, b) {
+    return String(b.date || "").localeCompare(String(a.date || ""));
+  });
+
+  return {
+    success: true,
+    count: incomeEntries.length,
+    incomeEntries: incomeEntries
   };
 }
 
@@ -581,8 +638,10 @@ function getDesignatedFundsSummary() {
 
 if (typeof module !== "undefined" && module.exports) {
   module.exports = {
+    normalizeTransactionDateValue,
     initializeSandboxSchema,
     getTransactions,
+    getIncomeDetail,
     addTransaction,
     updateTransaction,
     addIncome,

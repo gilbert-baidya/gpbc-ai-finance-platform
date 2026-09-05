@@ -10,6 +10,20 @@ if (typeof require !== "undefined" && typeof assertPeriodWritable === "undefined
   global.getPeriodKey = financeMath.getPeriodKey;
 }
 
+function normalizeReceiptDateValue(value) {
+  if (!value) return "";
+  if (value instanceof Date && !isNaN(value.getTime())) {
+    if (typeof Utilities !== "undefined" && typeof Session !== "undefined") {
+      return Utilities.formatDate(value, Session.getScriptTimeZone(), "yyyy-MM-dd");
+    }
+    const year = value.getFullYear();
+    const month = String(value.getMonth() + 1).padStart(2, "0");
+    const day = String(value.getDate()).padStart(2, "0");
+    return year + "-" + month + "-" + day;
+  }
+  return String(value);
+}
+
 /**
  * Retrieves receipts from Receipt Register
  */
@@ -26,6 +40,7 @@ function getReceipts(p) {
     receipts = data.map(function(row) {
       const obj = {};
       headers.forEach(function(h, i) { obj[h] = row[i]; });
+      obj.receiptDate = normalizeReceiptDateValue(obj.receiptDate);
       obj.amount = Number(obj.amount || 0);
       return obj;
     });
@@ -257,6 +272,7 @@ function addCheckDetail(p, userEmail) {
 
 if (typeof module !== "undefined" && module.exports) {
   module.exports = {
+    normalizeReceiptDateValue,
     getReceipts,
     addReceipt,
     matchReceiptToTransaction,

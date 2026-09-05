@@ -1,6 +1,12 @@
 import React, { useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { Shield, Lock, Info } from 'lucide-react';
+import {
+  getGoogleIdentityOrigin,
+  isSupportedLocalGoogleIdentityOrigin,
+  prepareGoogleIdentity,
+  setGoogleCredentialHandler,
+} from './googleIdentity';
 import './GoogleSignIn.css';
 
 export const GoogleSignIn = () => {
@@ -10,41 +16,51 @@ export const GoogleSignIn = () => {
   const isDev = import.meta.env.DEV;
 
   useEffect(() => {
-    if (!clientId) return;
+    const googleButton = googleBtnRef.current;
+    if (!clientId || !googleButton) return;
 
-    const initializeGis = () => {
-      if (window.google?.accounts?.id && googleBtnRef.current) {
-        window.google.accounts.id.initialize({
-          client_id: clientId,
-          callback: async (response) => {
-            if (response.credential) {
-              await signInWithGoogleCredential(response.credential);
-            }
-          },
-        });
+    let cancelled = false;
+    const removeCredentialHandler = setGoogleCredentialHandler(async (response) => {
+      if (response.credential) {
+        try {
+          await signInWithGoogleCredential(response.credential);
+        } catch {
+          // AuthContext owns the user-facing verification error and session cleanup.
+        }
+      }
+    });
 
-        window.google.accounts.id.renderButton(googleBtnRef.current, {
+    if (isDev) {
+      const runtimeOrigin = getGoogleIdentityOrigin();
+      console.info(`[Google Identity] Runtime origin: ${runtimeOrigin}`);
+      if (!isSupportedLocalGoogleIdentityOrigin(runtimeOrigin)) {
+        console.warn(`[Google Identity] Unsupported local origin: ${runtimeOrigin}`);
+      }
+    }
+
+    void prepareGoogleIdentity(clientId)
+      .then((googleIdentity) => {
+        if (cancelled) return;
+
+        googleButton.replaceChildren();
+        googleIdentity.renderButton(googleButton, {
           theme: 'outline',
           size: 'large',
           text: 'signin_with',
           shape: 'pill',
           width: 280,
         });
-      }
-    };
+      })
+      .catch((gisError) => {
+        if (!cancelled) console.error('[Google Identity] Initialization failed', gisError);
+      });
 
-    if (window.google?.accounts?.id) {
-      initializeGis();
-    } else {
-      const timer = setInterval(() => {
-        if (window.google?.accounts?.id) {
-          clearInterval(timer);
-          initializeGis();
-        }
-      }, 300);
-      return () => clearInterval(timer);
-    }
-  }, [clientId, signInWithGoogleCredential]);
+    return () => {
+      cancelled = true;
+      removeCredentialHandler();
+      googleButton.replaceChildren();
+    };
+  }, [clientId, isDev, signInWithGoogleCredential]);
 
   return (
     <div className="signin-container">

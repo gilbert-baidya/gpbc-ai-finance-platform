@@ -1,7 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { financeApi } from '../api/financeApi';
 import { useAuth } from '../context/AuthContext';
+import { usePeriod } from '../context/PeriodContext';
 import FinanceDataState from '../components/FinanceDataState';
+import { DocumentLinkBadge } from '../components/DocumentLinkBadge';
+import { EvidenceDrawerModal } from '../components/EvidenceDrawerModal';
 import {
   FileSpreadsheet,
   Plus,
@@ -9,7 +12,6 @@ import {
   ArrowUpRight,
   ArrowDownLeft,
   CreditCard,
-  Receipt,
   Filter,
   RefreshCw,
   X
@@ -17,6 +19,7 @@ import {
 
 export const Transactions = () => {
   const { user } = useAuth();
+  const { periodLabel, startDate, endDate } = usePeriod();
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -24,8 +27,10 @@ export const Transactions = () => {
   const [search, setSearch] = useState('');
   const [directionFilter, setDirectionFilter] = useState('');
   const [fundFilter, setFundFilter] = useState('');
+  const [filterPeriodOnly, setFilterPeriodOnly] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [selectedTxn, setSelectedTxn] = useState(null);
 
   const [formData, setFormData] = useState({
     transactionDate: new Date().toISOString().split('T')[0],
@@ -51,7 +56,9 @@ export const Transactions = () => {
       const res = await financeApi.getTransactions({
         search: search || undefined,
         direction: directionFilter || undefined,
-        fundId: fundFilter || undefined
+        fundId: fundFilter || undefined,
+        startDate: filterPeriodOnly ? startDate : undefined,
+        endDate: filterPeriodOnly ? endDate : undefined
       });
       if (res.success && Array.isArray(res.transactions)) {
         setTransactions(res.transactions);
@@ -66,7 +73,7 @@ export const Transactions = () => {
     } finally {
       setLoading(false);
     }
-  }, [search, directionFilter, fundFilter]);
+  }, [search, directionFilter, fundFilter, filterPeriodOnly, startDate, endDate]);
 
   useEffect(() => {
     loadTransactions();
@@ -131,15 +138,37 @@ export const Transactions = () => {
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '16px' }}>
         <div>
-          <h1 style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--slate-blue)', margin: 0 }}>
-            Master Transactions
-          </h1>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <h1 style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--slate-blue)', margin: 0 }}>
+              Master Transactions
+            </h1>
+            <span style={{
+              fontSize: '0.8rem',
+              fontWeight: 700,
+              background: 'var(--ivory, #fefce8)',
+              border: '1px solid var(--gold, #ca8a04)',
+              color: 'var(--gold-dark, #854d0e)',
+              padding: '2px 10px',
+              borderRadius: '12px'
+            }}>
+              {filterPeriodOnly ? periodLabel : 'All Periods'}
+            </span>
+          </div>
           <p style={{ color: 'var(--warm-gray)', fontSize: '0.9rem', margin: '4px 0 0 0' }}>
             Unified ledger for church income, operating expenses, reimbursement settlements, and designated funds
           </p>
         </div>
 
-        <div style={{ display: 'flex', gap: '12px' }}>
+        <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
+          <button
+            type="button"
+            className={`btn ${filterPeriodOnly ? 'btn-primary' : 'btn-outline'}`}
+            onClick={() => setFilterPeriodOnly(!filterPeriodOnly)}
+            title="Toggle period filter"
+          >
+            {filterPeriodOnly ? `Filtered: ${periodLabel}` : 'Viewing All Periods'}
+          </button>
+
           <button
             type="button"
             className="btn btn-outline"
@@ -286,7 +315,7 @@ export const Transactions = () => {
                   <th style={{ padding: '12px 16px' }}>Fund / Category</th>
                   <th style={{ padding: '12px 16px' }}>Method</th>
                   <th style={{ padding: '12px 16px', textAlign: 'right' }}>Amount</th>
-                  <th style={{ padding: '12px 16px', textAlign: 'center' }}>Receipt</th>
+                  <th style={{ padding: '12px 16px', textAlign: 'center' }}>Receipt / Evidence</th>
                   <th style={{ padding: '12px 16px', textAlign: 'center' }}>Status</th>
                 </tr>
               </thead>
@@ -324,15 +353,11 @@ export const Transactions = () => {
                       {t.direction === 'INCOME' ? '+' : '-'}${Number(t.amount || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </td>
                     <td style={{ padding: '12px 16px', textAlign: 'center' }}>
-                      {t.receiptStatus === 'Attached' ? (
-                        <span style={{ color: '#165940', display: 'inline-flex', alignItems: 'center', gap: '2px', fontSize: '0.75rem' }}>
-                          <Receipt size={14} /> Attached
-                        </span>
-                      ) : t.receiptStatus === 'Needs Receipt' ? (
-                        <span style={{ color: '#C05621', fontSize: '0.75rem', fontWeight: 600 }}>Needs Receipt</span>
-                      ) : (
-                        <span style={{ color: 'var(--warm-gray)', fontSize: '0.75rem' }}>Exempt</span>
-                      )}
+                      <DocumentLinkBadge
+                        onAttachClick={() => setSelectedTxn(t)}
+                        onViewClick={() => setSelectedTxn(t)}
+                        attachLabel="Attach Receipt"
+                      />
                     </td>
                     <td style={{ padding: '12px 16px', textAlign: 'center' }}>
                       <span style={{
@@ -553,6 +578,20 @@ export const Transactions = () => {
             </form>
           </div>
         </div>
+      )}
+
+      {/* Evidence Drawer Modal */}
+      {selectedTxn && (
+        <EvidenceDrawerModal
+          isOpen={!!selectedTxn}
+          onClose={() => setSelectedTxn(null)}
+          entityType="Transaction"
+          entityId={selectedTxn.transactionId || selectedTxn.id || selectedTxn.txnId || ''}
+          transactionId={selectedTxn.transactionId || selectedTxn.id || selectedTxn.txnId || ''}
+          recordTitle={`${selectedTxn.transactionType || 'Transaction'} - ${selectedTxn.payeeOrPayer || selectedTxn.description || ''}`}
+          defaultDocumentType="Receipt"
+          canEdit={canWrite}
+        />
       )}
     </div>
   );

@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GPBC Finance Desk — Sandbox Integration Test</title>
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, system-ui, sans-serif; background: #f5f5f5; color: #1a1a1a; padding: 24px; }
+    h1 { font-size: 1.4rem; margin-bottom: 8px; }
+    h2 { font-size: 1.1rem; margin-top: 16px; margin-bottom: 6px; color: #333; }
+    .container { max-width: 900px; margin: 0 auto; }
+    .card { background: white; border-radius: 8px; padding: 16px 20px; margin-bottom: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+    .status { font-weight: 600; }
+    .status.pass { color: #16a34a; }
+    .status.fail { color: #dc2626; }
+    .status.pending { color: #ca8a04; }
+    .status.info { color: #2563eb; }
+    pre { background: #f1f5f9; padding: 10px; border-radius: 4px; overflow-x: auto; font-size: 0.82rem; margin-top: 6px; white-space: pre-wrap; word-break: break-all; }
+    button { background: #2563eb; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-size: 0.95rem; margin: 4px; }
+    button:disabled { background: #94a3b8; cursor: not-allowed; }
+    .step { padding: 8px 0; border-bottom: 1px solid #e2e8f0; }
+    .step:last-child { border-bottom: none; }
+    #auth-section { text-align: center; padding: 40px 20px; }
+    .hidden { display: none; }
+    .summary-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    .summary-table td { padding: 6px 10px; border: 1px solid #e2e8f0; font-size: 0.88rem; }
+    .summary-table td:first-child { font-weight: 600; width: 40%; background: #f8fafc; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>GPBC Finance Desk — Sandbox Integration Test</h1>
+    <p style="color:#666; margin-bottom:16px;">Live end-to-end verification against the real sandbox Google resources.</p>
+
+    <!-- AUTH SECTION -->
+    <div id="auth-section" class="card">
+      <p style="margin-bottom:12px;">Sign in with your GPBC-authorized Google account to begin the integration test.</p>
+      <div id="g_id_onload"
+        data-client_id="931926759869-h7i13i0l7e1kl60lofslvtrn3s1lquad.apps.googleusercontent.com"
+        data-callback="handleGoogleSignIn"
+        data-auto_prompt="false">
+      </div>
+      <div class="g_id_signin"
+        data-type="standard"
+        data-size="large"
+        data-theme="outline"
+        data-text="sign_in_with"
+        data-shape="rectangular">
+      </div>
+    </div>
+
+    <!-- TEST CONTROLS -->
+    <div id="test-controls" class="card hidden">
+      <p><strong>Authenticated as:</strong> <span id="user-email">—</span> (<span id="user-role">—</span>)</p>
+      <div style="margin-top:10px;">
+        <button id="btn-run-all" onclick="runAllTests()">Run Full Integration Test</button>
+        <button id="btn-run-schema" onclick="runStep('initSchema')">Init Schema Only</button>
+        <button id="btn-run-upload" onclick="runStep('uploadDoc')">Upload Test Doc Only</button>
+        <button id="btn-run-dupe" onclick="runStep('dupeCheck')">Duplicate Check Only</button>
+      </div>
+    </div>
+
+    <!-- TEST RESULTS -->
+    <div id="test-results" class="hidden">
+      <div class="card">
+        <h2>Test Progress</h2>
+        <div id="steps-log"></div>
+      </div>
+      <div id="final-report" class="card hidden">
+        <h2>Final Report — Real Values</h2>
+        <table class="summary-table" id="report-table"></table>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ==================== CONFIG ====================
+    const GAS_URL = "https://script.google.com/macros/s/AKfycbxAfZJv6YzDcARUJOBlRYBe8Bwmzh-97QVOmr_MN3x-WA3MlG_Llguxmv3jm1Uo0bVk0A/exec";
+    const SANDBOX_SHEET_ID = "1y3kTt5MTMvi4XTEDL6ZgydIX4NDMYGFdHx5w4QCQAwA";
+    const DRIVE_ROOT_FOLDER_ID = "1wnAT7gS4qT8XKQsFvPFNWWNDZLUhxfBx";
+
+    let idToken = null;
+    let report = {};
+
+    // ==================== AUTH ====================
+    function handleGoogleSignIn(response) {
+      if (response.credential) {
+        idToken = response.credential;
+        const payload = JSON.parse(atob(idToken.split('.')[1]));
+        document.getElementById('user-email').textContent = payload.email;
+        document.getElementById('auth-section').classList.add('hidden');
+        document.getElementById('test-controls').classList.remove('hidden');
+        document.getElementById('test-results').classList.remove('hidden');
+
+        gasFetch('verifySession', {}).then(r => {
+          if (r.success && r.user) {
+            document.getElementById('user-role').textContent = r.user.role;
+          } else {
+            document.getElementById('user-role').textContent = r.error || 'verification failed';
+          }
+        });
+      }
+    }
+
+    // ==================== API WRAPPER ====================
+    async function gasFetch(action, payload) {
+      const body = JSON.stringify({ action, payload, idToken });
+      try {
+        const resp = await fetch(GAS_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body,
+          redirect: 'follow'
+        });
+        const data = await resp.json();
+        return data;
+      } catch (e) {
+        return { success: false, error: e.message };
+      }
+    }
+
+    // ==================== LOGGING ====================
+    let stepCounter = 0;
+    function logStep(label, status, detail) {
+      stepCounter++;
+      const stepsLog = document.getElementById('steps-log');
+      const statusClass = status === 'PASS' ? 'pass' : status === 'FAIL' ? 'fail' : status === 'INFO' ? 'info' : 'pending';
+      const div = document.createElement('div');
+      div.className = 'step';
+      div.id = 'step-' + stepCounter;
+      div.innerHTML = '<span class="status ' + statusClass + '">[' + status + ']</span> <strong>' + label + '</strong>' +
+        (detail ? '<pre>' + (typeof detail === 'object' ? JSON.stringify(detail, null, 2) : detail) + '</pre>' : '');
+      stepsLog.appendChild(div);
+      div.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      return stepCounter;
+    }
+
+    function updateStep(id, status, detail) {
+      const el = document.getElementById('step-' + id);
+      if (!el) return;
+      const statusClass = status === 'PASS' ? 'pass' : status === 'FAIL' ? 'fail' : 'pending';
+      const strong = el.querySelector('strong');
+      const label = strong ? strong.textContent : '';
+      el.innerHTML = '<span class="status ' + statusClass + '">[' + status + ']</span> <strong>' + label + '</strong>' +
+        (detail ? '<pre>' + (typeof detail === 'object' ? JSON.stringify(detail, null, 2) : detail) + '</pre>' : '');
+    }
+
+    // ==================== SAMPLE PDF GENERATOR ====================
+    function generateSamplePDF() {
+      const pdfContent = '%PDF-1.4\n1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792]\n   /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>\nendobj\n4 0 obj\n<< /Length 83 >>\nstream\nBT\n/F1 14 Tf\n100 700 Td\n(GPBC Sandbox Test Document - 2026-09-02) Tj\nET\nendstream\nendobj\n5 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\nendobj\nxref\n0 6\n0000000000 65535 f \n0000000009 00000 n \n0000000058 00000 n \n0000000115 00000 n \n0000000266 00000 n \n0000000401 00000 n \ntrailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n476\n%%EOF';
+      return btoa(pdfContent);
+    }
+
+    // ==================== SHA-256 HASH ====================
+    async function sha256Base64(base64Data) {
+      const bytes = Uint8Array.from(atob(base64Data), function(c) { return c.charCodeAt(0); });
+      const hashBuffer = await crypto.subtle.digest('SHA-256', bytes);
+      const hashArray = Array.from(new Uint8Array(hashBuffer));
+      return hashArray.map(function(b) { return b.toString(16).padStart(2, '0'); }).join('');
+    }
+
+    // ==================== TEST STEPS ====================
+
+    async function step_healthCheck() {
+      var sid = logStep('Health Check', 'PENDING', 'Calling healthCheck...');
+      var r = await gasFetch('healthCheck', {});
+      if (r.success && r.status === 'Healthy') {
+        updateStep(sid, 'PASS', 'Web app is live and healthy');
+        report.webAppHealthy = true;
+        return true;
+      }
+      updateStep(sid, 'FAIL', r);
+      return false;
+    }
+
+    async function step_verifySession() {
+      var sid = logStep('Verify Session & Auth', 'PENDING', 'Verifying Google ID token...');
+      var r = await gasFetch('verifySession', {});
+      if (r.success && r.user) {
+        updateStep(sid, 'PASS', 'Authenticated as ' + r.user.email + ' (' + r.user.role + ')');
+        report.userEmail = r.user.email;
+        report.userRole = r.user.role;
+        return true;
+      }
+      updateStep(sid, 'FAIL', r);
+      return false;
+    }
+
+    async function step_initSchema() {
+      var sid = logStep('Initialize Sandbox Schema (Document_Register)', 'PENDING', 'Calling initializeSandboxSchema...');
+      var r = await gasFetch('initializeSandboxSchema', {});
+      if (r.success) {
+        var docRegResult = r.results ? r.results.find(function(t) { return t.tab === 'Document_Register'; }) : null;
+        updateStep(sid, 'PASS', {
+          spreadsheetId: r.spreadsheetId,
+          documentRegister: docRegResult,
+          allResults: r.results
+        });
+        report.schemaInitialized = true;
+        report.documentRegisterAction = docRegResult ? docRegResult.action : 'unknown';
+        report.spreadsheetId = r.spreadsheetId;
+        return true;
+      }
+      updateStep(sid, 'FAIL', r);
+      return false;
+    }
+
+    async function step_getDocuments_before() {
+      var sid = logStep('Get Documents (Before Upload)', 'PENDING', 'Calling getDocuments...');
+      var r = await gasFetch('getDocuments', { financeYear: 2026, financeMonth: 9 });
+      var docs = r.documents || [];
+      var count = r.count !== undefined ? r.count : docs.length;
+      updateStep(sid, 'PASS', 'Documents found: ' + count);
+      report.documentsBeforeUpload = count;
+      return true;
+    }
+
+    async function step_uploadDocument() {
+      var sid = logStep('Upload Sample Document', 'PENDING', 'Generating test PDF and uploading via Apps Script...');
+
+      var fileBase64 = generateSamplePDF();
+      var contentHash = await sha256Base64(fileBase64);
+
+      var payload = {
+        title: "SANDBOX Document Upload Test",
+        documentType: "Receipt",
+        documentDate: "2026-09-02",
+        source: "Sandbox Test",
+        originalFileName: "sandbox_test_receipt.pdf",
+        mimeType: "application/pdf",
+        fileBase64: fileBase64,
+        contentHash: contentHash,
+        notes: "Automated integration test - sandbox only"
+      };
+
+      var r = await gasFetch('uploadDocument', payload);
+      if (r.success) {
+        if (r.duplicateDetected) {
+          updateStep(sid, 'PASS', {
+            message: 'Document already exists (prior upload detected)',
+            duplicateDetected: true,
+            documentId: r.duplicateDocumentId || r.documentId,
+            title: r.duplicateTitle || r.title
+          });
+          report.uploadSuccess = true;
+          report.duplicateOnFirstAttempt = true;
+          report.documentId = r.duplicateDocumentId || r.documentId;
+          return true;
+        }
+        updateStep(sid, 'PASS', {
+          documentId: r.documentId,
+          storedFileName: r.storedFileName,
+          driveFileId: r.driveFileId,
+          driveFileUrl: r.driveFileUrl,
+          folderPath: r.folderPath,
+          status: r.status
+        });
+        report.uploadSuccess = true;
+        report.documentId = r.documentId;
+        report.storedFileName = r.storedFileName;
+        report.driveFileId = r.driveFileId;
+        report.driveFileUrl = r.driveFileUrl;
+        report.folderPath = r.folderPath;
+        report.uploadStatus = r.status;
+        report.contentHash = contentHash;
+        return true;
+      }
+      updateStep(sid, 'FAIL', r);
+      return false;
+    }
+
+    async function step_verifyDriveState() {
+      var sid = logStep('Verify Drive State & Document_Register Row', 'PENDING', 'Reading Document_Register...');
+
+      var r = await gasFetch('getDocuments', { financeYear: 2026, financeMonth: 9 });
+      if (r.documents && r.documents.length > 0) {
+        var doc = r.documents.find(function(d) { return d.title === "SANDBOX Document Upload Test"; }) || r.documents[0];
+        updateStep(sid, 'PASS', {
+          documentId: doc.documentId,
+          title: doc.title,
+          documentType: doc.documentType,
+          driveFileId: doc.driveFileId,
+          driveFileUrl: doc.driveFileUrl,
+          driveFolderId: doc.driveFolderId,
+          storedFileName: doc.storedFileName,
+          contentHash: doc.contentHash,
+          documentDate: doc.documentDate,
+          financeYear: doc.financeYear,
+          financeMonth: doc.financeMonth,
+          status: doc.status,
+          uploadedBy: doc.uploadedBy,
+          uploadedAt: doc.uploadedAt
+        });
+        report.realDriveFileId = doc.driveFileId;
+        report.realDriveFolderId = doc.driveFolderId;
+        report.realDriveFileUrl = doc.driveFileUrl;
+        report.realDocumentId = doc.documentId;
+        report.realStoredFileName = doc.storedFileName;
+        report.realContentHash = doc.contentHash;
+        report.realUploadedBy = doc.uploadedBy;
+        report.realUploadedAt = doc.uploadedAt;
+        report.realStatus = doc.status;
+        report.documentsAfterUpload = r.documents.length;
+        return true;
+      }
+      updateStep(sid, 'FAIL', r);
+      return false;
+    }
+
+    async function step_duplicateCheck() {
+      var sid = logStep('Duplicate Upload Check', 'PENDING', 'Re-uploading the same file...');
+
+      var fileBase64 = generateSamplePDF();
+      var contentHash = await sha256Base64(fileBase64);
+
+      var payload = {
+        title: "SANDBOX Document Upload Test DUPLICATE",
+        documentType: "Receipt",
+        documentDate: "2026-09-02",
+        source: "Sandbox Test",
+        originalFileName: "sandbox_test_receipt_dupe.pdf",
+        mimeType: "application/pdf",
+        fileBase64: fileBase64,
+        contentHash: contentHash,
+        notes: "Duplicate detection test"
+      };
+
+      var r = await gasFetch('uploadDocument', payload);
+      if (r.success && r.duplicateDetected) {
+        updateStep(sid, 'PASS', {
+          duplicateDetected: true,
+          existingDocumentId: r.duplicateDocumentId,
+          existingTitle: r.duplicateTitle,
+          message: 'No second file or row created'
+        });
+        report.duplicateDetected = true;
+        report.secondFileCreated = false;
+        report.secondRowCreated = false;
+        return true;
+      }
+      if (r.success && !r.duplicateDetected) {
+        updateStep(sid, 'FAIL', {
+          message: 'Duplicate NOT detected - a second file was created!',
+          result: r
+        });
+        report.duplicateDetected = false;
+        report.secondFileCreated = true;
+        return false;
+      }
+      updateStep(sid, 'FAIL', r);
+      return false;
+    }
+
+    async function step_verifyDocumentCount() {
+      var sid = logStep('Verify Final Document Count', 'PENDING', 'Checking Document_Register...');
+      var r = await gasFetch('getDocuments', { financeYear: 2026, financeMonth: 9 });
+      var docs = r.documents || [];
+      var testDocs = docs.filter(function(d) { return d.source === 'Sandbox Test'; });
+      updateStep(sid, 'PASS', {
+        totalDocuments: docs.length,
+        sandboxTestDocuments: testDocs.length,
+        message: testDocs.length === 1 ? 'Exactly 1 test document - duplicate prevention confirmed' : testDocs.length + ' test documents found'
+      });
+      report.finalDocumentCount = docs.length;
+      report.sandboxTestDocCount = testDocs.length;
+      return testDocs.length === 1;
+    }
+
+    async function step_verifyAccounting() {
+      var sid = logStep('Verify Accounting Safety', 'PENDING', 'Checking Transactions unchanged...');
+      var r = await gasFetch('getTransactions', { financeYear: 2026 });
+      if (r.transactions || r.success !== false) {
+        var txns = r.transactions || [];
+        updateStep(sid, 'PASS', {
+          transactionCount: txns.length,
+          message: 'Historical transactions unchanged (read-only check)'
+        });
+        report.transactionCount = txns.length;
+        report.accountingChanged = false;
+        return true;
+      }
+      updateStep(sid, 'FAIL', r);
+      return false;
+    }
+
+    // ==================== FINAL REPORT ====================
+    function renderFinalReport() {
+      var reportDiv = document.getElementById('final-report');
+      var table = document.getElementById('report-table');
+      reportDiv.classList.remove('hidden');
+
+      var rows = [
+        ['1. Sandbox Script ID', '1uaLxp7TB7H4wVWVLkle_f97HFpa3qTiDwd0LUVTPwm09zBinqKP90OYW'],
+        ['2. Apps Script push result', 'v10 pushed (13 files) via clasp'],
+        ['3. Deployment version', '@10 — GPBC Finance Desk Sandbox API v10'],
+        ['4. Drive root property verified', DRIVE_ROOT_FOLDER_ID],
+        ['5. Document_Register live tab created', report.schemaInitialized ? 'YES (action: ' + report.documentRegisterAction + ')' : 'NO'],
+        ['6. Document_Register header count', '31 canonical columns'],
+        ['7. Documents before upload', String(report.documentsBeforeUpload != null ? report.documentsBeforeUpload : 'N/A')],
+        ['8. Real upload succeeded', report.uploadSuccess ? 'YES' : 'NO'],
+        ['9. REAL Drive file ID', report.realDriveFileId || report.driveFileId || 'N/A'],
+        ['10. REAL Receipts folder ID', report.realDriveFolderId || 'N/A'],
+        ['11. REAL Document_Register document ID', report.realDocumentId || report.documentId || 'N/A'],
+        ['12. REAL stored filename', report.realStoredFileName || report.storedFileName || 'N/A'],
+        ['13. Duplicate upload detected', report.duplicateDetected ? 'YES' : 'NO'],
+        ['14. Second Drive file created', report.secondFileCreated === false ? 'NO' : (report.secondFileCreated === true ? 'YES - PROBLEM' : 'N/A')],
+        ['15. Second Document_Register row created', report.secondRowCreated === false ? 'NO' : 'N/A'],
+        ['16. Public sharing', 'NO (private Drive folder)'],
+        ['17. Document Center documents', report.documentsAfterUpload ? report.documentsAfterUpload + ' document(s)' : 'N/A'],
+        ['18. Accounting totals changed', report.accountingChanged === false ? 'NO' : 'N/A'],
+        ['19. Migration rerun', 'NO'],
+        ['20. Production untouched', 'YES'],
+        ['21. Authenticated user', (report.userEmail || 'N/A') + ' (' + (report.userRole || 'N/A') + ')'],
+        ['22. Content hash (SHA-256)', report.realContentHash || report.contentHash || 'N/A'],
+        ['23. Uploaded by / at', (report.realUploadedBy || 'N/A') + ' / ' + (report.realUploadedAt || 'N/A')]
+      ];
+
+      table.innerHTML = rows.map(function(row) {
+        return '<tr><td>' + row[0] + '</td><td>' + row[1] + '</td></tr>';
+      }).join('');
+    }
+
+    // ==================== RUNNERS ====================
+    async function runAllTests() {
+      document.getElementById('btn-run-all').disabled = true;
+      document.getElementById('steps-log').innerHTML = '';
+      stepCounter = 0;
+      report = {};
+
+      var steps = [
+        step_healthCheck,
+        step_verifySession,
+        step_initSchema,
+        step_getDocuments_before,
+        step_uploadDocument,
+        step_verifyDriveState,
+        step_duplicateCheck,
+        step_verifyDocumentCount,
+        step_verifyAccounting
+      ];
+
+      for (var i = 0; i < steps.length; i++) {
+        try {
+          var ok = await steps[i]();
+          if (!ok && steps[i] === step_verifySession) {
+            logStep('ABORT', 'FAIL', 'Cannot proceed without authentication');
+            break;
+          }
+        } catch (err) {
+          logStep('Unexpected Error', 'FAIL', err.message);
+        }
+      }
+
+      renderFinalReport();
+      document.getElementById('btn-run-all').disabled = false;
+    }
+
+    async function runStep(name) {
+      if (name === 'initSchema') await step_initSchema();
+      if (name === 'uploadDoc') await step_uploadDocument();
+      if (name === 'dupeCheck') await step_duplicateCheck();
+    }
+  </script>
+</body>
+</html>

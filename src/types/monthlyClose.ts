@@ -47,6 +47,8 @@ export interface MonthlyCloseReadiness {
   periodEnd: string;
   currentStatus: PeriodCloseStatus;
   readyToClose: boolean;
+  reportPackagePrepared?: boolean;
+  duplicateReportDetected?: boolean;
   blockingIssues: string[];
   warnings: string[];
   financialSummary: {

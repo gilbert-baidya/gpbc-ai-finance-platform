@@ -19,6 +19,8 @@ export { default as Reimbursements } from './Reimbursements';
 export { default as ReceiptRegister } from './ReceiptRegister';
 export { default as CheckDetails } from './CheckDetails';
 export { default as CapitalProjects } from './CapitalProjects';
+export { default as DocumentCenter } from './DocumentCenter';
+export { default as Reconciliation } from './Reconciliation';
 
 // Additional pages
 export { default as AIReports } from './AIReports';
@@ -92,21 +94,7 @@ const PhaseCard = ({ icon: IconComponent, title, phase, subtitle, features }) =>
 export { default as AuditCenter } from './AuditCenter';
 export { default as MonthlyClose } from './MonthlyClose';
 export { default as PresbyterReports } from './PresbyterReports';
-
-export const Settings = () => (
-  <PhaseCard
-    icon={SettingsIcon}
-    title="System Settings & Governance"
-    phase="Configuration"
-    subtitle="Security configuration, authorized user management, and spreadsheet environment settings."
-    features={[
-      "Server-side role assignments (Primary Admin, Backup Admin, Finance Editor, Viewer, Presbyter)",
-      "Finance environment: Development Preview, Sandbox, or Production",
-      "Finance data connection and Google Apps Script configuration status",
-      "Production writes remain backend-controlled and are not changed from this screen"
-    ]}
-  />
-);
+export { default as Settings } from './Settings';
 
 // Tax Letter Generator Page
 export const Letters = () => <TaxLetterLayout />;

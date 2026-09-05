@@ -10,6 +10,7 @@ import { GasRequestEnvelope, GasResponseEnvelope } from './types';
 
 // In-memory token storage for current active session
 let currentIdToken: string | null = null;
+let onUnauthorizedCallback: ((errorMsg: string) => void) | null = null;
 
 export function setActiveIdToken(token: string | null): void {
   currentIdToken = token;
@@ -17,6 +18,10 @@ export function setActiveIdToken(token: string | null): void {
 
 export function getActiveIdToken(): string | null {
   return currentIdToken;
+}
+
+export function setOnUnauthorizedCallback(callback: ((errorMsg: string) => void) | null): void {
+  onUnauthorizedCallback = callback;
 }
 
 export async function gasFetch<T = Record<string, unknown>>(
@@ -64,7 +69,17 @@ export async function gasFetch<T = Record<string, unknown>>(
     }
 
     if (!data || data.success === false) {
-      const errorMessage = data?.error || data?.message || 'Request failed';
+      const errorStr = String(data?.error || data?.message || '');
+      const lower = errorStr.toLowerCase();
+
+      if (lower.includes('unauthorized') || lower.includes('token expired') || lower.includes('invalid google id token')) {
+        if (onUnauthorizedCallback) {
+          onUnauthorizedCallback('Your Google session expired. Please sign in again.');
+        }
+      }
+
+      const diagSuffix = data?.diagnosticCode ? ` (Diagnostic: ${data.diagnosticCode})` : '';
+      const errorMessage = (data?.error || data?.message || 'Request failed') + diagSuffix;
       throw new Error(errorMessage);
     }
 

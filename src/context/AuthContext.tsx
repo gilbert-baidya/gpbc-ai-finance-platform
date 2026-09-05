@@ -1,11 +1,12 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import { AuthUser, AuthContextType, UserRole } from '../types/auth';
-import { gasFetch, setActiveIdToken } from '../api/gasFetch';
+import { gasFetch, setActiveIdToken, setOnUnauthorizedCallback } from '../api/gasFetch';
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const SESSION_STORAGE_KEY = 'gpbc_session_user';
 const SESSION_TOKEN_KEY = 'gpbc_session_token';
+const sessionVerificationRequests = new Map<string, Promise<{ user: AuthUser }>>();
 
 const CANONICAL_ROLES: UserRole[] = [
   'Primary Admin',
@@ -15,11 +16,37 @@ const CANONICAL_ROLES: UserRole[] = [
   'Presbyter Read-Only'
 ];
 
+const verifySessionToken = (token: string): Promise<{ user: AuthUser }> => {
+  const existingRequest = sessionVerificationRequests.get(token);
+  if (existingRequest) return existingRequest;
+
+  const request = gasFetch<{ user: AuthUser }>('verifySession', {}, token);
+  sessionVerificationRequests.set(token, request);
+  void request.then(
+    () => sessionVerificationRequests.delete(token),
+    () => sessionVerificationRequests.delete(token)
+  );
+  return request;
+};
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [idToken, setIdTokenState] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Register unauthorized token handler
+  useEffect(() => {
+    setOnUnauthorizedCallback((msg) => {
+      setUser(null);
+      setIdTokenState(null);
+      setActiveIdToken(null);
+      sessionStorage.removeItem(SESSION_STORAGE_KEY);
+      sessionStorage.removeItem(SESSION_TOKEN_KEY);
+      setError(msg || 'Your Google session expired. Please sign in again.');
+    });
+    return () => { setOnUnauthorizedCallback(null); };
+  }, []);
 
   // Restore session on mount
   useEffect(() => {
@@ -30,7 +57,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const storedToken = sessionStorage.getItem(SESSION_TOKEN_KEY);
 
         if (storedToken) {
-          const response = await gasFetch<{ user: AuthUser }>('verifySession', {}, storedToken);
+          const response = await verifySessionToken(storedToken);
           const verifiedUser = response.user;
 
           if (!verifiedUser?.email || !verifiedUser.name || !CANONICAL_ROLES.includes(verifiedUser.role)) {
@@ -66,7 +93,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setError(null);
 
     try {
-      const response = await gasFetch<{ user: AuthUser }>('verifySession', {}, credential);
+      const response = await verifySessionToken(credential);
       const verifiedUser = response.user;
 
       if (!verifiedUser?.email || !verifiedUser.name || !CANONICAL_ROLES.includes(verifiedUser.role)) {

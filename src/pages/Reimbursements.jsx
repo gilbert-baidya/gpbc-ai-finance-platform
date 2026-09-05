@@ -2,6 +2,8 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { financeApi } from '../api/financeApi';
 import { useAuth } from '../context/AuthContext';
 import FinanceDataState from '../components/FinanceDataState';
+import { DocumentLinkBadge } from '../components/DocumentLinkBadge';
+import { EvidenceDrawerModal } from '../components/EvidenceDrawerModal';
 import {
   CreditCard,
   Plus,
@@ -21,6 +23,7 @@ export const Reimbursements = () => {
   const [statusFilter, setStatusFilter] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [selectedReimbursement, setSelectedReimbursement] = useState(null);
 
   const [formData, setFormData] = useState({
     reimbursementDate: new Date().toISOString().split('T')[0],
@@ -262,6 +265,7 @@ export const Reimbursements = () => {
                   <th style={{ padding: '12px 16px', textAlign: 'right' }}>Absorbed</th>
                   <th style={{ padding: '12px 16px', textAlign: 'right' }}>Pending</th>
                   <th style={{ padding: '12px 16px', textAlign: 'center' }}>Method</th>
+                  <th style={{ padding: '12px 16px', textAlign: 'center' }}>Evidence</th>
                   <th style={{ padding: '12px 16px', textAlign: 'center' }}>Status</th>
                 </tr>
               </thead>
@@ -292,6 +296,13 @@ export const Reimbursements = () => {
                     </td>
                     <td style={{ padding: '12px 16px', textAlign: 'center', color: 'var(--warm-gray)' }}>
                       {r.paymentMethod} {r.checkNumber ? `#${r.checkNumber}` : ''}
+                    </td>
+                    <td style={{ padding: '12px 16px', textAlign: 'center' }}>
+                      <DocumentLinkBadge
+                        onAttachClick={() => setSelectedReimbursement(r)}
+                        onViewClick={() => setSelectedReimbursement(r)}
+                        attachLabel="Attach Evidence"
+                      />
                     </td>
                     <td style={{ padding: '12px 16px', textAlign: 'center' }}>
                       <span style={{
@@ -487,6 +498,20 @@ export const Reimbursements = () => {
             </form>
           </div>
         </div>
+      )}
+
+      {/* Evidence Drawer Modal */}
+      {selectedReimbursement && (
+        <EvidenceDrawerModal
+          isOpen={!!selectedReimbursement}
+          onClose={() => setSelectedReimbursement(null)}
+          entityType="Reimbursement"
+          entityId={selectedReimbursement.reimbursementId}
+          reimbursementId={selectedReimbursement.reimbursementId}
+          recordTitle={`Reimbursement for ${selectedReimbursement.claimantName}`}
+          defaultDocumentType="Reimbursement Evidence"
+          canEdit={canWrite}
+        />
       )}
     </div>
   );

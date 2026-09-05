@@ -1,0 +1,10 @@
+*
+!*.gs
+!appsscript.json
+tests/**
+README*
+.env*
+node_modules/**
+dist/**
+*.md
+*.jsonl

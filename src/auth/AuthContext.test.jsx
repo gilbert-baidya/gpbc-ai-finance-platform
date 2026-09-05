@@ -1,12 +1,13 @@
 import React from 'react';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { render, screen, act } from '@testing-library/react';
+import { render, screen, act, waitFor } from '@testing-library/react';
 import { AuthProvider, useAuth } from '../context/AuthContext';
 import { gasFetch, setActiveIdToken } from '../api/gasFetch';
 
 vi.mock('../api/gasFetch', () => ({
   gasFetch: vi.fn(),
-  setActiveIdToken: vi.fn()
+  setActiveIdToken: vi.fn(),
+  setOnUnauthorizedCallback: vi.fn()
 }));
 
 const TestAuthConsumer = () => {
@@ -96,6 +97,33 @@ describe('AuthContext and Role Authorization', () => {
     expect(screen.getByTestId('user-role').textContent).toBe('Finance Editor');
     expect(screen.getByTestId('user-email').textContent).toBe('approved@example.com');
     expect(screen.getByTestId('token-status').textContent).toBe('real-google-id-token');
+  });
+
+  it('clears one rejected retained token without duplicate StrictMode verification', async () => {
+    sessionStorage.setItem('gpbc_session_token', 'expired-google-id-token');
+    sessionStorage.setItem('gpbc_session_user', JSON.stringify({
+      email: 'stale@example.com',
+      name: 'Stale User',
+      role: 'Primary Admin'
+    }));
+    gasFetch.mockRejectedValue(new Error('Token expired'));
+
+    render(
+      <React.StrictMode>
+        <AuthProvider>
+          <TestAuthConsumer />
+        </AuthProvider>
+      </React.StrictMode>
+    );
+
+    await waitFor(() => {
+      expect(sessionStorage.getItem('gpbc_session_token')).toBeNull();
+    });
+
+    expect(gasFetch).toHaveBeenCalledTimes(1);
+    expect(gasFetch).toHaveBeenCalledWith('verifySession', {}, 'expired-google-id-token');
+    expect(sessionStorage.getItem('gpbc_session_user')).toBeNull();
+    expect(screen.getByTestId('auth-status').textContent).toBe('Guest');
   });
 
   it('switches roles and clears on sign out', async () => {

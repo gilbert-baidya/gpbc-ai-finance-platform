@@ -92,3 +92,101 @@ export interface PresbyterReportRecord {
   emailRecipient?: string;
   notes?: string;
 }
+
+export interface PresbyterReportDTO {
+  success: boolean;
+  periodKey: string;
+  periodLabel: string;
+  status: 'Closed' | 'Open' | string;
+  isClosed: boolean;
+  badgeText: string;
+  badgeVariant: 'success' | 'warning' | string;
+  churchInfo: ChurchInfo;
+  financialSummary: {
+    totalIncome: number;
+    totalRecognizedExpenses: number;
+    netPosition: number;
+    auditHealthScore: number;
+    auditHealthTier: string;
+    reconciliationStatus: string;
+    periodStatus: string;
+  };
+  incomeSummary: {
+    totalIncome: number;
+    categories: Array<{ category: string; amount: number; percentage: number }>;
+    privacyNote?: string;
+  };
+  expenseSummary: {
+    totalRecognizedExpenses: number;
+    categories: Array<{ category: string; amount: number; percentage: number }>;
+  };
+  sundayOfferingSummary: {
+    count: number;
+    totalSundayOffering: number;
+    averageSundayOffering: number;
+    offeringDates: string[];
+  };
+  reimbursementSummary: {
+    count: number;
+    totalPersonalPurchases: number;
+    totalAllocated: number;
+    personallyAbsorbed: number;
+    refundAdjustments: number;
+    remainingLiability: number;
+    note: string;
+  };
+  checkSummary: {
+    count: number;
+    checksIssued: number;
+    totalCheckAmount: number;
+    outstandingChecks: number;
+    clearedChecks: number;
+  };
+  capitalProjectSummary: {
+    projects: Array<{
+      projectId?: string;
+      projectName: string;
+      status: string;
+      approvedBudget: number | string;
+      expensesPaid: number;
+      budgetRemaining?: number;
+      remainingBalance: number;
+    }>;
+  };
+  reconciliationSummary: {
+    reconciledCount: number;
+    unreconciledCount: number;
+    differenceAmount: number;
+    status: string;
+  };
+  auditSummary: {
+    healthScore: number;
+    criticalIssuesCount: number;
+    highPriorityIssuesCount: number;
+  };
+  closeCertification?: {
+    isCertified: boolean;
+    periodKey: string;
+    status: string;
+    closedBy: string;
+    closedAt: string;
+    closeId: string;
+    finalReportArchived: boolean;
+  } | null;
+  finalReportArtifact?: {
+    available: boolean;
+    storedFileName: string;
+    status: string;
+    documentId?: string | null;
+    driveFileId?: string | null;
+    canViewRawArchive?: boolean;
+    note?: string;
+  } | null;
+  ytdSummary: {
+    year: number;
+    closedMonthsCount: number;
+    ytdIncome: number;
+    ytdRecognizedExpenses: number;
+    ytdNetPosition: number;
+  };
+}

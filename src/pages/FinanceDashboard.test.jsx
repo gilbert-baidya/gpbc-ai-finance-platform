@@ -85,4 +85,19 @@ describe('FinanceDashboard', () => {
     expect(within(screen.getByText('Audit Health Score').closest('article')).getByText('0')).toBeInTheDocument();
     expect(screen.queryByText('Not calculated yet')).not.toBeInTheDocument();
   });
+
+  it('does not report the finance connection unavailable when authoritative transactions load', async () => {
+    financeApi.getTransactions.mockResolvedValue({ transactions: [] });
+    financeApi.getReimbursements.mockRejectedValue(new Error('Optional source unavailable'));
+    financeApi.getReceipts.mockResolvedValue({ receipts: [] });
+    financeApi.getCapitalProjects.mockResolvedValue({ projects: [] });
+    auditApi.getAuditIssues.mockResolvedValue({ issues: [] });
+    auditApi.getAuditSummary.mockResolvedValue({ healthScore: null });
+
+    renderDashboard();
+
+    await waitFor(() => expect(within(screen.getByText('Total Income').closest('article')).getByText('$0')).toBeInTheDocument());
+    expect(screen.queryByText('Finance data connection unavailable')).not.toBeInTheDocument();
+    expect(screen.getByText('Not calculated yet')).toBeInTheDocument();
+  });
 });

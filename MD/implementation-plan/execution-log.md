@@ -253,3 +253,74 @@
 - **Live tests**: Not run. No sandbox schema, fake records, audit, reconciliation, close, or report actions were executed.
 - **Detailed handoff**: `MD/implementation-plan/sandbox-integration-report.md`.
 - **Status**: `BLOCKED ON OWNER-CONTROLLED GOOGLE CONFIGURATION`; Phase 5 not started.
+
+---
+
+## 10. Apps Script Sandbox Clasp Connection
+
+- **Date**: 2026-09-02
+- **Target**: Approved sandbox Script ID connected through repository `.clasp.json` with `rootDir: apps-script`.
+- **Authentication**: Clasp authorized as the approved Primary Admin.
+- **Push**: 11 files pushed successfully: `appsscript.json` and the 10 existing runtime `.gs` files.
+- **Ignore policy**: Node tests, README files, documentation, environment files, dependencies, and build artifacts excluded by `.claspignore`.
+- **Safety**: Script Properties were not read or changed; sandbox Sheet was not initialized; production Sheet and deployment were untouched; GCP project linking was not changed.
+- **Status**: Backend source connected and pushed. Web App deployment not yet created. Phase 5 not started.
+
+---
+
+## 11. Sandbox Web App and Real Authentication Validation
+
+- **Date**: 2026-09-02
+- **Deployment**: `GPBC Finance Desk Sandbox API`, version 3, executing as deployer with browser access gated by application-level Google ID-token authorization.
+- **Authentication**: Real Google sign-in succeeded; backend `verifySession` returned the approved canonical `Primary Admin` role.
+- **Defect resolved**: Restored the non-blocking, redacted `logAuditEvent()` removed during the Phase 3 audit-engine replacement. Added the documented `AUDIT_LOGS` schema for future initialization.
+- **Live reads**: Transactions, receipts, audit issues, and audit summary returned successful empty-sandbox responses; dashboard displayed live zero values and a 100/100 empty-state audit score.
+- **Safety**: Read-only inventory confirmed sandbox environment and a non-production Sheet containing only `Sheet1`. Schema initialization was not run, production was untouched, and Phase 5 was not started.
+
+---
+
+## 12. Sandbox Schema Initialization and First TEST Income
+
+- **Date**: 2026-09-02
+- **Pre-write gate**: Real Google session and backend `verifySession` succeeded as `Primary Admin`. Admin-only inventory returned workbook `GPBC_Finance_Master_SANDBOX`, `environment=sandbox`, `isProductionId=false`, and `productionWritesEnabled=false`. The ignored frontend endpoint matched the sandbox deployment.
+- **Schema**: `initializeSandboxSchema` created the 14 tabs defined by `SCHEMA_DEFINITIONS`; the original empty `Sheet1` remained. The physical Google Sheet tab bar matched the API inventory.
+- **Controlled record**: Created one `$10.00` Sunday Offering dated `2026-09-02` for `TEST Sandbox Donor`, service `TEST Sandbox Offering`, General fund, Cash, notes `TEST ONLY - sandbox connectivity verification`.
+- **Canonical linkage**: Income ID `INC-1788373497279` links to transaction ID `TXN-20260902-17336`. `Income Detail` and `Transactions` each contain exactly one data row, with `direction=INCOME` and `accountingImpact=INCOME`.
+- **Live UI**: Dashboard shows Total Income `$10`, Recognized Expenses `$0`, and Net Position `$10`. Transactions and Income each show one matching TEST row; no duplicates are present.
+- **Audit state**: Audit Health Score remains `Not calculated yet`; the Audit Engine was not run.
+- **Deployment**: Sandbox Web App updated to version 5 with read-only preflight fields, canonical income reads, and explicit audit calculation state.
+- **Remaining integration gap**: The legacy member selector on Income still expects a `MEMBERS` tab and logs a server error. The canonical Income Detail read path is unaffected.
+- **Validation**: 94/94 tests passed; TypeScript passed; production build passed with the existing large-chunk warning; touched-file diagnostics and Income JSX lint passed. Repository-wide lint remains blocked by 54 errors and 18 warnings in unrelated legacy files.
+- **Safety**: No production Sheet or deployment was accessed or changed. Production writes remain disabled. No other sandbox finance workflow was run. Phase 5 remains not started.
+
+---
+
+## 13. Legacy Finance Migration Stage A Dry Run
+
+- **Date**: 2026-09-02
+- **Source**: Read-only analysis of `GPBC Finance Report - July & August 2026`; all 11 tabs and 280 populated source rows received a disposition.
+- **Controls**: Source totals reconciled to income `$11,207.05`, expenses `$12,138.94`, and net `-$931.89`. Canonical proposals total ordinary income `$10,796.05`, recognized expenses `$11,485.66`, settlement inflows `$411.00`, and settlement outflows `$4,680.07`.
+- **Proposed records**: 114 transactions, 17 income details, 85 expense details, 10 reimbursements, 9 exact allocations, 10 receipt evidence rows, 8 check evidence rows, 43 reconciliation lines, 9 offering links, and one capital project.
+- **Accounting**: Underlying purchases are `EXPENSE`; reimbursement/card payouts, the rental-deposit return, and the `$411.00` outgoing/return pair are `SETTLEMENT`. Monthly, chart, and summary rows do not create accounting duplicates.
+- **Deployment**: Added admin-only read action `getLegacyMigrationDryRun`; sandbox Web App updated to version 6. No historical write action exists.
+- **Validation**: Full suite passed (11 files, 100 tests), TypeScript passed, production build passed with the existing large-chunk warning, touched-file diagnostics are clean, and clasp reports the intended 12 runtime files with deployment version 6 active.
+- **Gate**: `BLOCKED_PENDING_CRITICAL_REVIEW`. Electrical Panel funding/budget is unresolved, June exact dates and item allocations are absent, claimant identities are incomplete, three card credits are unlinked, and `$2.34` remains partially unresolved.
+- **Write result**: No historical migration write occurred. The prior `$10.00` TEST record remains and is excluded from historical controls. Production was read only and not modified. Production writes remain disabled. Phase 5 remains not started.
+- **Report**: See `MD/implementation-plan/legacy-finance-migration-report.md`.
+
+---
+
+## 14. Controlled Sandbox Legacy Migration
+
+- **Date**: 2026-09-02
+- **Approval**: All 11 review decisions recorded; run ID `LEGACY-2026-JUL-AUG-V1`.
+- **Safety gates**: Primary Admin identity, exact sandbox ID/title, `environment=sandbox`, production writes false, fixed confirmation phrase, source identity, semantic row controls, financial totals, June `$1,648.42`, target schemas, and deterministic identities all passed.
+- **Source correction**: `Presbyter Summary` and `Finance Charts` contain presentation title/header rows excluded from the approved `19/32` semantic counts. Primary detail rows and every financial control remained unchanged.
+- **First execution**: 297 rows written across nine tabs. Historical counts are 114 Transactions, 17 Income Detail, 85 Expense Detail, 10 Reimbursements, 9 Allocations, 10 Receipts, 8 Checks, 1 Capital Project, and 43 Reconciliation lines.
+- **Idempotency proof**: Immediate second execution wrote 0 and skipped all 297 existing deterministic rows.
+- **Financial verification**: Ordinary income `$10,796.05`; recognized expenses `$11,485.66`; settlement inflows `$411.00`; settlement outflows `$4,680.07`; allocation total `$1,912.90`.
+- **TEST record**: `TXN-20260902-17336` remains unchanged at `$10.00` for `TEST Sandbox Donor`.
+- **Audit**: Deterministic audit completed after normalizing Sheets Date values in transaction, receipt, and audit readers. It persisted 143 trace-linked findings, with 95 high and 48 medium, no critical; health score 53.
+- **Validation**: 110 tests passed; TypeScript, build, diagnostics, and diff checks passed. Final sandbox deployment is version 9.
+- **UI limitation**: Both exact localhost origins are present on the sandbox OAuth client, but Google Identity still returns HTTP 403, so final real-auth visual inspection remains externally blocked.
+- **Safety**: Source workbook remained read-only. Production was untouched, production writes remain false, and Phase 5 was not started.

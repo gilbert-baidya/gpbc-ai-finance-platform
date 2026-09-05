@@ -30,6 +30,51 @@ export type ReconciliationStatus =
   | 'Reconciled'
   | 'Discrepancy';
 
+export type CanonicalReconciliationStatus =
+  | 'UNMATCHED'
+  | 'MATCHED'
+  | 'PARTIALLY_MATCHED'
+  | 'NEEDS_REVIEW'
+  | 'RECONCILED';
+
+export interface ReconciliationRecord {
+  reconciliationId: string;
+  transactionId: string;
+  transactionDate: string;
+  transactionType: string;
+  direction: TransactionDirection;
+  payeeOrPayer: string;
+  description: string;
+  category?: string;
+  paymentMethod?: PaymentMethod;
+  checkNumber?: string;
+  expectedAmount: number;
+  reconciledAmount: number;
+  differenceAmount: number;
+  differenceFormatted: string;
+  reconciliationStatus: CanonicalReconciliationStatus;
+  satisfiesRules: boolean;
+  blockingReasons: string[];
+  warnings: string[];
+  evidenceCount: number;
+  evidenceStatus: string;
+  notes?: string;
+  reviewReason?: string;
+  reconciledBy?: string;
+  reconciledAt?: string;
+}
+
+export interface ReconciliationSummary {
+  totalRecords: number;
+  reconciledCount: number;
+  matchedCount: number;
+  unmatchedCount: number;
+  partiallyMatchedCount: number;
+  needsReviewCount: number;
+  differenceAmount: number;
+  differenceFormatted: string;
+}
+
 export type ReceiptStatus =
   | 'Attached'
   | 'Needs Receipt'

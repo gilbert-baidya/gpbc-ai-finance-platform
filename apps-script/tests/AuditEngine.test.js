@@ -1,12 +1,15 @@
-import { describe, it, expect } from 'vitest';
+import { afterEach, beforeEach, describe, it, expect } from 'vitest';
 
 const {
   AUDIT_SCORING_CONFIG,
   ALLOWED_RESOLUTION_STATUSES,
+  logAuditEvent,
   normalizeMerchantName,
+  normalizeAuditTimestampValue,
   calculatePurchaseBalance,
   evaluateAuditRules,
   calculateAuditHealthScore,
+  getAuditSummary,
   matchReconciliationLine,
   stageBankStatementLines
 } = require('../Audit.gs');
@@ -16,6 +19,71 @@ const {
   addReimbursementAllocation,
   validateAndPrepareAllocation
 } = require('../Reimbursements.gs');
+
+describe('0. Non-Blocking Access Audit Logger', () => {
+  let originalGetDB;
+
+  beforeEach(() => {
+    originalGetDB = global.getDB;
+    global.Logger = { log: vi.fn() };
+  });
+
+  afterEach(() => {
+    global.getDB = originalGetDB;
+  });
+
+  it('does not block requests when persistent audit storage is unavailable', () => {
+    global.getDB = vi.fn(() => { throw new Error('storage unavailable'); });
+
+    expect(logAuditEvent({ actor: 'admin@example.com', action: 'getTransactions', status: 'AUTHORIZED' })).toEqual({ success: true });
+  });
+
+  it('redacts sensitive details before appending to an existing audit log', () => {
+    const appendRow = vi.fn();
+    global.getDB = vi.fn(() => ({
+      getSheetByName: vi.fn(() => ({ appendRow }))
+    }));
+
+    logAuditEvent({
+      actor: 'admin@example.com',
+      action: 'test',
+      status: 'AUTHORIZED',
+      details: 'token=private-value password:also-private'
+    });
+
+    expect(appendRow).toHaveBeenCalledOnce();
+    expect(appendRow.mock.calls[0][0][4]).toBe('token=[REDACTED] password=[REDACTED]');
+  });
+});
+
+describe('0.1 Audit Score Calculation State', () => {
+  it('normalizes Sheets timestamps before audit issue sorting', () => {
+    expect(normalizeAuditTimestampValue(new Date('2026-09-02T20:40:55.849Z'))).toBe('2026-09-02T20:40:55.849Z');
+  });
+
+  let originalGetDB;
+
+  beforeEach(() => {
+    originalGetDB = global.getDB;
+  });
+
+  afterEach(() => {
+    global.getDB = originalGetDB;
+  });
+
+  it('does not fabricate a health score before the audit engine completes', () => {
+    global.getDB = () => ({
+      getSheetByName: (name) => name === 'AUDIT_LOGS' ? { getLastRow: () => 1 } : null
+    });
+
+    expect(getAuditSummary()).toEqual({
+      success: true,
+      calculated: false,
+      calculatedAt: null,
+      healthScore: null
+    });
+  });
+});
 
 const createMockDb = (config = {}) => {
   const transactions = config.transactions || [];

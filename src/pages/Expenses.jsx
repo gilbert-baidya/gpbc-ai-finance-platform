@@ -1,7 +1,9 @@
 import { useState } from 'react';
-import { DollarSign, Calendar, CreditCard, FileText, Tag, Building2 } from 'lucide-react';
+import { DollarSign, Calendar, CreditCard, FileText, Tag, Building2, Paperclip } from 'lucide-react';
 import { gasFetch } from '../api/gasFetch';
 import { successToast, errorToast } from '../utils/toast';
+import { FinanceDocumentUploadModal } from '../components/FinanceDocumentUploadModal';
+import { EvidenceDrawerModal } from '../components/EvidenceDrawerModal';
 import './Expenses.css';
 
 const EXPENSE_CATEGORIES = {
@@ -26,6 +28,9 @@ export default function Expenses() {
     });
     const [subCategories, setSubCategories] = useState(EXPENSE_CATEGORIES['Ministry Operations']);
     const [submitting, setSubmitting] = useState(false);
+    const [createdExpenseId, setCreatedExpenseId] = useState(null);
+    const [showUploadModal, setShowUploadModal] = useState(false);
+    const [showEvidenceDrawer, setShowEvidenceDrawer] = useState(false);
 
     const handleCategoryChange = (e) => {
         const newCategory = e.target.value;
@@ -85,6 +90,7 @@ export default function Expenses() {
 
             if (result.success) {
                 successToast(`Expense recorded! ID: ${result.expenseId}`);
+                setCreatedExpenseId(result.expenseId || `EXP-${Date.now()}`);
                 
                 // Reset form but keep category
                 setFormData(prev => ({
@@ -112,6 +118,46 @@ export default function Expenses() {
                     <p className="form-subtitle">Track ministry spending and operational costs</p>
                 </div>
             </div>
+
+            {createdExpenseId && (
+                <div
+                    style={{
+                        marginBottom: '20px',
+                        padding: '14px 18px',
+                        background: '#e0f2fe',
+                        border: '1px solid #7dd3fc',
+                        borderRadius: '10px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        flexWrap: 'wrap',
+                        gap: '12px'
+                    }}
+                >
+                    <div style={{ fontSize: '0.88rem', color: '#0369a1', fontWeight: 600 }}>
+                        Expense Recorded: <code>{createdExpenseId}</code>
+                    </div>
+                    <div style={{ display: 'flex', gap: '10px' }}>
+                        <button
+                            type="button"
+                            className="btn btn-primary btn-sm"
+                            onClick={() => setShowUploadModal(true)}
+                            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem' }}
+                        >
+                            <Paperclip size={14} />
+                            Attach Receipt Now
+                        </button>
+                        <button
+                            type="button"
+                            className="btn btn-outline btn-sm"
+                            onClick={() => setShowEvidenceDrawer(true)}
+                            style={{ fontSize: '0.8rem' }}
+                        >
+                            View Evidence
+                        </button>
+                    </div>
+                </div>
+            )}
 
             <form onSubmit={handleSubmit} className="expense-form">
                 {/* Expense Classification */}
@@ -287,6 +333,37 @@ export default function Expenses() {
                     </button>
                 </div>
             </form>
+
+            {/* Direct Receipt Upload Modal */}
+            {createdExpenseId && (
+                <FinanceDocumentUploadModal
+                    isOpen={showUploadModal}
+                    onClose={() => setShowUploadModal(false)}
+                    entityType="Transaction"
+                    entityId={createdExpenseId}
+                    transactionId={createdExpenseId}
+                    defaultDocumentType="Receipt"
+                    defaultTitle={`Receipt for ${formData.vendor || createdExpenseId}`}
+                    documentDate={formData.date}
+                    onSuccess={() => {
+                        setShowUploadModal(false);
+                        successToast('Receipt attached and registered in Document Center!');
+                    }}
+                />
+            )}
+
+            {/* Evidence Drawer Modal */}
+            {createdExpenseId && (
+                <EvidenceDrawerModal
+                    isOpen={showEvidenceDrawer}
+                    onClose={() => setShowEvidenceDrawer(false)}
+                    entityType="Transaction"
+                    entityId={createdExpenseId}
+                    transactionId={createdExpenseId}
+                    recordTitle={`Expense Record ${createdExpenseId}`}
+                    defaultDocumentType="Receipt"
+                />
+            )}
         </div>
     );
 }

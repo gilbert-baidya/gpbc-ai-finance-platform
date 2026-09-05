@@ -197,7 +197,7 @@ const FinanceDashboard = () => {
         </button>
       </header>
 
-      {failedSources.length > 0 && (
+      {failedSources.includes('transactions') && (
         <div className="fd-connection" role="status">
           <AlertTriangle size={18} aria-hidden="true" />
           <div><strong>Finance data connection unavailable</strong><span>Local interface preview is active. Live finance data will appear after the GPBC finance sandbox is connected.</span></div>

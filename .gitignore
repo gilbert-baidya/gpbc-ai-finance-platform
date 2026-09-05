@@ -17,6 +17,15 @@ dist-ssr
 .env.local
 .env*.local
 
+# Local credentials and private keys
+.clasprc.json
+credentials.json
+client_secret*.json
+service-account*.json
+service_account*.json
+*.pem
+*.key
+
 # Audit Reports (contains sensitive system analysis)
 AUDIT_REPORT.txt
 audit_results.json
@@ -32,3 +41,4 @@ SECURITY_HARDENING_REPORT.md
 *.njsproj
 *.sln
 *.sw?
+.vercel

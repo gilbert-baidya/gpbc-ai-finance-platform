@@ -3,11 +3,11 @@ import { useAuth } from './AuthContext';
 import { Shield } from 'lucide-react';
 
 export function DevRoleSwitcher() {
-  const { devSignIn, user } = useAuth();
+  const { devSignIn, idToken, user } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
 
   // Exclude from production builds entirely
-  if (!import.meta.env.DEV || !devSignIn) {
+  if (!import.meta.env.DEV || !devSignIn || idToken) {
     return null;
   }
 

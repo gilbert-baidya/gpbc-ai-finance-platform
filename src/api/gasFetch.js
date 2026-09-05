@@ -1,1 +1,1 @@
-export { gasFetch, setActiveIdToken, getActiveIdToken, default } from './gasFetch.ts';
+export { gasFetch, setActiveIdToken, getActiveIdToken, setOnUnauthorizedCallback, default } from './gasFetch.ts';

@@ -2,11 +2,12 @@ import React from 'react';
 import { useAuth } from '../context/AuthContext';
 import { GoogleSignIn } from '../auth/GoogleSignIn';
 import { ShieldAlert, ArrowLeft } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation, Navigate } from 'react-router-dom';
 
 export const RoleProtectedRoute = ({ children, allowedRoles }) => {
   const { isAuthenticated, isAuthorized, user, loading } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
 
   if (loading) {
     return (
@@ -19,6 +20,11 @@ export const RoleProtectedRoute = ({ children, allowedRoles }) => {
 
   if (!isAuthenticated) {
     return <GoogleSignIn />;
+  }
+
+  // Presbyter Read-Only is restricted strictly to /presbyter-reports
+  if (user?.role === 'Presbyter Read-Only' && location.pathname !== '/presbyter-reports') {
+    return <Navigate to="/presbyter-reports" replace />;
   }
 
   if (allowedRoles && allowedRoles.length > 0 && !isAuthorized(allowedRoles)) {

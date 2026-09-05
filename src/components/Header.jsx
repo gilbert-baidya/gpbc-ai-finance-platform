@@ -1,17 +1,11 @@
 import React from 'react';
-import { User, Calendar, LogOut, Shield, Menu } from 'lucide-react';
+import { User, LogOut, Shield, Menu } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import PeriodSelector from './PeriodSelector';
 import './Header.css';
 
 const Header = ({ onOpenNavigation }) => {
   const { user, signOut } = useAuth();
-  
-  const currentDate = new Date().toLocaleDateString('en-US', {
-    weekday: 'long',
-    year: 'numeric',
-    month: 'long', 
-    day: 'numeric'
-  });
 
   return (
     <header className="app-header app-global-header glass-panel">
@@ -27,16 +21,31 @@ const Header = ({ onOpenNavigation }) => {
           }}
         />
         <div className="church-info">
-          <h1>GPBC Finance Desk</h1>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <h1>GPBC Finance Desk</h1>
+            <span
+              className="env-badge"
+              style={{
+                fontSize: '0.65rem',
+                fontWeight: 700,
+                letterSpacing: '0.05em',
+                padding: '2px 6px',
+                borderRadius: '4px',
+                textTransform: 'uppercase',
+                background: (import.meta.env.VITE_GPBC_ENV === 'production' || import.meta.env.VITE_GPBC_ENVIRONMENT === 'production') ? 'rgba(44, 62, 80, 0.15)' : 'rgba(217, 119, 6, 0.15)',
+                color: (import.meta.env.VITE_GPBC_ENV === 'production' || import.meta.env.VITE_GPBC_ENVIRONMENT === 'production') ? '#2C3E50' : '#D97706',
+                border: (import.meta.env.VITE_GPBC_ENV === 'production' || import.meta.env.VITE_GPBC_ENVIRONMENT === 'production') ? '1px solid rgba(44, 62, 80, 0.3)' : '1px solid rgba(217, 119, 6, 0.3)'
+              }}
+            >
+              {(import.meta.env.VITE_GPBC_ENV === 'production' || import.meta.env.VITE_GPBC_ENVIRONMENT === 'production') ? 'PRODUCTION' : 'SANDBOX'}
+            </span>
+          </div>
           <span className="subtitle">Finance • Audit • Reporting</span>
         </div>
       </div>
 
       <div className="header-right">
-        <div className="date-display">
-          <Calendar size={16} />
-          <span>{currentDate}</span>
-        </div>
+        <PeriodSelector />
 
         {user && (
           <div className="user-profile glass-card">

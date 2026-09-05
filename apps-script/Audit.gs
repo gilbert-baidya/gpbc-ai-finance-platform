@@ -64,6 +64,46 @@ const ALLOWED_RESOLUTION_STATUSES = [
   "Reconciled"
 ];
 
+function normalizeAuditTimestampValue(value) {
+  if (!value) return "";
+  if (value instanceof Date && !isNaN(value.getTime())) return value.toISOString();
+  return String(value);
+}
+
+/**
+ * Records bounded, redacted access metadata without blocking the requested action.
+ * The persistent audit tab is optional until the sandbox schema is initialized.
+ */
+function logAuditEvent(event) {
+  try {
+    const timestamp = new Date();
+    const actor = event && event.actor ? String(event.actor).substring(0, 100) : "Anonymous";
+    const action = event && event.action ? String(event.action).substring(0, 50) : "Unknown";
+    const status = event && event.status ? String(event.status).substring(0, 20) : "INFO";
+    const details = event && event.details
+      ? String(event.details)
+          .replace(/(idToken|token|password|secret|accountNumber)\s*[:=]\s*[^,;\s]+/gi, "$1=[REDACTED]")
+          .substring(0, 200)
+      : "";
+
+    Logger.log("[AUDIT] " + timestamp.toISOString() + " | Actor: " + actor + " | Action: " + action + " | Status: " + status + (details ? " | " + details : ""));
+
+    try {
+      const db = getDB(true, "logAuditEvent");
+      const auditSheet = db.getSheetByName("AUDIT_LOGS");
+      if (auditSheet) {
+        auditSheet.appendRow([timestamp, actor, action, status, details]);
+      }
+    } catch (sheetErr) {
+      Logger.log("[AUDIT] Persistent audit storage unavailable");
+    }
+
+    return { success: true };
+  } catch (err) {
+    return { success: false, error: "Audit logging error" };
+  }
+}
+
 /**
  * Normalizes merchant / payee names deterministically without collapsing distinct entities
  */
@@ -624,12 +664,66 @@ function runAudit(p, userEmail) {
   const freshIssues = getAuditIssues().issues || [];
   const healthScore = calculateAuditHealthScore(freshIssues);
 
+  logAuditEvent({
+    actor: userEmail,
+    action: "runAudit",
+    status: "COMPLETED",
+    details: "Audit engine completed successfully"
+  });
+
   return {
     success: true,
     detectedCount: currentFindings.length,
     healthScore: healthScore,
     issues: freshIssues
   };
+}
+
+/**
+ * Resolves the authoritative accounting periodKey (YYYY-MM) for an audit issue
+ * based on its underlying financial entity, NOT detectedAt timestamp.
+ */
+function resolveIssuePeriodKey(issue, entityDateMap) {
+  if (!issue) return "GLOBAL";
+
+  // 1. Explicit periodKey on issue
+  if (issue.periodKey && /^\d{4}-\d{2}$/.test(issue.periodKey)) {
+    return issue.periodKey;
+  }
+
+  const entityId = String(issue.entityId || "").trim();
+
+  // 2. Check entityDateMap lookup if provided
+  if (entityId && entityDateMap && entityDateMap[entityId]) {
+    return entityDateMap[entityId];
+  }
+
+  // 3. Deterministic regex pattern matching on entityId
+  if (entityId) {
+    // Standard ISO/compact date pattern e.g. TXN-20260902-17336 -> 2026-09
+    const ymdMatch = entityId.match(/20\d{2}(0[1-9]|1[0-2])(0[1-9]|[12]\d|3[01])/);
+    if (ymdMatch) {
+      const ym = ymdMatch[0];
+      return ym.substring(0, 4) + "-" + ym.substring(4, 6);
+    }
+
+    // Standard hyphenated period pattern e.g. 2026-08
+    const ymMatch = entityId.match(/(20\d{2})-(0[1-9]|1[0-2])/);
+    if (ymMatch) {
+      return ymMatch[1] + "-" + ymMatch[2];
+    }
+
+    // Legacy month abbreviation pattern e.g. TXN-LEGACY-2026-JUL-AUG -> 2026-07 / 2026-08
+    const monthNames = { JAN: '01', FEB: '02', MAR: '03', APR: '04', MAY: '05', JUN: '06', JUL: '07', AUG: '08', SEP: '09', OCT: '10', NOV: '11', DEC: '12' };
+    const legacyMatch = entityId.match(/(20\d{2})-(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)/i);
+    if (legacyMatch) {
+      const yr = legacyMatch[1];
+      const mStr = legacyMatch[2].toUpperCase();
+      if (monthNames[mStr]) return yr + "-" + monthNames[mStr];
+    }
+  }
+
+  return "GLOBAL";
 }
 
 /**
@@ -648,8 +742,60 @@ function getAuditIssues(p) {
     issues = data.map(function(row) {
       const obj = {};
       headers.forEach(function(h, i) { obj[h] = row[i]; });
+      obj.detectedAt = normalizeAuditTimestampValue(obj.detectedAt);
+      obj.lastDetectedAt = normalizeAuditTimestampValue(obj.lastDetectedAt);
       obj.amount = Number(obj.amount || 0);
       return obj;
+    });
+  }
+
+  // Filter by periodKey using entity period resolution
+  if (p.periodKey) {
+    let entityDateMap = {};
+    try {
+      const txRes = typeof getTransactions !== "undefined" ? getTransactions() : { transactions: [] };
+      (txRes.transactions || []).forEach(function(t) {
+        if (t.transactionId && t.transactionDate) {
+          const d = typeof t.transactionDate === "string" ? t.transactionDate : (t.transactionDate instanceof Date ? t.transactionDate.toISOString().substring(0, 10) : String(t.transactionDate));
+          if (d && d.length >= 7) {
+            entityDateMap[t.transactionId] = d.substring(0, 7);
+          }
+        }
+      });
+
+      const rmbRes = typeof getReimbursements !== "undefined" ? getReimbursements() : { reimbursements: [] };
+      (rmbRes.reimbursements || []).forEach(function(r) {
+        const rId = r.reimbursementId || r.id;
+        const rDate = r.reimbursementDate || r.date;
+        if (rId && rDate) {
+          const d = typeof rDate === "string" ? rDate : (rDate instanceof Date ? rDate.toISOString().substring(0, 10) : String(rDate));
+          if (d && d.length >= 7) {
+            entityDateMap[rId] = d.substring(0, 7);
+          }
+        }
+      });
+
+      const chkRes = typeof getCheckDetails !== "undefined" ? getCheckDetails() : { checks: [] };
+      (chkRes.checks || []).forEach(function(c) {
+        const cId = c.checkId || c.id;
+        const cDate = c.checkDate || c.date;
+        if (cId && cDate) {
+          const d = typeof cDate === "string" ? cDate : (cDate instanceof Date ? cDate.toISOString().substring(0, 10) : String(cDate));
+          if (d && d.length >= 7) {
+            entityDateMap[cId] = d.substring(0, 7);
+          }
+        }
+      });
+    } catch (e) {
+      Logger.log("Error building entityDateMap for audit issues: " + e.message);
+    }
+
+    issues.forEach(function(i) {
+      i.resolvedPeriodKey = resolveIssuePeriodKey(i, entityDateMap);
+    });
+
+    issues = issues.filter(function(i) {
+      return i.resolvedPeriodKey === p.periodKey;
     });
   }
 
@@ -687,14 +833,48 @@ function getAuditIssues(p) {
  * Returns the Audit Health Score summary
  */
 function getAuditSummary() {
+  const completedAt = getLastCompletedAuditRun();
+  if (!completedAt) {
+    return {
+      success: true,
+      calculated: false,
+      calculatedAt: null,
+      healthScore: null
+    };
+  }
+
   const issuesRes = getAuditIssues();
   const issues = issuesRes.issues || [];
   const healthScore = calculateAuditHealthScore(issues);
 
   return {
     success: true,
+    calculated: true,
+    calculatedAt: completedAt,
     healthScore: healthScore
   };
+}
+
+function getLastCompletedAuditRun() {
+  const db = getDB(false, "getAuditSummary");
+  const sheet = db.getSheetByName("AUDIT_LOGS");
+  if (!sheet || sheet.getLastRow() <= 1) return null;
+
+  const data = sheet.getDataRange().getValues();
+  const headers = data.shift();
+  const timestampIndex = headers.indexOf("Timestamp");
+  const actionIndex = headers.indexOf("Action");
+  const statusIndex = headers.indexOf("Status");
+
+  for (let index = data.length - 1; index >= 0; index -= 1) {
+    const row = data[index];
+    if (row[actionIndex] === "runAudit" && row[statusIndex] === "COMPLETED") {
+      const timestamp = new Date(row[timestampIndex]);
+      return isNaN(timestamp.getTime()) ? String(row[timestampIndex] || "") : timestamp.toISOString();
+    }
+  }
+
+  return null;
 }
 
 /**
@@ -1157,13 +1337,16 @@ if (typeof module !== "undefined" && module.exports) {
     AUDIT_SCORING_CONFIG,
     ALLOWED_AUDIT_STATUSES,
     ALLOWED_RESOLUTION_STATUSES,
+    logAuditEvent,
     normalizeMerchantName,
+    normalizeAuditTimestampValue,
     calculatePurchaseBalance,
     evaluateAuditRules,
     calculateAuditHealthScore,
     runAudit,
     getAuditIssues,
     getAuditSummary,
+    getLastCompletedAuditRun,
     resolveAuditIssue,
     reopenAuditIssue,
     assignAuditIssue,

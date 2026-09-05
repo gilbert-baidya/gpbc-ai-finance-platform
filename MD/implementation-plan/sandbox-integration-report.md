@@ -2,8 +2,8 @@
 
 **Date**: 2026-09-02  
 **Branch**: `feature/gpbc-finance-desk-refactor`  
-**Starting commit**: `afb66c6d1221c1e2491ce7d488c742c9d8831372`  
-**Status**: BLOCKED ON OWNER-CONTROLLED GOOGLE CONFIGURATION
+**Starting commit**: `ccd3313d980fde95bd33cac2fe1109a01e213346`
+**Status**: SANDBOX SCHEMA INITIALIZED; FIRST TEST INCOME VERIFIED
 
 ## Safety Verification
 
@@ -13,7 +13,7 @@
 | Production data | Not accessed or modified |
 | Production deployment | Not performed |
 | Phase 5 | Not started |
-| Production write control | Source defaults fail closed; project reports record `GPBC_PRODUCTION_WRITES_ENABLED=false`; live Script Property not independently readable from this workspace |
+| Production write control | Live admin-only preflight reports `GPBC_PRODUCTION_WRITES_ENABLED=false` |
 | Production Sheet isolation | Development/schema/reset operations permanently reject the protected production Sheet ID |
 | Missing configuration | Fails closed |
 | Unknown users | Denied by exact allowlist lookup |
@@ -25,16 +25,32 @@
 | Integration item | Status |
 | --- | --- |
 | `.env.local` ignored by Git | Confirmed |
-| `VITE_GPBC_API_URL` | Configured locally; deployment identity and sandbox target not verified |
-| `VITE_GOOGLE_CLIENT_ID` | Missing; no value invented |
+| `VITE_GPBC_API_URL` | Configured locally with the verified sandbox `/exec` endpoint |
+| `VITE_GOOGLE_CLIENT_ID` | Configured locally; client secret not used |
 | Frontend client secret | Not used or stored |
-| Apps Script `GOOGLE_CLIENT_ID` | Not verifiable from repository |
-| `GPBC_APPROVED_USERS` | Not verifiable from repository |
-| `GPBC_ENVIRONMENT=sandbox` | Not verifiable from repository |
-| Non-production `GPBC_SHEET_ID` | Not available or verified |
-| Physical sandbox Sheet | Not created or verified |
-| Sandbox schema | Not initialized |
-| Sandbox Apps Script deployment | Existing local endpoint present, but sandbox deployment/configuration not verified |
+| Apps Script `GOOGLE_CLIENT_ID` | Verified indirectly by successful Google ID-token audience validation; value not printed |
+| `GPBC_APPROVED_USERS` | Verified indirectly by canonical `Primary Admin` response; value not printed |
+| `GPBC_ENVIRONMENT=sandbox` | Confirmed by live admin-only preflight |
+| Non-production `GPBC_SHEET_ID` | Confirmed as `GPBC_Finance_Master_SANDBOX`; backend reports `isProductionId=false` |
+| Physical sandbox Sheet | Initialized with canonical headers and one controlled TEST income record |
+| Sandbox schema | Initialized successfully |
+| Sandbox Apps Script project | Connected through clasp to the approved Script ID |
+| Sandbox Apps Script deployment | Created as `GPBC Finance Desk Sandbox API`; version 6 |
+
+## Clasp Connection
+
+| Integration item | Status |
+| --- | --- |
+| Clasp authentication | Authenticated as the approved Primary Admin |
+| Target Script ID | Connected to the approved sandbox project |
+| Root directory | `apps-script` |
+| Push result | 12 files pushed successfully; status synchronized |
+| Push contents | `appsscript.json` and 11 runtime `.gs` files |
+| Tests/docs/local files | Excluded from push |
+| Script Properties | Not read or changed |
+| GCP project linking | Not changed |
+| Web App deployment | Created; execute as deployer; browser access configured for the application-level token gate |
+| Local endpoint | Configured in ignored `.env.local`; no committed URL |
 
 The local environment also contains the deprecated `VITE_GPBC_API_KEY`. The active finance transport does not use it, but legacy client modules still reference it. Remove and rotate it only through the owner-controlled credential process; it was not printed, copied, or changed during this task.
 
@@ -48,35 +64,46 @@ The local environment also contains the deprecated `VITE_GPBC_API_KEY`. The acti
 
 ## Live Validation Status
 
-No live claim is made. The following remain **NOT RUN** because Google OAuth and the physical sandbox are not owner-configured:
+- Real Google sign-in succeeded at `http://localhost:5173` as the approved Primary Admin.
+- Backend `verifySession` returned the canonical `Primary Admin` role.
+- Authenticated preflight confirmed workbook title `GPBC_Finance_Master_SANDBOX`, `environment=sandbox`, `isProductionId=false`, and `productionWritesEnabled=false`.
+- `initializeSandboxSchema` created all 14 tabs defined by `SCHEMA_DEFINITIONS`; the original empty `Sheet1` was retained.
+- Physical Google Sheets inspection confirmed these tabs: `Sheet1`, `Transactions`, `Income Detail`, `Expense Detail`, `Reimbursements`, `Reimbursement_Allocations`, `Receipt_Register`, `Check_Details`, `Capital_Projects`, `Audit_Issues`, `Reconciliation_Staging`, `Monthly_Close`, `Monthly_Close_History`, `Presbyter_Reports`, and `AUDIT_LOGS`.
+- One controlled income was created through `addIncome`: `TEST Sandbox Donor`, `TEST Sandbox Offering`, Sunday Offering, General fund, Cash, `$10.00`, dated `2026-09-02`, with notes `TEST ONLY - sandbox connectivity verification`.
+- Income ID `INC-1788373497279` and canonical transaction ID `TXN-20260902-17336` appear exactly once and are linked by the shared transaction ID.
+- The Dashboard shows Total Income `$10`, Recognized Expenses `$0`, Net Position `$10`, and no unavailable-data banner.
+- Audit Health Score shows `Not calculated yet`; the Audit Engine was not run.
+- Transactions shows one matching TEST row at `$10.00`; Income shows one matching canonical detail row at `$10.00`.
+- Initial data reads failed because `logAuditEvent()` had been removed during the Phase 3 audit-engine replacement. The non-blocking, redacted logger and documented `AUDIT_LOGS` schema were restored in deployment version 3.
+- Deployment version 5 adds the admin-only preflight fields, canonical income reader, Income-page table, and explicit audit-calculation state used by this validation.
 
-- Primary Admin, Finance Editor, Viewer, Presbyter Read-Only, and unknown-account real sign-in tests
-- Fake transaction, reimbursement, allocation, receipt, check, and capital-project workflow
+The following remain **NOT RUN**:
+
+- Finance Editor, Viewer, Presbyter Read-Only, and unknown-account real sign-in tests
+- Expense, reimbursement, allocation, receipt, check, and capital-project workflows
 - Audit Engine and reconciliation live tests
 - Monthly Close close/block/reopen/reclose workflow
 - Presbyter Report generation or email
-- Dashboard transition from unavailable to live values
+
+The Income page's legacy member selector still calls `getMembers`, which requires a legacy `MEMBERS` tab not created by the canonical schema. That loader reports a server error, but it does not affect the canonical Income Detail table or this verified TEST record.
 
 ## Automated Validation
 
 | Check | Result |
 | --- | --- |
-| `npm test` | PASS — 10 files, 88 tests |
+| `npm test` | PASS — 10 files, 94 tests |
 | Focused auth tests | PASS — frontend and Apps Script authorization suites |
 | `npm run typecheck` | PASS — 0 errors |
-| Touched-file diagnostics | PASS — no editor diagnostics; touched JSX lint-clean |
-| `npm run lint` | FAIL — 49 errors and 18 warnings in pre-existing legacy/unrelated files; current ESLint config excludes `.ts`, `.tsx`, and `.gs` |
+| Touched-file diagnostics | PASS — no editor diagnostics; touched Income JSX lint-clean |
+| `npm run lint` | FAIL — 54 errors and 18 warnings in legacy/unrelated files; current ESLint config excludes `.ts`, `.tsx`, and `.gs` |
 | `npm run build` | PASS — existing large-chunk warning remains |
 
-## Required Manual Google Steps
+## Required Next Steps
 
-1. Open **Google Cloud Console > APIs & Services > Credentials**, create/select a **Web application** OAuth client, add only `http://127.0.0.1:5173` as the Authorized JavaScript origin for this task, and copy the public Client ID.
-2. Paste that Client ID into ignored `.env.local` as `VITE_GOOGLE_CLIENT_ID=<CLIENT_ID>`; do not add a client secret.
-3. In Google Drive, create a private Google Sheet named `GPBC_Finance_Master_SANDBOX`, confirm it is not the production Sheet, and copy its Sheet ID.
-4. Open the existing Apps Script project, then **Project Settings > Script Properties**. Set `GOOGLE_CLIENT_ID` to the same Client ID, `GPBC_ENVIRONMENT=sandbox`, `GPBC_SHEET_ID=<SANDBOX_ID>`, `GPBC_APPROVED_USERS=<VALID_JSON_ALLOWLIST>`, and `GPBC_PRODUCTION_WRITES_ENABLED=false`.
-5. In Apps Script, create or identify the sandbox Web app deployment, copy its `/exec` URL, and set ignored `.env.local` `VITE_GPBC_API_URL=<SANDBOX_EXEC_URL>`. Do not reuse an unverified production deployment.
-6. Restart with `npm run dev -- --host 127.0.0.1`, sign in as an approved Primary Admin, then run `initializeSandboxSchema()` only after the UI/backend confirms the sandbox environment and non-production Sheet identity.
+1. Align the Income entry form's member source with the canonical sandbox schema so it no longer depends on the absent legacy `MEMBERS` tab.
+2. Continue with a dedicated fake expense/receipt workflow test only after that integration decision.
+3. Keep Phase 5 and all production operations blocked.
 
 ## Gate Decision
 
-Sandbox integration is **NOT COMPLETE**. Production-release preparation may **NOT** begin. Resume at the real Google Primary Admin sign-in test after the six owner-controlled steps above are complete.
+The Apps Script backend is **CONNECTED, DEPLOYED, AUTHORIZED, SCHEMA-INITIALIZED, AND VERIFIED WITH ONE CONTROLLED TEST INCOME RECORD** against the approved sandbox only. Broader live finance workflows remain untested. Production-release preparation may **NOT** begin. Phase 5 remains **NOT STARTED**.

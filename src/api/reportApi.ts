@@ -4,9 +4,16 @@
  *************************************************/
 
 import { gasFetch } from './gasFetch';
-import type { PresbyterReportData, PresbyterReportRecord } from '../types/reports';
+import type { PresbyterReportData, PresbyterReportRecord, PresbyterReportDTO } from '../types/reports';
 
 export const reportApi = {
+  /**
+   * Fetches the Phase 4 Presbyter Financial Oversight Report DTO
+   */
+  async getPresbyterReport(params?: { periodKey?: string }): Promise<PresbyterReportDTO> {
+    return gasFetch('getPresbyterReport', params || {});
+  },
+
   /**
    * Generates and aggregates a Presbyter Financial Oversight Report
    */

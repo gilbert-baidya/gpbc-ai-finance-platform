@@ -1,0 +1,124 @@
+.period-selector-container {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--surface-light, #ffffff);
+  border: 1px solid var(--mist-blue-dark, #cbd5e1);
+  border-radius: 20px;
+  padding: 3px 8px 3px 4px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.period-selector-container:focus-within {
+  border-color: var(--slate-blue, #557489);
+  box-shadow: 0 0 0 2px rgba(85, 116, 137, 0.15);
+}
+
+.period-selector-bar {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.period-nav-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  color: var(--slate-blue, #557489);
+  cursor: pointer;
+  padding: 0;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.period-nav-btn:hover {
+  background-color: var(--mist-blue, #f1f5f9);
+  color: var(--slate-blue-dark, #334155);
+}
+
+.period-controls-group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 2px;
+}
+
+.period-icon {
+  color: var(--slate-blue, #557489);
+  margin-right: 2px;
+  opacity: 0.85;
+}
+
+.period-select {
+  border: none;
+  background: transparent;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--slate-blue-dark, #1e293b);
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 6px;
+  outline: none;
+  transition: background-color 0.15s ease;
+  font-family: inherit;
+}
+
+.period-select:hover,
+.period-select:focus {
+  background-color: var(--mist-blue, #f1f5f9);
+}
+
+.month-select {
+  min-width: 96px;
+}
+
+.year-select {
+  min-width: 60px;
+}
+
+.current-period-shortcut {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--ivory, #fefce8);
+  border: 1px solid var(--gold, #ca8a04);
+  color: var(--gold-dark, #854d0e);
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  line-height: 1;
+}
+
+.current-period-shortcut:hover {
+  background: #fef08a;
+  transform: translateY(-0.5px);
+}
+
+.current-period-badge {
+  display: inline-block;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  color: #64748b;
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 10px;
+  line-height: 1.2;
+}
+
+/* Compact mode */
+.period-selector-container.compact {
+  padding: 2px 6px 2px 3px;
+}
+
+.period-selector-container.compact .period-select {
+  font-size: 0.8rem;
+}

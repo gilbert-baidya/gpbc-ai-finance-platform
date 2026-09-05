@@ -26,6 +26,8 @@
   --terracotta: #C05621;
   --terracotta-light: #DD6B20;
   --terracotta-bg: #FEF3C7;
+  --forest-green: #137333;
+  --forest-green-dark: #0D652D;
 
   /* Theme mappings */
   --color-primary: var(--slate-blue);
