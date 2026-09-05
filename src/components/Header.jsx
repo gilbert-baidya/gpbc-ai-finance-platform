@@ -3,6 +3,7 @@ import { User, LogOut, Shield, Menu } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import PeriodSelector from './PeriodSelector';
 import PageHelpButton from './help/PageHelpButton';
+import SmartUploadButton from './smart-upload/SmartUploadButton';
 import './Header.css';
 
 const Header = ({ onOpenNavigation }) => {
@@ -46,6 +47,7 @@ const Header = ({ onOpenNavigation }) => {
       </div>
 
       <div className="header-right">
+        <SmartUploadButton />
         <PeriodSelector />
         <PageHelpButton variant="header" label="Guide" />
 

@@ -25,12 +25,15 @@ import {
   Edit2,
   Plus,
   ShieldAlert,
-  Archive
+  Archive,
+  Inbox
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { usePeriod } from '../context/PeriodContext';
 import { documentApi } from '../api/documentApi';
 import FinanceDataState from '../components/FinanceDataState';
+import SmartUploadInbox from '../components/smart-upload/SmartUploadInbox';
+import SmartUploadModal from '../components/smart-upload/SmartUploadModal';
 import './DocumentCenter.css';
 
 const DOCUMENT_CATEGORIES = [
@@ -56,6 +59,7 @@ export const DocumentCenter = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [dataAvailable, setDataAvailable] = useState(false);
+  const [activeView, setActiveView] = useState('register'); // 'register' | 'inbox'
 
   // Filters
   const [selectedCategory, setSelectedCategory] = useState('ALL');
@@ -385,59 +389,102 @@ export const DocumentCenter = () => {
         </article>
       </section>
 
-      {/* Filter and Category Bar */}
-      <section className="doc-filter-panel glass-panel">
-        <div className="doc-category-scroll">
-          {DOCUMENT_CATEGORIES.map(cat => {
-            const Icon = cat.icon;
-            const isSelected = selectedCategory === cat.id;
-            return (
-              <button
-                key={cat.id}
-                type="button"
-                className={`doc-category-btn ${isSelected ? 'active' : ''}`}
-                onClick={() => setSelectedCategory(cat.id)}
-              >
-                <Icon size={15} />
-                <span>{cat.label}</span>
-              </button>
-            );
-          })}
-        </div>
+      {/* View Switcher: Document Register vs Smart Upload Inbox */}
+      <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
+        <button
+          type="button"
+          className={`btn btn-sm ${activeView === 'register' ? 'btn-primary' : 'btn-outline'}`}
+          onClick={() => setActiveView('register')}
+          style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 600, padding: '6px 14px' }}
+        >
+          <FileText size={16} />
+          <span>Master Document Register ({documents.length})</span>
+        </button>
+        <button
+          type="button"
+          className={`btn btn-sm ${activeView === 'inbox' ? 'btn-primary' : 'btn-outline'}`}
+          onClick={() => setActiveView('inbox')}
+          style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 600, padding: '6px 14px' }}
+        >
+          <Inbox size={16} />
+          <span>Smart Upload Inbox ({summaryMetrics.needsReview})</span>
+        </button>
+      </div>
 
-        <div className="doc-filter-controls">
-          <div className="doc-search-wrapper">
-            <Search size={16} className="doc-search-icon" />
-            <input
-              type="text"
-              className="doc-search-input"
-              placeholder="Search title, filename, merchant, or ID..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-            {search && (
-              <button type="button" className="doc-search-clear" onClick={() => setSearch('')}>
-                <X size={14} />
-              </button>
-            )}
-          </div>
+      {activeView === 'inbox' ? (
+        <SmartUploadInbox
+          documents={documents}
+          loading={loading}
+          onRefresh={loadDocuments}
+          onSelectDocumentForLink={(doc) => {
+            setSelectedDocForLink(doc);
+            setLinkForm({
+              relatedEntityType: doc.relatedEntityType || 'TRANSACTION',
+              relatedEntityId: doc.relatedEntityId || doc.relatedTransactionId || '',
+              postCloseReason: ''
+            });
+            setShowLinkModal(true);
+          }}
+          onViewDocument={(doc) => setViewingDoc(doc)}
+        />
+      ) : (
+        <>
+          {/* Filter and Category Bar */}
+          <section className="doc-filter-panel glass-panel">
+            <div className="doc-category-scroll">
+              {DOCUMENT_CATEGORIES.map(cat => {
+                const Icon = cat.icon;
+                const isSelected = selectedCategory === cat.id;
+                return (
+                  <button
+                    key={cat.id}
+                    type="button"
+                    className={`doc-category-btn ${isSelected ? 'active' : ''}`}
+                    onClick={() => setSelectedCategory(cat.id)}
+                  >
+                    <Icon size={15} />
+                    <span>{cat.label}</span>
+                  </button>
+                );
+              })}
+            </div>
 
-          <div className="doc-status-pills">
-            {STATUS_FILTERS.map(st => (
-              <button
-                key={st}
-                type="button"
-                className={`doc-status-pill ${selectedStatus === st ? 'active' : ''}`}
-                onClick={() => setSelectedStatus(st)}
-              >
-                {st}
-              </button>
-            ))}
-          </div>
-        </div>
-      </section>
+            <div className="doc-filter-controls">
+              <div className="doc-search-wrapper">
+                <Search size={16} className="doc-search-icon" />
+                <input
+                  type="text"
+                  className="doc-search-input"
+                  placeholder="Search title, filename, merchant, or ID..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                />
+                {search && (
+                  <button type="button" className="doc-search-clear" onClick={() => setSearch('')}>
+                    <X size={14} />
+                  </button>
+                )}
+              </div>
+
+              <div className="doc-status-pills">
+                {STATUS_FILTERS.map(st => (
+                  <button
+                    key={st}
+                    type="button"
+                    className={`doc-status-pill ${selectedStatus === st ? 'active' : ''}`}
+                    onClick={() => setSelectedStatus(st)}
+                  >
+                    {st}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </section>
+        </>
+      )}
 
       {/* Main Document Table / List */}
+      {activeView === 'register' && (
       <section className="doc-content-section">
         {error && (
           <div className="doc-alert doc-alert--error">
@@ -570,190 +617,18 @@ export const DocumentCenter = () => {
           </div>
         )}
       </section>
+      )}
 
-      {/* UPLOAD DOCUMENT MODAL */}
+      {/* SMART UPLOAD MODAL */}
       {showUploadModal && (
-        <div className="doc-modal-overlay" onClick={() => setShowUploadModal(false)}>
-          <div className="doc-modal-card" onClick={(e) => e.stopPropagation()}>
-            <div className="doc-modal-header">
-              <h2>Upload Supporting Document</h2>
-              <button type="button" className="doc-modal-close" onClick={() => setShowUploadModal(false)}>
-                <X size={18} />
-              </button>
-            </div>
-
-            <form onSubmit={(e) => handleUploadSubmit(e, false)} className="doc-modal-body">
-              {uploadError && (
-                <div className="doc-alert doc-alert--error">
-                  <ShieldAlert size={16} />
-                  <span>{uploadError}</span>
-                </div>
-              )}
-
-              {uploadDuplicate && (
-                <div className="doc-alert doc-alert--warning">
-                  <AlertCircle size={18} />
-                  <div style={{ flex: 1 }}>
-                    <strong>Duplicate Document Detected</strong>
-                    <p style={{ margin: '4px 0', fontSize: '0.82rem' }}>
-                      {uploadDuplicate.message}
-                    </p>
-                    <div style={{ marginTop: '8px', display: 'flex', gap: '8px' }}>
-                      <button
-                        type="button"
-                        className="btn btn-outline"
-                        style={{ fontSize: '0.75rem', padding: '3px 8px' }}
-                        onClick={() => handleUploadSubmit(null, true)}
-                      >
-                        Upload Anyway (Confirm)
-                      </button>
-                      <button
-                        type="button"
-                        className="btn btn-outline"
-                        style={{ fontSize: '0.75rem', padding: '3px 8px' }}
-                        onClick={() => {
-                          setUploadDuplicate(null);
-                          setShowUploadModal(false);
-                        }}
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* File Dropzone */}
-              <div className="doc-dropzone">
-                <input
-                  type="file"
-                  id="doc-file-upload"
-                  className="doc-file-input"
-                  onChange={handleFileChange}
-                  accept=".pdf,.png,.jpg,.jpeg,.webp,.heic,.docx,.xlsx,.csv"
-                />
-                <label htmlFor="doc-file-upload" className="doc-dropzone-label">
-                  <Upload size={28} className="doc-dropzone-icon" />
-                  {selectedFile ? (
-                    <div>
-                      <strong className="doc-selected-filename">{selectedFile.name}</strong>
-                      <span className="doc-filesize-sub">{formatFileSize(selectedFile.size)}</span>
-                    </div>
-                  ) : (
-                    <div>
-                      <strong>Click to browse or drop document evidence</strong>
-                      <span>PDF, PNG, JPG, DOCX, XLSX, CSV up to 15MB</span>
-                    </div>
-                  )}
-                </label>
-              </div>
-
-              <div className="doc-form-grid">
-                <div className="doc-form-group">
-                  <label>Document Category *</label>
-                  <select
-                    value={uploadForm.documentType}
-                    onChange={(e) => setUploadForm({ ...uploadForm, documentType: e.target.value })}
-                    required
-                  >
-                    {DOCUMENT_CATEGORIES.filter(c => c.id !== 'ALL').map(c => (
-                      <option key={c.id} value={c.id}>{c.label}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="doc-form-group">
-                  <label>Document Date *</label>
-                  <input
-                    type="date"
-                    value={uploadForm.documentDate}
-                    onChange={(e) => setUploadForm({ ...uploadForm, documentDate: e.target.value })}
-                    required
-                  />
-                </div>
-              </div>
-
-              <div className="doc-form-group">
-                <label>Document Title / Vendor / Merchant *</label>
-                <input
-                  type="text"
-                  placeholder="e.g. Home Depot Sanctuary Painting Supplies"
-                  value={uploadForm.title}
-                  onChange={(e) => setUploadForm({ ...uploadForm, title: e.target.value })}
-                  required
-                />
-              </div>
-
-              <div className="doc-form-grid">
-                <div className="doc-form-group">
-                  <label>Link to Entity Type (Optional)</label>
-                  <select
-                    value={uploadForm.relatedEntityType}
-                    onChange={(e) => setUploadForm({ ...uploadForm, relatedEntityType: e.target.value })}
-                  >
-                    <option value="TRANSACTION">Transaction (Master Ledger)</option>
-                    <option value="EXPENSE">Expense Detail</option>
-                    <option value="REIMBURSEMENT">Reimbursement</option>
-                    <option value="CHECK">Check Disbursement</option>
-                    <option value="CAPITAL_PROJECT">Capital Project</option>
-                    <option value="REPORT">Presbyter / Financial Report</option>
-                  </select>
-                </div>
-
-                <div className="doc-form-group">
-                  <label>Related Record ID (Optional)</label>
-                  <input
-                    type="text"
-                    placeholder="e.g. TXN-101 or RMB-202608-001"
-                    value={uploadForm.relatedEntityId}
-                    onChange={(e) => setUploadForm({ ...uploadForm, relatedEntityId: e.target.value })}
-                  />
-                </div>
-              </div>
-
-              <div className="doc-form-group">
-                <label>Post-Close Evidence Reason (Required if month is closed)</label>
-                <input
-                  type="text"
-                  placeholder="e.g. Late receipt received from vendor for closed accounting period audit file"
-                  value={uploadForm.postCloseReason}
-                  onChange={(e) => setUploadForm({ ...uploadForm, postCloseReason: e.target.value })}
-                />
-                <small style={{ color: 'var(--warm-gray)', fontSize: '0.75rem' }}>
-                  If the target month is closed, adding supporting evidence requires an authorized documented reason. The accounting ledger remains locked.
-                </small>
-              </div>
-
-              <div className="doc-form-group">
-                <label>Notes / Accounting Details</label>
-                <textarea
-                  rows={2}
-                  placeholder="Additional context or purpose..."
-                  value={uploadForm.notes}
-                  onChange={(e) => setUploadForm({ ...uploadForm, notes: e.target.value })}
-                />
-              </div>
-
-              <div className="doc-modal-footer">
-                <button
-                  type="button"
-                  className="btn btn-outline"
-                  onClick={() => setShowUploadModal(false)}
-                  disabled={uploadSubmitting}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="btn btn-gold"
-                  disabled={uploadSubmitting || !selectedFile}
-                >
-                  {uploadSubmitting ? 'Uploading to Private Drive...' : 'Save & Register Document'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+        <SmartUploadModal
+          isOpen={showUploadModal}
+          onClose={() => setShowUploadModal(false)}
+          onSuccess={() => {
+            setShowUploadModal(false);
+            loadDocuments();
+          }}
+        />
       )}
 
       {/* LINK TO ENTITY MODAL */}
@@ -878,12 +753,70 @@ export const DocumentCenter = () => {
                     <code className="doc-detail-code">{viewingDoc.contentHash}</code>
                   </div>
                 )}
-                {viewingDoc.relatedEntityId && (
-                  <div style={{ gridColumn: 'span 2' }}>
-                    <span className="doc-detail-label">Linked Finance Entity</span>
-                    <strong>{viewingDoc.relatedEntityType}: {viewingDoc.relatedEntityId}</strong>
+                {/* Structured Smart Upload Metadata */}
+                {(() => {
+                  let v = '';
+                  let a = null;
+                  if (viewingDoc.notes && viewingDoc.notes.includes('[GPBC_SMART_UPLOAD_META:')) {
+                    try {
+                      const m = viewingDoc.notes.match(/\[GPBC_SMART_UPLOAD_META:(.*?)\]/);
+                      if (m && m[1]) {
+                        const parsed = JSON.parse(m[1]);
+                        v = parsed.vendor || '';
+                        a = parsed.amount != null ? Number(parsed.amount) : null;
+                      }
+                    } catch {}
+                  }
+                  if (!v && viewingDoc.title && viewingDoc.title.includes(' - ')) {
+                    v = viewingDoc.title.split(' - ')[0].trim();
+                  }
+                  return (
+                    <>
+                      {v && (
+                        <div>
+                          <span className="doc-detail-label">Vendor / Payee</span>
+                          <strong>{v}</strong>
+                        </div>
+                      )}
+                      {a != null && (
+                        <div>
+                          <span className="doc-detail-label">Amount</span>
+                          <strong style={{ color: '#059669' }}>${a.toFixed(2)}</strong>
+                        </div>
+                      )}
+                    </>
+                  );
+                })()}
+
+                {/* Related Records Breakdown */}
+                <div style={{ gridColumn: 'span 2', background: '#f8fafc', border: '1px solid #e2e8f0', padding: '12px', borderRadius: '8px', marginTop: '6px' }}>
+                  <span className="doc-detail-label" style={{ fontWeight: 700, color: '#0f172a', marginBottom: '8px', display: 'block' }}>
+                    Authoritative Related Records (Master Evidence)
+                  </span>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '0.82rem' }}>
+                    {viewingDoc.relatedTransactionId && (
+                      <div><strong>Transaction:</strong> {viewingDoc.relatedTransactionId}</div>
+                    )}
+                    {viewingDoc.relatedReimbursementId && (
+                      <div><strong>Reimbursement:</strong> {viewingDoc.relatedReimbursementId}</div>
+                    )}
+                    {viewingDoc.relatedCapitalProjectId && (
+                      <div><strong>Capital Project:</strong> {viewingDoc.relatedCapitalProjectId}</div>
+                    )}
+                    {viewingDoc.relatedCheckId && (
+                      <div><strong>Check Detail:</strong> {viewingDoc.relatedCheckId}</div>
+                    )}
+                    {viewingDoc.relatedEntityId && !viewingDoc.relatedTransactionId && !viewingDoc.relatedReimbursementId && !viewingDoc.relatedCapitalProjectId && !viewingDoc.relatedCheckId && (
+                      <div><strong>{viewingDoc.relatedEntityType}:</strong> {viewingDoc.relatedEntityId}</div>
+                    )}
+                    {!viewingDoc.relatedEntityId && !viewingDoc.relatedTransactionId && !viewingDoc.relatedReimbursementId && !viewingDoc.relatedCapitalProjectId && !viewingDoc.relatedCheckId && (
+                      <div style={{ color: '#64748b', fontStyle: 'italic' }}>No linked records yet (Document Only master record).</div>
+                    )}
                   </div>
-                )}
+                  <div style={{ fontSize: '0.75rem', color: '#059669', marginTop: '8px' }}>
+                    ✓ All references point to this single master document in Google Drive.
+                  </div>
+                </div>
                 {viewingDoc.isPostCloseAddition && (
                   <>
                     <div style={{ gridColumn: 'span 2', background: '#fffbeb', border: '1px solid #fde68a', padding: '10px 12px', borderRadius: '8px' }}>

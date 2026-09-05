@@ -102,6 +102,22 @@ describe('Apps Script Server-Side Authorization (Auth.gs)', () => {
     expect(authorizeAction('addContribution', 'Presbyter Read-Only').authorized).toBe(false);
   });
 
+  it('strictly enforces role permissions for Smart Upload APIs (findDocumentMatches, checkDocumentDuplicate, uploadDocument, linkDocumentToEntity)', () => {
+    ['Primary Admin', 'Backup Admin', 'Finance Editor'].forEach(role => {
+      expect(authorizeAction('findDocumentMatches', role).authorized).toBe(true);
+      expect(authorizeAction('checkDocumentDuplicate', role).authorized).toBe(true);
+      expect(authorizeAction('uploadDocument', role).authorized).toBe(true);
+      expect(authorizeAction('linkDocumentToEntity', role).authorized).toBe(true);
+    });
+
+    ['Viewer', 'Presbyter Read-Only'].forEach(role => {
+      expect(authorizeAction('findDocumentMatches', role).authorized).toBe(false);
+      expect(authorizeAction('checkDocumentDuplicate', role).authorized).toBe(false);
+      expect(authorizeAction('uploadDocument', role).authorized).toBe(false);
+      expect(authorizeAction('linkDocumentToEntity', role).authorized).toBe(false);
+    });
+  });
+
   it('denies unknown actions by default', () => {
     expect(authorizeAction('nonExistentAction', 'Primary Admin').authorized).toBe(false);
   });

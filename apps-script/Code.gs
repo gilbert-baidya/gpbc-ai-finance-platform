@@ -159,6 +159,12 @@ function doPost(e) {
         return jsonResponse(uploadDocument(p, userEmail));
       case "linkDocumentToEntity":
         return jsonResponse(linkDocumentToEntity(p, userEmail));
+      case "findDocumentMatches":
+        return jsonResponse(findDocumentMatches(p));
+      case "checkDocumentDuplicate":
+        return jsonResponse(checkDocumentDuplicate(p));
+      case "getSmartUploadOptions":
+        return jsonResponse(getSmartUploadOptions(p));
       case "updateDocumentStatus":
         return jsonResponse(updateDocumentStatus(p, userEmail));
       case "deleteDocument":

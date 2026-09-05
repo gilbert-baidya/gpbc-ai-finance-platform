@@ -2,7 +2,9 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 const {
   SCHEMA_DEFINITIONS,
-  getConfig
+  getConfig,
+  assertSandboxSheet,
+  PRODUCTION_SPREADSHEET_ID
 } = require('../Config.gs');
 
 const {
@@ -20,7 +22,10 @@ const {
   uploadDocument,
   linkDocumentToEntity,
   updateDocumentStatus,
-  deleteDocument
+  deleteDocument,
+  checkDocumentDuplicate,
+  findDocumentMatches,
+  getSmartUploadOptions
 } = require('../Documents.gs');
 
 const {
@@ -240,15 +245,81 @@ describe('Document Register & Canonical Drive Engine Tests', () => {
         })
       };
 
+      const mockTxnHeaders = [
+        'transactionId', 'transactionDate', 'transactionType', 'direction',
+        'accountingImpact', 'amount', 'payeeOrPayer', 'description',
+        'category', 'fundId', 'capitalProjectId', 'paymentMethod',
+        'checkNumber', 'personalPurchase', 'claimantName', 'reconciliationStatus',
+        'receiptStatus', 'receiptId', 'notes', 'createdBy', 'createdAt', 'updatedBy', 'updatedAt'
+      ];
+      const mockTxnRows = [
+        [
+          'TXN-202609-001', '2026-09-02', 'Expense', 'EXPENSE',
+          'OPERATIONAL', 125.50, 'Home Depot', 'Lumber for repair',
+          'Facility Maintenance', 'General', 'PRJ-SANCTUARY', 'Debit Card',
+          '', false, '', 'Pending', 'Unattached', '', '', 'admin@gracepraise.church', '2026-09-02T10:00:00.000Z', '', ''
+        ],
+        [
+          'TXN-202609-002', '2026-09-03', 'Expense', 'EXPENSE',
+          'OPERATIONAL', 45.00, 'Office Depot', 'Paper & printer ink',
+          'Office Supplies', 'General', '', 'Credit Card',
+          '', true, 'Jane Doe', 'Pending', 'Unattached', '', '', 'admin@gracepraise.church', '2026-09-03T11:00:00.000Z', '', ''
+        ],
+        [
+          'TXN-202609-003', '2026-09-01', 'Offering', 'INCOME',
+          'TITHE_OFFERING', 500.00, 'Sunday Tithes', 'Sunday General Offering',
+          'General Tithes', 'General', '', 'Direct Deposit',
+          '', false, '', 'Pending', 'Unattached', '', '', 'admin@gracepraise.church', '2026-09-01T10:00:00.000Z', '', ''
+        ]
+      ];
+      const mockTxnSheet = {
+        getLastRow: () => mockTxnRows.length + 1,
+        getDataRange: () => ({
+          getValues: () => [mockTxnHeaders, ...mockTxnRows.map(r => [...r])]
+        })
+      };
+
+      const mockRmbHeaders = [
+        'reimbursementId', 'reimbursementDate', 'claimantName', 'claimantEmail',
+        'totalPurchaseAmount', 'totalReimbursedAmount', 'totalPersonallyAbsorbed',
+        'remainingReimbursable', 'status', 'paymentMethod', 'checkNumber',
+        'notes', 'createdBy', 'createdAt', 'updatedBy', 'updatedAt'
+      ];
+      const mockRmbRows = [
+        [
+          'RMB-202609-001', '2026-09-04', 'Pastor John', 'pastor@gracepraise.church',
+          89.95, 0, 0,
+          89.95, 'Submitted', 'Check', '',
+          'Fellowship supplies', 'admin@gracepraise.church', '2026-09-04T12:00:00.000Z', '', ''
+        ]
+      ];
+      const mockRmbSheet = {
+        getLastRow: () => mockRmbRows.length + 1,
+        getDataRange: () => ({
+          getValues: () => [mockRmbHeaders, ...mockRmbRows.map(r => [...r])]
+        })
+      };
+
       mockDB = {
         getSheetByName: vi.fn((name) => {
           if (name === 'Document_Register') return mockSheet;
+          if (name === 'Transactions') return mockTxnSheet;
+          if (name === 'Reimbursements') return mockRmbSheet;
           if (name === 'Monthly_Close') return {
             getLastRow: () => 2,
             getDataRange: () => ({
               getValues: () => [
                 ['closeId', 'periodKey', 'status'],
                 ['CLS-202607', '2026-07', 'Closed']
+              ]
+            })
+          };
+          if (name === 'Capital_Projects') return {
+            getLastRow: () => 2,
+            getDataRange: () => ({
+              getValues: () => [
+                ['projectId', 'projectName', 'status'],
+                ['PRJ-SANCTUARY', 'Sanctuary Renovation', 'Active']
               ]
             })
           };
@@ -487,6 +558,505 @@ describe('Document Register & Canonical Drive Engine Tests', () => {
 
       expect(res.success).toBe(true);
       expect(res.status).toBe('Needs Review');
+    });
+
+    describe('Smart Upload: checkDocumentDuplicate', () => {
+      it('detects duplicate by exact content hash match', () => {
+        const dupRes = checkDocumentDuplicate({
+          contentHash: 'hash_august_receipt_123'
+        });
+        expect(dupRes.success).toBe(true);
+        expect(dupRes.isDuplicate).toBe(true);
+        expect(dupRes.duplicateDocumentId).toBe('DOC-202608-100001');
+        expect(dupRes.reason).toContain('Exact content hash match');
+      });
+
+      it('detects duplicate by originalFileName and fileSize match', () => {
+        const dupRes = checkDocumentDuplicate({
+          filename: 'office_supplies.pdf',
+          fileSize: 102400
+        });
+        expect(dupRes.success).toBe(true);
+        expect(dupRes.isDuplicate).toBe(true);
+        expect(dupRes.duplicateDocumentId).toBe('DOC-202608-100001');
+        expect(dupRes.reason).toContain('Matching filename');
+        expect(dupRes.reason).toContain('and file size');
+      });
+
+      it('detects duplicate by documentDate and amount in metadata', () => {
+        // Add a document with embedded amount metadata to mockRows
+        mockRows.push([
+          'DOC-202609-100002',
+          'Receipt',
+          'Sanctuary Repair Materials',
+          'sanctuary_repair.pdf',
+          '2026-09-02_Receipt_Sanctuary_Repair.pdf',
+          'application/pdf',
+          204800,
+          'DRV-FILE-002',
+          'https://drive.google.com/file/d/DRV-FILE-002/view',
+          'mock-folder-2026-9-receipts',
+          '2026-09-02',
+          2026,
+          9,
+          'TRANSACTION',
+          'TXN-202609-001',
+          'TXN-202609-001',
+          '',
+          'PRJ-SANCTUARY',
+          '',
+          'Smart Upload',
+          'hash_sanctuary_repair_456',
+          'Linked',
+          false,
+          '',
+          '',
+          '',
+          '',
+          'Lumber [GPBC_SMART_UPLOAD_META:{"amount":125.5,"vendor":"Home Depot"}]',
+          'editor@gracepraise.church',
+          '2026-09-02T14:00:00.000Z',
+          '2026-09-02T14:00:00.000Z'
+        ]);
+
+        const dupRes = checkDocumentDuplicate({
+          documentDate: '2026-09-02',
+          amount: 125.5
+        });
+        expect(dupRes.success).toBe(true);
+        expect(dupRes.isDuplicate).toBe(true);
+        expect(dupRes.duplicateDocumentId).toBe('DOC-202609-100002');
+        expect(dupRes.reason).toContain('Matching date');
+      });
+
+      it('returns isDuplicate: false when document is unique', () => {
+        const dupRes = checkDocumentDuplicate({
+          contentHash: 'hash_completely_unique_9999',
+          filename: 'unique_invoice.pdf',
+          fileSize: 99999,
+          documentDate: '2026-09-05',
+          amount: 543.21
+        });
+        expect(dupRes.success).toBe(true);
+        expect(dupRes.isDuplicate).toBe(false);
+        expect(dupRes.duplicateDocumentId).toBeUndefined();
+      });
+    });
+
+    describe('Smart Upload: findDocumentMatches', () => {
+      it('finds strong match for transaction when amount, date, vendor and capital project align', () => {
+        const matchRes = findDocumentMatches({
+          amount: 125.50,
+          documentDate: '2026-09-02',
+          vendor: 'Home Depot',
+          capitalProjectId: 'PRJ-SANCTUARY',
+          documentType: 'Receipt'
+        });
+
+        expect(matchRes.success).toBe(true);
+        expect(matchRes.count).toBeGreaterThanOrEqual(1);
+        const topMatch = matchRes.matches[0];
+        expect(topMatch.candidate.entityId).toBe('TXN-202609-001');
+        expect(topMatch.candidate.entityType).toBe('TRANSACTION');
+        expect(topMatch.score).toBeGreaterThanOrEqual(75);
+        expect(topMatch.confidenceLabel).toBe('Strong Match');
+        expect(topMatch.reasons).toEqual(
+          expect.arrayContaining([
+            expect.stringContaining('Exact amount match: $125.50'),
+            expect.stringContaining('Exact date match (2026-09-02)'),
+            expect.stringContaining('Exact vendor match: "Home Depot"'),
+            expect.stringContaining('Capital Project match (PRJ-SANCTUARY)')
+          ])
+        );
+      });
+
+      it('finds match for reimbursement when obligation amount and claimant name align', () => {
+        const matchRes = findDocumentMatches({
+          amount: 89.95,
+          documentDate: '2026-09-04',
+          vendor: 'Pastor John',
+          documentType: 'Reimbursement Proof'
+        });
+
+        expect(matchRes.success).toBe(true);
+        expect(matchRes.count).toBeGreaterThanOrEqual(1);
+        const rmbMatch = matchRes.matches.find(m => m.candidate.entityType === 'REIMBURSEMENT');
+        expect(rmbMatch).toBeDefined();
+        expect(rmbMatch.candidate.entityId).toBe('RMB-202609-001');
+        expect(rmbMatch.score).toBeGreaterThanOrEqual(75);
+        expect(rmbMatch.confidenceLabel).toBe('Strong Match');
+        expect(rmbMatch.reasons).toEqual(
+          expect.arrayContaining([
+            expect.stringContaining('Exact reimbursement obligation match: $89.95'),
+            expect.stringContaining('Exact date match (2026-09-04)')
+          ])
+        );
+      });
+
+      it('returns empty matches when query has no matching candidates', () => {
+        const matchRes = findDocumentMatches({
+          amount: 99999.00,
+          documentDate: '2025-01-01',
+          vendor: 'Nonexistent Vendor LLC'
+        });
+
+        expect(matchRes.success).toBe(true);
+        expect(matchRes.count).toBe(0);
+        expect(matchRes.matches).toEqual([]);
+      });
+
+      it('sorts candidates in descending score order', () => {
+        const matchRes = findDocumentMatches({
+          amount: 125.50,
+          documentDate: '2026-09-02'
+        });
+
+        expect(matchRes.success).toBe(true);
+        if (matchRes.matches.length > 1) {
+          for (let i = 0; i < matchRes.matches.length - 1; i++) {
+            expect(matchRes.matches[i].score).toBeGreaterThanOrEqual(matchRes.matches[i + 1].score);
+          }
+        }
+      });
+    });
+
+    describe('Smart Upload: getSmartUploadOptions & Multi-Link Integrity', () => {
+      it('getSmartUploadOptions returns closedPeriods and active capitalProjects', () => {
+        const res = getSmartUploadOptions({});
+        expect(res.success).toBe(true);
+        expect(res.closedPeriods).toEqual(['2026-07']);
+        expect(res.capitalProjects).toHaveLength(1);
+        expect(res.capitalProjects[0].projectId).toBe('PRJ-SANCTUARY');
+        expect(res.capitalProjects[0].projectName).toBe('Sanctuary Renovation');
+        expect(res.documentTypes).toHaveLength(DOCUMENT_TYPES.length);
+      });
+
+      it('multi-link preservation: linkDocumentToEntity updates specific column without overwriting other entity links', () => {
+        // mockRows[0] (DOC-202608-100001) starts with relatedTransactionId: 'TXN-2026-08-01'
+        expect(mockRows[0][15]).toBe('TXN-2026-08-01'); // Col 16: relatedTransactionId
+        expect(mockRows[0][16]).toBe(''); // Col 17: relatedReimbursementId
+        expect(mockRows[0][17]).toBe(''); // Col 18: relatedCapitalProjectId
+
+        // Link Reimbursement
+        const rmbRes = linkDocumentToEntity({
+          documentId: 'DOC-202608-100001',
+          relatedEntityType: 'REIMBURSEMENT',
+          relatedReimbursementId: 'RMB-202608-001'
+        }, 'editor@gracepraise.church');
+
+        expect(rmbRes.success).toBe(true);
+        // relatedReimbursementId updated
+        expect(mockRows[0][16]).toBe('RMB-202608-001');
+        // relatedTransactionId strictly preserved
+        expect(mockRows[0][15]).toBe('TXN-2026-08-01');
+
+        // Link Capital Project
+        const capRes = linkDocumentToEntity({
+          documentId: 'DOC-202608-100001',
+          relatedEntityType: 'CAPITAL_PROJECT',
+          relatedCapitalProjectId: 'PRJ-SANCTUARY'
+        }, 'editor@gracepraise.church');
+
+        expect(capRes.success).toBe(true);
+        // relatedCapitalProjectId updated
+        expect(mockRows[0][17]).toBe('PRJ-SANCTUARY');
+        // previous transaction AND reimbursement links still intact
+        expect(mockRows[0][15]).toBe('TXN-2026-08-01');
+        expect(mockRows[0][16]).toBe('RMB-202608-001');
+      });
+
+      it('backend closed-period protection: independently rejects closed period upload without relying on client-sent closedPeriods', () => {
+        // Client sends NO closedPeriods list, only document payload with closed-period date
+        expect(() => {
+          uploadDocument({
+            documentType: 'Receipt',
+            title: 'Unauthorized Closed Month Upload',
+            documentDate: '2026-07-25',
+            // postCloseReason is intentionally omitted
+          }, 'editor@gracepraise.church');
+        }).toThrow(/Period 2026-07 is CLOSED\. Adding post-close supporting evidence requires an authorized documented reason/);
+      });
+    });
+
+    describe('Smart Upload: File Validation Hardening, Backend Duplicate Override & Document-Type Compatibility', () => {
+      it('rejects forbidden file extensions, MIME mismatches, and files exceeding 4MB', () => {
+        // Forbidden executable
+        expect(() => {
+          uploadDocument({
+            documentType: 'Receipt',
+            title: 'Infected Executable',
+            originalFileName: 'malware.exe',
+            documentDate: '2026-09-02'
+          }, 'editor@gracepraise.church');
+        }).toThrow(/Forbidden file type: \.exe/);
+
+        // Forbidden script
+        expect(() => {
+          uploadDocument({
+            documentType: 'Invoice',
+            title: 'Malicious Script',
+            originalFileName: 'attack.js',
+            documentDate: '2026-09-02'
+          }, 'editor@gracepraise.church');
+        }).toThrow(/Forbidden file type: \.js/);
+
+        // MIME-extension mismatch: .pdf with application/x-msdownload
+        expect(() => {
+          uploadDocument({
+            documentType: 'Receipt',
+            title: 'Spoofed PDF',
+            originalFileName: 'receipt.pdf',
+            mimeType: 'application/x-msdownload',
+            documentDate: '2026-09-02'
+          }, 'editor@gracepraise.church');
+        }).toThrow(/Unsupported MIME type|Mismatched file extension/i);
+
+        // MIME-extension mismatch: .jpg with application/pdf
+        expect(() => {
+          uploadDocument({
+            documentType: 'Receipt',
+            title: 'Spoofed Image',
+            originalFileName: 'photo.jpg',
+            mimeType: 'application/pdf',
+            documentDate: '2026-09-02'
+          }, 'editor@gracepraise.church');
+        }).toThrow(/Mismatched file extension and MIME type/);
+
+        // File exceeding 4MB limit
+        expect(() => {
+          uploadDocument({
+            documentType: 'Invoice',
+            title: 'Oversized Invoice',
+            originalFileName: 'huge.pdf',
+            mimeType: 'application/pdf',
+            fileSize: 5 * 1024 * 1024,
+            documentDate: '2026-09-02'
+          }, 'editor@gracepraise.church');
+        }).toThrow(/File exceeds maximum allowed size of 4MB for reliable cloud transport/);
+      });
+
+      it('enforces backend duplicate override safety: rejects without override flag, succeeds and audits with allowDuplicateUpload', () => {
+        // Duplicate hash match with mockRows[0] (hash_august_receipt_123)
+        const blockedDup = uploadDocument({
+          documentType: 'Receipt',
+          title: 'Duplicate Attempt',
+          contentHash: 'hash_august_receipt_123',
+          documentDate: '2026-09-02',
+          allowDuplicateUpload: false
+        }, 'editor@gracepraise.church');
+
+        expect(blockedDup.success).toBe(true);
+        expect(blockedDup.duplicateDetected).toBe(true);
+        expect(blockedDup.duplicateDocumentId).toBe('DOC-202608-100001');
+
+        // Intentional duplicate upload with explicit allowDuplicateUpload: true
+        const allowedDup = uploadDocument({
+          documentType: 'Receipt',
+          title: 'Approved Duplicate Receipt',
+          contentHash: 'hash_august_receipt_123',
+          documentDate: '2026-09-02',
+          allowDuplicateUpload: true,
+          notes: 'Legitimate re-scan of multi-page receipt'
+        }, 'editor@gracepraise.church');
+
+        expect(allowedDup.success).toBe(true);
+        expect(allowedDup.duplicateDetected).toBeUndefined();
+        expect(mockSheet.appendRow).toHaveBeenCalledWith(
+          expect.arrayContaining([
+            expect.stringContaining('[OVERRIDE_DUPLICATE: Approved intentional duplicate of DOC-202608-100001] Legitimate re-scan of multi-page receipt')
+          ])
+        );
+      });
+
+      it('validates WEBP magic byte signature (RIFF....WEBP) and rejects spoofed files', () => {
+        global.Utilities = {
+          base64Decode: vi.fn((str) => {
+            if (str === 'invalid_webp_b64') {
+              return [0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B];
+            }
+            if (str === 'valid_webp_b64') {
+              // RIFF (0x52, 0x49, 0x46, 0x46) + 4 size bytes + WEBP (0x57, 0x45, 0x42, 0x50)
+              return [0x52, 0x49, 0x46, 0x46, 0x24, 0x00, 0x00, 0x00, 0x57, 0x45, 0x42, 0x50, 0x56, 0x50, 0x38];
+            }
+            return [];
+          }),
+          newBlob: vi.fn((bytes, mime, name) => ({
+            setName: vi.fn(),
+            getBytes: () => bytes,
+            getContentType: () => mime,
+            getName: () => name
+          }))
+        };
+
+        const createMockFolder = (name = 'folder', id = 'mock-folder-id') => {
+          const self = {
+            getName: () => name,
+            getId: () => id,
+            getUrl: () => 'https://drive.google.com/drive/folders/' + id,
+            getFoldersByName: vi.fn(() => ({
+              hasNext: () => true,
+              next: () => self
+            })),
+            createFolder: vi.fn(() => self),
+            createFile: vi.fn(() => ({
+              getId: () => 'mock-webp-file-id',
+              getUrl: () => 'https://drive.google.com/file/d/mock-webp-file-id/view',
+              setName: vi.fn(),
+              setDescription: vi.fn()
+            }))
+          };
+          return self;
+        };
+
+        const mockFolder = createMockFolder('Receipts');
+
+        global.DriveApp = {
+          getFolderById: vi.fn(() => mockFolder),
+          getRootFolder: vi.fn(() => mockFolder)
+        };
+
+        // 1. Rejects spoofed WEBP file with invalid magic header
+        expect(() => {
+          uploadDocument({
+            documentType: 'Receipt',
+            title: 'Spoofed WebP',
+            originalFileName: 'receipt.webp',
+            mimeType: 'image/webp',
+            documentDate: '2026-09-02',
+            fileBase64: 'invalid_webp_b64'
+          }, 'editor@gracepraise.church');
+        }).toThrow(/File signature verification failed: Invalid WEBP magic header \(expected RIFF\.\.\.\.WEBP\)/);
+
+        // 2. Accepts genuine WEBP with valid RIFF....WEBP signature
+        const validUpload = uploadDocument({
+          documentType: 'Receipt',
+          title: 'Genuine WebP',
+          originalFileName: 'receipt.webp',
+          mimeType: 'image/webp',
+          documentDate: '2026-09-02',
+          fileBase64: 'valid_webp_b64'
+        }, 'editor@gracepraise.church');
+
+        expect(validUpload.success).toBe(true);
+        expect(validUpload.driveFileId).toBe('mock-webp-file-id');
+      });
+
+      it('authoritative backend matcher enforces document-type compatibility across financial directions', () => {
+        // 1. Offering / Income Evidence matches income transactions only
+        const incomeMatch = findDocumentMatches({
+          documentType: 'Offering / Income Evidence',
+          amount: 500.00,
+          documentDate: '2026-09-01',
+          vendor: 'Sunday Tithes'
+        });
+        expect(incomeMatch.success).toBe(true);
+        expect(incomeMatch.matches.length).toBe(1);
+        expect(incomeMatch.matches[0].candidate.entityId).toBe('TXN-202609-003');
+
+        // Offering / Income Evidence NEVER matches expense transactions (TXN-202609-001 or TXN-202609-002)
+        const offeringVsExpense = findDocumentMatches({
+          documentType: 'Offering / Income Evidence',
+          amount: 125.50,
+          documentDate: '2026-09-02',
+          vendor: 'Home Depot'
+        });
+        expect(offeringVsExpense.matches.some(m => m.candidate.entityId === 'TXN-202609-001')).toBe(false);
+        expect(offeringVsExpense.matches.some(m => m.candidate.entityId === 'TXN-202609-002')).toBe(false);
+
+        // 2. Receipt / Purchase evidence matches expense transactions only (never donation income)
+        const receiptVsIncome = findDocumentMatches({
+          documentType: 'Receipt',
+          amount: 500.00,
+          documentDate: '2026-09-01',
+          vendor: 'Sunday Tithes'
+        });
+        expect(receiptVsIncome.matches.some(m => m.candidate.entityId === 'TXN-202609-003')).toBe(false);
+
+        // 3. Bank Statement returns zero matches in Phase 1
+        const bankStmtMatch = findDocumentMatches({
+          documentType: 'Bank Statement',
+          amount: 125.50,
+          documentDate: '2026-09-02'
+        });
+        expect(bankStmtMatch.success).toBe(true);
+        expect(bankStmtMatch.count).toBe(0);
+        expect(bankStmtMatch.matches).toHaveLength(0);
+
+        // 4. Refund / Credit evidence does not suggest donation income
+        const refundVsIncome = findDocumentMatches({
+          documentType: 'Refund / Credit',
+          amount: 500.00,
+          documentDate: '2026-09-01'
+        });
+        expect(refundVsIncome.matches.some(m => m.candidate.entityId === 'TXN-202609-003')).toBe(false);
+      });
+
+      it('safely handles legacy documents with missing or malformed metadata without breaking getDocuments', () => {
+        // Append a row matching the 31-column schema with malformed metadata in notes (col index 27)
+        mockRows.push([
+          'DOC-202608-100003',
+          'Receipt',
+          'Legacy Receipt',
+          'doc.pdf',
+          '2026-08-20_Receipt_Legacy_Receipt_def456.pdf',
+          'application/pdf',
+          1024,
+          'drive1',
+          'url1',
+          'folder1',
+          '2026-08-20',
+          2026,
+          8,
+          'NONE',
+          '',
+          '',
+          '',
+          '',
+          '',
+          'System',
+          'hashLegacy',
+          'Unlinked',
+          false,
+          '',
+          '',
+          '',
+          '',
+          '[GPBC_SMART_UPLOAD_META:MALFORMED_JSON_STRING!!] Legacy user note',
+          'editor@gracepraise.church',
+          '2026-08-20T12:00:00Z',
+          '2026-08-20T12:00:00Z'
+        ]);
+
+        const res = getDocuments({ financeYear: 2026, financeMonth: 8 });
+        expect(res.success).toBe(true);
+        expect(res.documents.length).toBeGreaterThanOrEqual(1);
+        const malformedDoc = res.documents.find(d => d.documentId === 'DOC-202608-100003');
+        expect(malformedDoc).toBeDefined();
+        expect(malformedDoc.notes).toContain('Legacy user note');
+      });
+    });
+
+    describe('Smart Upload: Fail-Closed Production Write Safety', () => {
+      it('fails closed when production writes are disarmed (GPBC_PRODUCTION_WRITES_ENABLED=false)', () => {
+        global.PropertiesService = {
+          getScriptProperties: () => ({
+            getProperty: (key) => {
+              if (key === 'GPBC_SHEET_ID') return PRODUCTION_SPREADSHEET_ID;
+              if (key === 'GPBC_ENVIRONMENT') return 'production';
+              if (key === 'GPBC_PRODUCTION_WRITES_ENABLED') return 'false';
+              return null;
+            }
+          })
+        };
+
+        expect(() => {
+          assertSandboxSheet('uploadDocument');
+        }).toThrow(/FAIL-CLOSED SAFETY GUARD: Production writes are DISARMED/);
+
+        expect(() => {
+          assertSandboxSheet('linkDocumentToEntity');
+        }).toThrow(/FAIL-CLOSED SAFETY GUARD: Production writes are DISARMED/);
+      });
     });
   });
 });
