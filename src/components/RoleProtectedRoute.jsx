@@ -22,8 +22,9 @@ export const RoleProtectedRoute = ({ children, allowedRoles }) => {
     return <GoogleSignIn />;
   }
 
-  // Presbyter Read-Only is restricted strictly to /presbyter-reports
-  if (user?.role === 'Presbyter Read-Only' && location.pathname !== '/presbyter-reports') {
+  // Presbyter Read-Only is restricted strictly to /presbyter-reports and /help
+  const isHelpPath = location.pathname === '/help' || location.pathname.startsWith('/help/');
+  if (user?.role === 'Presbyter Read-Only' && location.pathname !== '/presbyter-reports' && !isHelpPath) {
     return <Navigate to="/presbyter-reports" replace />;
   }
 

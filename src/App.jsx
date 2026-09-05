@@ -21,6 +21,8 @@ import {
   MonthlyClose,
   PresbyterReports,
   Settings,
+  HelpCenter,
+  HelpArticleView,
   // Legacy / Ministry pages
   Members,
   Contributions,
@@ -72,6 +74,10 @@ function App() {
                   <Route path="monthly-close" element={<MonthlyClose />} />
                   <Route path="presbyter-reports" element={<PresbyterReports />} />
                   <Route path="settings" element={<Settings />} />
+
+                  {/* Help & Training Routes */}
+                  <Route path="help" element={<HelpCenter />} />
+                  <Route path="help/:articleId" element={<HelpArticleView />} />
 
                 {/* Preserved legacy routes */}
                 <Route path="members" element={<Members />} />
