@@ -3,7 +3,20 @@
  * Server-Side Configuration, Schema Definitions, and Fail-Closed Safety
  *************************************************/
 
-const PRODUCTION_SPREADSHEET_ID = "1zLercJPwPvdl7YEU31Hbu4zcmakulOYrNrpnddxNC6s";
+/**
+ * Authoritative Modern Production Master Workbook
+ * Title: GPBC_Finance_Master_PRODUCTION
+ * This is the ONLY workbook that may be used as the modern production finance database.
+ */
+const PRODUCTION_SPREADSHEET_ID = "1QW6DA3vBiY08qJXw-XRK71-q21kWMLVnnMaQBPnX8fE";
+
+/**
+ * Legacy Historical Source Workbook
+ * Title: GPBC Finance Report - July & August 2026
+ * READ-ONLY HISTORICAL SOURCE — NEVER MODERN PRODUCTION TARGET
+ */
+const LEGACY_HISTORICAL_SPREADSHEET_ID = "1zLercJPwPvdl7YEU31Hbu4zcmakulOYrNrpnddxNC6s";
+
 const PRODUCTION_DRIVE_ROOT_ID = "1OsKbjEorsemb96Gtc2hugr-s6SySCQ9K";
 const SANDBOX_SPREADSHEET_ID = "1y3kTt5MTMvi4XTEDL6ZgydIX4NDMYGFdHx5w4QCQAwA";
 const SANDBOX_DRIVE_ROOT_ID = "1wnAT7gS4qT8XKQsFvPFNWWNDZLUhxfBx";
@@ -365,8 +378,13 @@ function getConfig() {
 
 /**
  * Sets initial production script properties for separate production deployment
+ * DANGER: Administrative setup utility only. Must NEVER be executed casually.
+ * Authoritative target is GPBC_Finance_Master_PRODUCTION (1QW6DA3vBiY08qJXw-XRK71-q21kWMLVnnMaQBPnX8fE).
  */
-function setProductionScriptProperties() {
+function setProductionScriptProperties(confirmOverride) {
+  if (confirmOverride !== "CONFIRM_SET_PRODUCTION_PROPERTIES") {
+    throw new Error("SAFETY GUARD: Explicit confirmation token 'CONFIRM_SET_PRODUCTION_PROPERTIES' required to update production script properties.");
+  }
   if (typeof PropertiesService === "undefined") return { success: false, error: "PropertiesService unavailable" };
   const props = PropertiesService.getScriptProperties();
   props.setProperties({
@@ -401,6 +419,7 @@ function setProductionGoogleClientId() {
  * 3. Any development/sandbox/schema/test operation attempts to target PRODUCTION_SPREADSHEET_ID (Permanently Blocked)
  * 4. Environment is sandbox/dev but sheetId points to PRODUCTION_SPREADSHEET_ID
  * 5. Environment is production, sheetId is production, but GPBC_PRODUCTION_WRITES_ENABLED !== 'true' (Disarmed)
+ * 6. Target workbook is the legacy historical workbook (Permanently Blocked as production DB)
  */
 function assertSandboxSheet(operationName) {
   const config = getConfig();
@@ -412,6 +431,11 @@ function assertSandboxSheet(operationName) {
 
   if (!config.environment) {
     throw new Error("FAIL-CLOSED SAFETY GUARD: GPBC_ENVIRONMENT is not configured in Script Properties. Operation '" + op + "' blocked.");
+  }
+
+  // Legacy historical workbook must NEVER be targeted as production finance database
+  if (config.sheetId === LEGACY_HISTORICAL_SPREADSHEET_ID) {
+    throw new Error("FAIL-CLOSED SAFETY GUARD: Legacy historical workbook cannot be used as the production finance database.");
   }
 
   // Development utilities (schema initialization, migration, test seeds) must NEVER run against production
@@ -449,7 +473,7 @@ function assertSandboxSheet(operationName) {
 }
 
 /**
- * Retrieves the active Spreadsheet database instance — FAILS CLOSED on writes
+ * Retrieves the active Spreadsheet database instance — FAILS CLOSED on writes and invalid configs
  * 
  * @param {boolean} isWrite - Set to true if performing a write/modification operation
  * @param {string} operationName - Name of the operation for safety validation
@@ -458,6 +482,16 @@ function getDB(isWrite, operationName) {
   const config = getConfig();
   if (!config.sheetId) {
     throw new Error("FAIL-CLOSED SAFETY GUARD: GPBC_SHEET_ID is not configured in Script Properties");
+  }
+
+  // Reject legacy historical workbook immediately as the production finance database
+  if (config.environment === "production" && config.sheetId === LEGACY_HISTORICAL_SPREADSHEET_ID) {
+    throw new Error("FAIL-CLOSED SAFETY GUARD: Legacy historical workbook cannot be used as the production finance database.");
+  }
+
+  // Production environment strictly requires the authoritative modern production master
+  if (config.environment === "production" && config.sheetId !== PRODUCTION_SPREADSHEET_ID) {
+    throw new Error("FAIL-CLOSED SAFETY GUARD: Production environment requires GPBC_SHEET_ID=" + PRODUCTION_SPREADSHEET_ID);
   }
 
   if (isWrite) {
@@ -529,6 +563,9 @@ function assertProductionReadiness() {
   const config = getConfig();
 
   if (config.environment === "production") {
+    if (config.sheetId === LEGACY_HISTORICAL_SPREADSHEET_ID) {
+      throw new Error("FAIL-CLOSED SAFETY GUARD: Legacy historical workbook cannot be used as the production finance database.");
+    }
     if (!config.sheetId || config.sheetId !== PRODUCTION_SPREADSHEET_ID) {
       throw new Error("FAIL-CLOSED SAFETY GUARD: Production environment requires GPBC_SHEET_ID=" + PRODUCTION_SPREADSHEET_ID);
     }
@@ -648,6 +685,7 @@ function getProductionReadiness() {
 if (typeof module !== "undefined" && module.exports) {
   module.exports = {
     PRODUCTION_SPREADSHEET_ID,
+    LEGACY_HISTORICAL_SPREADSHEET_ID,
     PRODUCTION_DRIVE_ROOT_ID,
     SANDBOX_SPREADSHEET_ID,
     SANDBOX_DRIVE_ROOT_ID,

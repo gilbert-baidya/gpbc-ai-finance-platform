@@ -67,8 +67,14 @@ export const AuditCenter = () => {
       if (!res?.success || !Array.isArray(res.issues)) throw new Error('Live audit data unavailable');
       setIssues(res.issues || []);
       const sumRes = await auditApi.getAuditSummary();
-      if (!sumRes?.success || !sumRes.healthScore) throw new Error('Live audit data unavailable');
-      setHealthScore(sumRes.healthScore);
+      if (!sumRes?.success) throw new Error('Live audit data unavailable');
+
+      // Valid empty state: calculated: false or healthScore: null
+      if (sumRes.healthScore) {
+        setHealthScore(sumRes.healthScore);
+      } else {
+        setHealthScore(null);
+      }
       setDataAvailable(true);
     } catch (err) {
       console.error('Failed to load audit data:', err);
@@ -260,20 +266,20 @@ export const AuditCenter = () => {
                 AUDIT HEALTH SCORE
               </span>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: '10px', marginTop: '4px' }}>
-                <span style={{ fontSize: '2.5rem', fontWeight: 900, color: !dataAvailable ? 'var(--warm-gray)' : ((healthScore?.score ?? 0) >= 80 ? '#165940' : ((healthScore?.score ?? 0) >= 60 ? '#C05621' : '#991B1B')) }}>
-                  {dataAvailable ? healthScore.score : '—'}
+                <span style={{ fontSize: '2.5rem', fontWeight: 900, color: (!dataAvailable || !healthScore) ? 'var(--warm-gray)' : ((healthScore?.score ?? 0) >= 80 ? '#165940' : ((healthScore?.score ?? 0) >= 60 ? '#C05621' : '#991B1B')) }}>
+                  {dataAvailable && healthScore ? healthScore.score : '—'}
                 </span>
-                {dataAvailable && <span style={{ fontSize: '1rem', color: 'var(--warm-gray)', fontWeight: 600 }}>/ 100</span>}
+                {dataAvailable && healthScore && <span style={{ fontSize: '1rem', color: 'var(--warm-gray)', fontWeight: 600 }}>/ 100</span>}
                 <span className="badge" style={{
-                  background: dataAvailable ? ((healthScore?.score ?? 0) >= 80 ? 'rgba(45, 139, 110, 0.15)' : 'rgba(192, 86, 33, 0.15)') : '#EEF2F5',
-                  color: dataAvailable ? ((healthScore?.score ?? 0) >= 80 ? '#165940' : '#C05621') : 'var(--warm-gray)',
+                  background: dataAvailable && healthScore ? ((healthScore?.score ?? 0) >= 80 ? 'rgba(45, 139, 110, 0.15)' : 'rgba(192, 86, 33, 0.15)') : '#EEF2F5',
+                  color: dataAvailable && healthScore ? ((healthScore?.score ?? 0) >= 80 ? '#165940' : '#C05621') : 'var(--warm-gray)',
                   fontWeight: 700
                 }}>
-                  {dataAvailable ? healthScore.scoreTier : 'Not calculated yet'}
+                  {dataAvailable && healthScore ? healthScore.scoreTier : 'Not Yet Evaluated'}
                 </span>
               </div>
             </div>
-            <ShieldCheck size={48} color={dataAvailable ? ((healthScore?.score ?? 0) >= 80 ? '#2D8B6E' : '#C05621') : 'var(--warm-gray)'} />
+            <ShieldCheck size={48} color={dataAvailable && healthScore ? ((healthScore?.score ?? 0) >= 80 ? '#2D8B6E' : '#C05621') : 'var(--warm-gray)'} />
           </div>
 
           {/* Deductions Breakdown */}
@@ -286,7 +292,13 @@ export const AuditCenter = () => {
                   </span>
                 ))}
               </div>
-            ) : dataAvailable ? <span>No unresolved active audit findings</span> : <span>Live audit data unavailable</span>}
+            ) : dataAvailable && healthScore ? (
+              <span>No unresolved active audit findings</span>
+            ) : dataAvailable && !healthScore ? (
+              <span>No completed audit evaluation is available for this period yet.</span>
+            ) : (
+              <span>Live audit data unavailable</span>
+            )}
           </div>
         </div>
 
@@ -325,7 +337,16 @@ export const AuditCenter = () => {
         </div>
       </div>
 
-      {!loading && !dataAvailable && <div className="glass-panel" style={{ marginBottom: '20px' }}><FinanceDataState title="Live audit data unavailable" description="Connect the GPBC finance sandbox and run the Audit Engine to calculate compliance results." /></div>}
+      {!loading && !dataAvailable && (
+        <div className="glass-panel" style={{ marginBottom: '20px' }}>
+          <FinanceDataState title="Live audit data unavailable" description="Connect the GPBC finance sandbox and run the Audit Engine to calculate compliance results." />
+        </div>
+      )}
+      {!loading && dataAvailable && !healthScore && (
+        <div className="glass-panel" style={{ marginBottom: '20px' }}>
+          <FinanceDataState title="Not Yet Evaluated" description="No completed audit evaluation is available for this period yet." />
+        </div>
+      )}
 
       {/* Tab Switcher */}
       <div style={{ display: 'flex', gap: '8px', borderBottom: '2px solid #E2E8F0', marginBottom: '20px' }}>

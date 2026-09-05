@@ -5,7 +5,9 @@ const {
   assertSandboxSheet,
   assertProductionReadiness,
   getProductionReadiness,
+  getDB,
   PRODUCTION_SPREADSHEET_ID,
+  LEGACY_HISTORICAL_SPREADSHEET_ID,
   PRODUCTION_DRIVE_ROOT_ID,
   SANDBOX_SPREADSHEET_ID,
   SANDBOX_DRIVE_ROOT_ID
@@ -17,6 +19,7 @@ const { logAuditEvent } = require('../Audit.gs');
 
 global.getConfig = getConfig;
 global.assertSandboxSheet = assertSandboxSheet;
+global.getDB = getDB;
 global.validateGoogleIdentity = validateGoogleIdentity;
 global.getApprovedUser = getApprovedUser;
 global.authorizeAction = authorizeAction;
@@ -46,6 +49,7 @@ describe('Phase 5C-1 Production Read-Only Security & Write Guard Tests (A throug
       })
     };
     global.Logger = { log: () => {} };
+    global.getDB = getDB;
   });
 
   // TEST A: Production writes false blocks addTransaction
@@ -230,8 +234,8 @@ describe('Phase 5C-1 Production Read-Only Security & Write Guard Tests (A throug
     expect(res.error).toMatch(/Forbidden|Unknown or unsupported action/);
   });
 
-  // TEST P: setProductionScriptProperties is safe, idempotent, and sets disarmed properties
-  it('Test P: setProductionScriptProperties is safe, idempotent, and sets disarmed properties', () => {
+  // TEST P: setProductionScriptProperties requires confirmation token and sets modern production properties
+  it('Test P: setProductionScriptProperties requires confirmation token and sets modern production properties', () => {
     const setPropertiesMock = vi.fn();
     global.PropertiesService = {
       getScriptProperties: () => ({
@@ -240,13 +244,154 @@ describe('Phase 5C-1 Production Read-Only Security & Write Guard Tests (A throug
     };
 
     const { setProductionScriptProperties } = require('../Config.gs');
-    const res = setProductionScriptProperties();
+    // Without confirmation token -> throws
+    expect(() => setProductionScriptProperties()).toThrow('SAFETY GUARD');
+
+    // With confirmation token -> sets modern master properties
+    const res = setProductionScriptProperties('CONFIRM_SET_PRODUCTION_PROPERTIES');
     expect(res.success).toBe(true);
     expect(setPropertiesMock).toHaveBeenCalledWith(expect.objectContaining({
       GPBC_ENVIRONMENT: 'production',
-      GPBC_SHEET_ID: PRODUCTION_SPREADSHEET_ID,
-      GPBC_DRIVE_ROOT_FOLDER_ID: PRODUCTION_DRIVE_ROOT_ID,
+      GPBC_SHEET_ID: '1QW6DA3vBiY08qJXw-XRK71-q21kWMLVnnMaQBPnX8fE',
+      GPBC_DRIVE_ROOT_FOLDER_ID: '1OsKbjEorsemb96Gtc2hugr-s6SySCQ9K',
       GPBC_PRODUCTION_WRITES_ENABLED: 'false'
     }));
+  });
+
+  // TEST Q: Authoritative literal ID checks (do not mask ID errors)
+  it('Test Q: Authoritative literal ID values for modern master and historical legacy', () => {
+    expect(PRODUCTION_SPREADSHEET_ID).toBe('1QW6DA3vBiY08qJXw-XRK71-q21kWMLVnnMaQBPnX8fE');
+    expect(LEGACY_HISTORICAL_SPREADSHEET_ID).toBe('1zLercJPwPvdl7YEU31Hbu4zcmakulOYrNrpnddxNC6s');
+    expect(PRODUCTION_SPREADSHEET_ID).not.toBe(LEGACY_HISTORICAL_SPREADSHEET_ID);
+  });
+
+  // TEST R: Production rejects legacy historical workbook ID fail-closed
+  it('Test R: Production rejects legacy historical workbook ID fail-closed even when writes disabled', () => {
+    global.PropertiesService = {
+      getScriptProperties: () => ({
+        getProperty: (key) => {
+          if (key === 'GPBC_ENVIRONMENT') return 'production';
+          if (key === 'GPBC_SHEET_ID') return LEGACY_HISTORICAL_SPREADSHEET_ID;
+          if (key === 'GPBC_DRIVE_ROOT_FOLDER_ID') return PRODUCTION_DRIVE_ROOT_ID;
+          if (key === 'GPBC_PRODUCTION_WRITES_ENABLED') return 'false';
+          return null;
+        }
+      })
+    };
+
+    expect(() => assertProductionReadiness()).toThrow('Legacy historical workbook cannot be used as the production finance database');
+    expect(() => getDB(false, 'readTest')).toThrow('Legacy historical workbook cannot be used as the production finance database');
+    expect(() => assertSandboxSheet('writeTest')).toThrow('Legacy historical workbook cannot be used as the production finance database');
+  });
+
+  // TEST S: Production rejects missing, blank, or unexpected spreadsheet ID
+  it('Test S: Production rejects missing or unexpected spreadsheet ID fail-closed', () => {
+    // Missing
+    global.PropertiesService = {
+      getScriptProperties: () => ({
+        getProperty: (key) => (key === 'GPBC_ENVIRONMENT' ? 'production' : null)
+      })
+    };
+    expect(() => getDB(false, 'readTest')).toThrow('GPBC_SHEET_ID is not configured');
+
+    // Unexpected ID
+    global.PropertiesService = {
+      getScriptProperties: () => ({
+        getProperty: (key) => {
+          if (key === 'GPBC_ENVIRONMENT') return 'production';
+          if (key === 'GPBC_SHEET_ID') return 'unexpected-sheet-id-999';
+          return null;
+        }
+      })
+    };
+    expect(() => getDB(false, 'readTest')).toThrow('Production environment requires GPBC_SHEET_ID=1QW6DA3vBiY08qJXw-XRK71-q21kWMLVnnMaQBPnX8fE');
+    expect(() => assertProductionReadiness()).toThrow('Production environment requires GPBC_SHEET_ID=1QW6DA3vBiY08qJXw-XRK71-q21kWMLVnnMaQBPnX8fE');
+  });
+
+  // TEST T: Missing MEMBERS sheet returns success: true, members: [] without throwing
+  it('Test T: getMembers returns empty members array without throwing when MEMBERS sheet missing', () => {
+    global.SpreadsheetApp = {
+      openById: () => ({
+        getSheetByName: (name) => (name === 'MEMBERS' ? null : { getDataRange: () => ({ getValues: () => [] }) })
+      })
+    };
+    global.PropertiesService = {
+      getScriptProperties: () => ({
+        getProperty: (key) => {
+          if (key === 'GPBC_ENVIRONMENT') return 'production';
+          if (key === 'GPBC_SHEET_ID') return '1QW6DA3vBiY08qJXw-XRK71-q21kWMLVnnMaQBPnX8fE';
+          return null;
+        }
+      })
+    };
+
+    const { getMembers } = require('../Code.gs');
+    const result = getMembers();
+    expect(result).toEqual({ success: true, members: [] });
+  });
+
+  // TEST U: getAuditSummary with calculated:false and healthScore:null is valid empty state
+  it('Test U: getAuditSummary returns valid empty state when AUDIT_LOGS has 0 completed runs', () => {
+    global.SpreadsheetApp = {
+      openById: () => ({
+        getSheetByName: (name) => {
+          if (name === 'AUDIT_LOGS') return { getLastRow: () => 1 };
+          if (name === 'Audit_Issues') return { getLastRow: () => 1 };
+          return null;
+        }
+      })
+    };
+    global.PropertiesService = {
+      getScriptProperties: () => ({
+        getProperty: (key) => {
+          if (key === 'GPBC_ENVIRONMENT') return 'production';
+          if (key === 'GPBC_SHEET_ID') return '1QW6DA3vBiY08qJXw-XRK71-q21kWMLVnnMaQBPnX8fE';
+          return null;
+        }
+      })
+    };
+
+    const { getAuditSummary } = require('../Audit.gs');
+    const res = getAuditSummary();
+    expect(res).toEqual({
+      success: true,
+      calculated: false,
+      calculatedAt: null,
+      healthScore: null
+    });
+  });
+
+  // TEST V: runAudit remains strictly protected by production write guard
+  it('Test V: runAudit requires write permission and fails closed in production when writes disabled', () => {
+    global.PropertiesService = {
+      getScriptProperties: () => ({
+        getProperty: (key) => {
+          if (key === 'GPBC_ENVIRONMENT') return 'production';
+          if (key === 'GPBC_SHEET_ID') return '1QW6DA3vBiY08qJXw-XRK71-q21kWMLVnnMaQBPnX8fE';
+          if (key === 'GPBC_PRODUCTION_WRITES_ENABLED') return 'false';
+          return null;
+        }
+      })
+    };
+
+    const { runAudit } = require('../Audit.gs');
+    expect(() => runAudit({}, 'gilbert.baidya@gmail.com')).toThrow('Production writes are DISARMED');
+  });
+
+  // TEST W: Migration functions remain non-dispatchable via API
+  it('Test W: Migration functions are blocked for all roles via API', () => {
+    const migrationActions = [
+      'getLegacyMigrationDryRun',
+      'getLegacyMigrationStatus',
+      'executeLegacyFinanceMigration',
+      'createLegacyPreMigrationBackup',
+      'createProductionCandidateMaster',
+      'executeControlledCandidateMigration',
+      'linkProductionDriveEvidence'
+    ];
+    migrationActions.forEach((action) => {
+      const auth = authorizeAction(action, 'Primary Admin');
+      expect(auth.authorized).toBe(false);
+    });
   });
 });

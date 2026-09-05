@@ -118,6 +118,11 @@ const ContributionEntry = () => {
                                 <option value="guest">Guest / Visitor</option>
                             </select>
                         </div>
+                        {(!loadingMembers && (!Array.isArray(members) || members.length === 0)) && (
+                            <span style={{ fontSize: '0.78rem', color: '#64748B', marginTop: '4px', display: 'block' }}>
+                                No saved member directory is configured. You can continue using the available manual entry fields.
+                            </span>
+                        )}
                     </div>
 
                     <div className="form-group">
