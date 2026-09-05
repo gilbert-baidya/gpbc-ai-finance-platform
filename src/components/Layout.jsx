@@ -2,6 +2,7 @@ import React, { Suspense, useState } from 'react';
 import { Outlet } from 'react-router-dom';
 import Header from './Header';
 import Sidebar from './Sidebar';
+import FirstTimeHelpBanner from './help/FirstTimeHelpBanner';
 
 const Layout = () => {
     const [mobileNavOpen, setMobileNavOpen] = useState(false);
@@ -19,6 +20,7 @@ const Layout = () => {
                 {mobileNavOpen && <button type="button" className="sidebar-mobile-backdrop" onClick={() => setMobileNavOpen(false)} aria-label="Close navigation" />}
 
                 <div className="content-column">
+                    <FirstTimeHelpBanner />
                     <Header onOpenNavigation={() => setMobileNavOpen(true)} />
 
                     <main className="dashboard-content fade-in">

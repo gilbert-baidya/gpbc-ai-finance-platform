@@ -96,5 +96,9 @@ export { default as MonthlyClose } from './MonthlyClose';
 export { default as PresbyterReports } from './PresbyterReports';
 export { default as Settings } from './Settings';
 
+// Help and training pages
+export { default as HelpCenter } from './HelpCenter';
+export { default as HelpArticleView } from './HelpArticleView';
+
 // Tax Letter Generator Page
 export const Letters = () => <TaxLetterLayout />;

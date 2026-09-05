@@ -1,0 +1,221 @@
+/* GPBC Finance Desk — Contextual Help Drawer Styling */
+
+.help-drawer-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.45);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  z-index: 9999;
+  display: flex;
+  justify-content: flex-end;
+  animation: fadeIn 0.2s ease-out;
+}
+
+.help-drawer {
+  width: 460px;
+  max-width: 92vw;
+  height: 100%;
+  background: var(--ivory, #FDFBF7);
+  box-shadow: -8px 0 24px rgba(44, 62, 80, 0.18);
+  display: flex;
+  flex-direction: column;
+  animation: slideInRight 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  border-left: 1px solid var(--mist-blue-dark, #D9E8EC);
+  color: var(--slate-blue-dark, #1F2D38);
+}
+
+@keyframes slideInRight {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.help-drawer-header {
+  padding: 18px 22px;
+  background: #FFFFFF;
+  border-bottom: 1px solid var(--mist-blue-dark, #D9E8EC);
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.help-drawer-title-group {
+  flex: 1;
+}
+
+.help-drawer-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: var(--mist-blue, #EBF3F5);
+  color: var(--slate-blue, #2C3E50);
+  margin-bottom: 6px;
+}
+
+.help-drawer-title {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--slate-blue-dark, #1F2D38);
+  margin: 0;
+  line-height: 1.3;
+}
+
+.help-drawer-close {
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  color: var(--warm-gray, #6B7280);
+  cursor: pointer;
+  padding: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.help-drawer-close:hover {
+  background: var(--mist-blue, #EBF3F5);
+  color: var(--slate-blue-dark, #1F2D38);
+}
+
+.help-drawer-body {
+  padding: 22px;
+  overflow-y: auto;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.help-drawer-summary-card {
+  background: #FFFFFF;
+  border: 1px solid var(--mist-blue-dark, #D9E8EC);
+  border-radius: 10px;
+  padding: 14px 16px;
+  font-size: 0.88rem;
+  line-height: 1.5;
+  color: var(--slate-blue-light, #3D5A6C);
+  border-left: 4px solid var(--slate-blue, #2C3E50);
+}
+
+.help-drawer-section-heading {
+  font-size: 0.82rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--warm-gray, #6B7280);
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.help-step-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.help-step-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 0.87rem;
+  line-height: 1.45;
+  color: var(--slate-blue-dark, #1F2D38);
+}
+
+.help-step-num {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--slate-blue, #2C3E50);
+  color: #FFFFFF;
+  font-size: 0.72rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.help-mistake-card {
+  background: #FEF2F2;
+  border: 1px solid #FECACA;
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin-bottom: 8px;
+  font-size: 0.83rem;
+  color: #991B1B;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  line-height: 1.4;
+}
+
+.help-tip-card {
+  background: #EFF6FF;
+  border: 1px solid #BFDBFE;
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 0.83rem;
+  color: #1E40AF;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  line-height: 1.4;
+}
+
+.help-drawer-footer {
+  padding: 16px 22px;
+  background: #FFFFFF;
+  border-top: 1px solid var(--mist-blue-dark, #D9E8EC);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.help-link-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--slate-blue, #2C3E50);
+  text-decoration: none;
+  padding: 8px 14px;
+  border-radius: 6px;
+  background: var(--mist-blue, #EBF3F5);
+  border: 1px solid var(--mist-blue-dark, #D9E8EC);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.help-link-button:hover {
+  background: var(--slate-blue, #2C3E50);
+  color: #FFFFFF;
+}
+
+@media (max-width: 480px) {
+  .help-drawer {
+    width: 100vw;
+    max-width: 100vw;
+  }
+}

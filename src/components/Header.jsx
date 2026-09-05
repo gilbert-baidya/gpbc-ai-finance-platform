@@ -2,6 +2,7 @@ import React from 'react';
 import { User, LogOut, Shield, Menu } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import PeriodSelector from './PeriodSelector';
+import PageHelpButton from './help/PageHelpButton';
 import './Header.css';
 
 const Header = ({ onOpenNavigation }) => {
@@ -46,6 +47,7 @@ const Header = ({ onOpenNavigation }) => {
 
       <div className="header-right">
         <PeriodSelector />
+        <PageHelpButton variant="header" label="Guide" />
 
         {user && (
           <div className="user-profile glass-card">

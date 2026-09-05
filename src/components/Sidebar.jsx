@@ -18,7 +18,8 @@ import {
   GitCompare,
   ChevronLeft,
   ChevronRight,
-  X
+  X,
+  BookOpen
 } from 'lucide-react';
 import './Sidebar.css';
 
@@ -31,7 +32,8 @@ const Sidebar = ({ mobileOpen = false, onClose }) => {
     {
       group: 'Executive Oversight',
       items: [
-        { icon: <FileCheck2 size={18} />, label: 'Presbyter Reports', path: '/presbyter-reports', isPrimary: true }
+        { icon: <FileCheck2 size={18} />, label: 'Presbyter Reports', path: '/presbyter-reports', isPrimary: true },
+        { icon: <BookOpen size={18} />, label: 'Help & Training', path: '/help' }
       ]
     }
   ] : [
@@ -72,6 +74,7 @@ const Sidebar = ({ mobileOpen = false, onClose }) => {
       group: 'System',
       items: [
         { icon: <Settings size={18} />, label: 'Settings', path: '/settings' },
+        { icon: <BookOpen size={18} />, label: 'Help & Training', path: '/help' },
       ],
     },
   ];

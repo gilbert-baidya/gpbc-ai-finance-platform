@@ -66,9 +66,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
           if (!cancelled) {
             setUser(verifiedUser);
-          setIdTokenState(storedToken);
-          setActiveIdToken(storedToken);
+            setIdTokenState(storedToken);
+            setActiveIdToken(storedToken);
             sessionStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(verifiedUser));
+          }
+        } else if (import.meta.env.DEV) {
+          const storedUser = sessionStorage.getItem(SESSION_STORAGE_KEY);
+          if (storedUser) {
+            try {
+              const parsedUser = JSON.parse(storedUser);
+              if (parsedUser?.email && parsedUser?.name && CANONICAL_ROLES.includes(parsedUser.role)) {
+                if (!cancelled) {
+                  setUser(parsedUser);
+                }
+              } else {
+                sessionStorage.removeItem(SESSION_STORAGE_KEY);
+              }
+            } catch {
+              sessionStorage.removeItem(SESSION_STORAGE_KEY);
+            }
           }
         } else {
           sessionStorage.removeItem(SESSION_STORAGE_KEY);
