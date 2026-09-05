@@ -218,6 +218,9 @@ function authorizeAction(action, role) {
     "updateCapitalProject": ALL_ADMINS,
     "uploadDocument": FINANCE_WRITERS,
     "linkDocumentToEntity": FINANCE_WRITERS,
+    "findDocumentMatches": FINANCE_WRITERS,
+    "checkDocumentDuplicate": FINANCE_WRITERS,
+    "getSmartUploadOptions": FINANCE_WRITERS,
     "updateDocumentStatus": FINANCE_WRITERS,
     "deleteDocument": ALL_ADMINS,
 

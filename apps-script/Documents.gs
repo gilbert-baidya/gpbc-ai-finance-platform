@@ -66,15 +66,25 @@ const ALLOWED_MIME_TYPES = [
   "image/png",
   "image/jpeg",
   "image/jpg",
-  "image/webp",
-  "image/heic",
-  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-  "text/csv",
-  "text/plain"
+  "image/webp"
 ];
 
-const MAX_FILE_SIZE_BYTES = 15 * 1024 * 1024; // 15 MB
+const ALLOWED_EXTENSIONS = [
+  ".pdf",
+  ".jpg",
+  ".jpeg",
+  ".png",
+  ".webp"
+];
+
+const FORBIDDEN_EXTENSIONS = [
+  ".exe", ".dll", ".bat", ".cmd", ".sh", ".msi", ".apk", ".app", ".com", ".vbs", ".ps1", ".bin", ".scr",
+  ".zip", ".tar", ".gz", ".7z", ".rar", ".bz2", ".xz",
+  ".html", ".htm", ".xhtml", ".svg", ".xml", ".js", ".ts", ".jsx", ".tsx", ".php", ".py", ".rb",
+  ".xlsx", ".xls", ".csv", ".tsv", ".ods"
+];
+
+const MAX_FILE_SIZE_BYTES = 4 * 1024 * 1024; // 4 MB (safe cloud transport limit through Netlify/AWS Lambda)
 
 /**
  * Returns formatted month folder name (e.g. 9 -> "09 - September")
@@ -495,7 +505,7 @@ function uploadDocument(p, userEmail) {
       if (hashCol !== -1) {
         const existing = data.find(function(r) { return r[hashCol] === contentHash; });
         if (existing) {
-          if (!p.allowDuplicate) {
+          if (!p.allowDuplicate && !p.allowDuplicateUpload) {
             currentStage = "DOC_UPLOAD_05_DUPLICATE_CHECKED";
             return {
               success: true,
@@ -505,6 +515,9 @@ function uploadDocument(p, userEmail) {
               duplicateStatus: existing[statusCol],
               message: "A document with identical content already exists (" + existing[idCol] + ": " + existing[titleCol] + ")."
             };
+          } else {
+            // Authorized intentional duplicate override: safely record audit trail in notes
+            p.notes = ("[OVERRIDE_DUPLICATE: Approved intentional duplicate of " + existing[idCol] + "] " + (p.notes || "")).trim();
           }
         }
       }
@@ -575,8 +588,39 @@ function uploadDocument(p, userEmail) {
     }
     currentStage = "DOC_UPLOAD_06_PERIOD_CHECKED";
 
-    // File size & MIME validation
-    const mimeType = p.mimeType || "application/pdf";
+    // Strict filename extension and MIME validation
+    const origFileName = String(p.originalFileName || "document.pdf").trim().toLowerCase();
+    const extMatch = origFileName.match(/\.[a-z0-9]+$/i);
+    const fileExt = extMatch ? extMatch[0] : "";
+
+    if (FORBIDDEN_EXTENSIONS.indexOf(fileExt) !== -1) {
+      throw new Error("Forbidden file type: " + fileExt + ". Executable, archive, script, and spreadsheet files are strictly not permitted.");
+    }
+
+    if (ALLOWED_EXTENSIONS.indexOf(fileExt) === -1) {
+      throw new Error("Unsupported file extension: " + fileExt + ". Allowed formats: .pdf, .jpg, .jpeg, .png, .webp");
+    }
+
+    const mimeType = String(p.mimeType || "").trim().toLowerCase();
+    if (mimeType) {
+      if (ALLOWED_MIME_TYPES.indexOf(mimeType) === -1) {
+        throw new Error("Unsupported MIME type: " + mimeType);
+      }
+      if (fileExt === ".pdf" && mimeType !== "application/pdf") {
+        throw new Error("Mismatched file extension and MIME type: " + fileExt + " with " + mimeType);
+      }
+      if ((fileExt === ".jpg" || fileExt === ".jpeg") && mimeType !== "image/jpeg" && mimeType !== "image/jpg") {
+        throw new Error("Mismatched file extension and MIME type: " + fileExt + " with " + mimeType);
+      }
+      if (fileExt === ".png" && mimeType !== "image/png") {
+        throw new Error("Mismatched file extension and MIME type: " + fileExt + " with " + mimeType);
+      }
+      if (fileExt === ".webp" && mimeType !== "image/webp") {
+        throw new Error("Mismatched file extension and MIME type: " + fileExt + " with " + mimeType);
+      }
+    }
+
+    // File size validation (enforce 4MB safe cloud transport limit)
     let fileSize = Number(p.fileSize || 0);
     if (!fileSize && p.fileBase64) {
       let rawBase64Clean = String(p.fileBase64 || "").trim();
@@ -587,7 +631,7 @@ function uploadDocument(p, userEmail) {
     }
 
     if (fileSize > MAX_FILE_SIZE_BYTES) {
-      throw new Error("File exceeds maximum allowed size of 15MB");
+      throw new Error("File exceeds maximum allowed size of 4MB for reliable cloud transport.");
     }
 
     // Safe normalized filename
@@ -629,6 +673,39 @@ function uploadDocument(p, userEmail) {
       if (!rawBytes || rawBytes.length === 0) {
         currentStage = "DOC_UPLOAD_11A_BLOB_INVALID";
         throw new Error("Decoded file byte array is empty");
+      }
+
+      // Deep magic byte verification
+      if (fileExt === ".pdf") {
+        if (rawBytes.length < 4 || rawBytes[0] !== 0x25 || rawBytes[1] !== 0x50 || rawBytes[2] !== 0x44 || rawBytes[3] !== 0x46) {
+          throw new Error("File signature verification failed: Invalid PDF magic header.");
+        }
+      } else if (fileExt === ".png") {
+        const b0 = rawBytes.length >= 1 ? (rawBytes[0] < 0 ? rawBytes[0] + 256 : rawBytes[0]) : 0;
+        if (rawBytes.length < 4 || b0 !== 0x89 || rawBytes[1] !== 0x50 || rawBytes[2] !== 0x4E || rawBytes[3] !== 0x47) {
+          throw new Error("File signature verification failed: Invalid PNG magic header.");
+        }
+      } else if (fileExt === ".jpg" || fileExt === ".jpeg") {
+        const b0 = rawBytes.length >= 1 ? (rawBytes[0] < 0 ? rawBytes[0] + 256 : rawBytes[0]) : 0;
+        const b1 = rawBytes.length >= 2 ? (rawBytes[1] < 0 ? rawBytes[1] + 256 : rawBytes[1]) : 0;
+        if (rawBytes.length < 2 || b0 !== 0xFF || b1 !== 0xD8) {
+          throw new Error("File signature verification failed: Invalid JPEG magic header.");
+        }
+      } else if (fileExt === ".webp") {
+        const b0 = rawBytes.length >= 1 ? (rawBytes[0] < 0 ? rawBytes[0] + 256 : rawBytes[0]) : 0;
+        const b1 = rawBytes.length >= 2 ? (rawBytes[1] < 0 ? rawBytes[1] + 256 : rawBytes[1]) : 0;
+        const b2 = rawBytes.length >= 3 ? (rawBytes[2] < 0 ? rawBytes[2] + 256 : rawBytes[2]) : 0;
+        const b3 = rawBytes.length >= 4 ? (rawBytes[3] < 0 ? rawBytes[3] + 256 : rawBytes[3]) : 0;
+        const b8 = rawBytes.length >= 9 ? (rawBytes[8] < 0 ? rawBytes[8] + 256 : rawBytes[8]) : 0;
+        const b9 = rawBytes.length >= 10 ? (rawBytes[9] < 0 ? rawBytes[9] + 256 : rawBytes[9]) : 0;
+        const b10 = rawBytes.length >= 11 ? (rawBytes[10] < 0 ? rawBytes[10] + 256 : rawBytes[10]) : 0;
+        const b11 = rawBytes.length >= 12 ? (rawBytes[11] < 0 ? rawBytes[11] + 256 : rawBytes[11]) : 0;
+
+        if (rawBytes.length < 12 ||
+            b0 !== 0x52 || b1 !== 0x49 || b2 !== 0x46 || b3 !== 0x46 ||
+            b8 !== 0x57 || b9 !== 0x45 || b10 !== 0x42 || b11 !== 0x50) {
+          throw new Error("File signature verification failed: Invalid WEBP magic header (expected RIFF....WEBP).");
+        }
       }
 
       if (!storedFileName || !storedFileName.trim()) {
@@ -806,7 +883,11 @@ function uploadDocument(p, userEmail) {
     const isValidationErr = err && err.message && (
       err.message.indexOf("CLOSED") !== -1 ||
       err.message.indexOf("required") !== -1 ||
-      err.message.indexOf("exceeds") !== -1
+      err.message.indexOf("exceeds") !== -1 ||
+      err.message.indexOf("Forbidden") !== -1 ||
+      err.message.indexOf("Mismatched") !== -1 ||
+      err.message.indexOf("Unsupported") !== -1 ||
+      err.message.indexOf("signature") !== -1
     );
     if (isValidationErr) {
       throw err;
@@ -996,6 +1077,447 @@ function deleteDocument(p, userEmail) {
   }
 }
 
+/**
+ * Normalizes vendor name for deterministic matching (Gas/backend)
+ */
+function normalizeVendorInGas(vendor) {
+  if (!vendor) return "";
+  return String(vendor)
+    .toLowerCase()
+    .replace(/[^\w\s]/g, " ")
+    .replace(/\b(inc|incorporated|llc|corp|corporation|co|company|supercenter|super store|store|market|shop)\b/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/**
+ * Checks for potential duplicate documents in Document_Register (Read-only)
+ */
+function checkDocumentDuplicate(p) {
+  p = p || {};
+  const db = getDB(false, "checkDocumentDuplicate");
+  const sheet = db.getSheetByName("Document_Register");
+  if (!sheet || sheet.getLastRow() <= 1) {
+    return { success: true, isDuplicate: false };
+  }
+
+  const data = sheet.getDataRange().getValues();
+  const headers = data.shift();
+  const hashCol = headers.indexOf("contentHash");
+  const fileCol = headers.indexOf("originalFileName");
+  const sizeCol = headers.indexOf("fileSize");
+  const dateCol = headers.indexOf("documentDate");
+  const titleCol = headers.indexOf("title");
+  const idCol = headers.indexOf("documentId");
+  const notesCol = headers.indexOf("notes");
+
+  const queryHash = String(p.contentHash || "").trim();
+  const queryFile = String(p.filename || p.originalFileName || "").trim().toLowerCase();
+  const querySize = Number(p.fileSize || 0);
+  const queryDate = String(p.documentDate || p.date || "").trim();
+  const queryAmount = p.amount != null && !isNaN(Number(p.amount)) ? Number(p.amount) : null;
+  const queryVendor = p.vendor ? normalizeVendorInGas(p.vendor) : "";
+
+  for (let i = 0; i < data.length; i++) {
+    const row = data[i];
+    const docId = String(row[idCol] || "");
+    const docTitle = String(row[titleCol] || "");
+
+    // 1. Content Hash Exact Match (SHA-256)
+    if (queryHash && hashCol !== -1 && String(row[hashCol] || "").trim() === queryHash) {
+      return {
+        success: true,
+        isDuplicate: true,
+        duplicateDocumentId: docId,
+        duplicateTitle: docTitle,
+        reason: "Exact content hash match (SHA-256) with document " + docId + " (" + docTitle + ")"
+      };
+    }
+
+    // 2. Filename & File Size Match
+    if (queryFile && querySize > 0 && fileCol !== -1 && sizeCol !== -1) {
+      const rowSize = Number(row[sizeCol] || 0);
+      const rowName = String(row[fileCol] || "").toLowerCase();
+      if (rowSize === querySize && rowName === queryFile) {
+        return {
+          success: true,
+          isDuplicate: true,
+          duplicateDocumentId: docId,
+          duplicateTitle: docTitle,
+          reason: "Matching filename (" + queryFile + ") and file size (" + querySize + " bytes) on document " + docId
+        };
+      }
+    }
+
+    // 3. Matching Date & Amount (& Vendor)
+    if (queryDate && queryAmount != null && dateCol !== -1) {
+      const rowDate = toDateStringSafe(row[dateCol]);
+      if (rowDate === queryDate) {
+        const rowNotes = String(row[notesCol] || "");
+        const amountMatch = (
+          rowNotes.indexOf("\"amount\":" + queryAmount) !== -1 ||
+          docTitle.indexOf("$" + queryAmount) !== -1 ||
+          docTitle.indexOf("$" + queryAmount.toFixed(2)) !== -1
+        );
+        if (amountMatch) {
+          return {
+            success: true,
+            isDuplicate: true,
+            duplicateDocumentId: docId,
+            duplicateTitle: docTitle,
+            reason: "Matching date (" + rowDate + ") and amount ($" + queryAmount.toFixed(2) + ")" + (p.vendor ? " for " + p.vendor : "") + " on document " + docId
+          };
+        }
+      }
+    }
+  }
+
+  return { success: true, isDuplicate: false };
+}
+
+/**
+ * Searches and ranks candidate finance records for Smart Upload matching (Read-only)
+ */
+function findDocumentMatches(p) {
+  p = p || {};
+
+  // Bank statements must NOT match individual lines in Phase 1
+  if (p.documentType === "Bank Statement") {
+    return { success: true, count: 0, matches: [] };
+  }
+
+  const db = getDB(false, "findDocumentMatches");
+  const matches = [];
+
+  const queryVendor = normalizeVendorInGas(p.vendor);
+  const queryAmount = p.amount != null ? Number(p.amount) : null;
+  const queryDate = p.documentDate || p.date || "";
+
+  // 1. Search Transactions
+  const tSheet = db.getSheetByName("Transactions");
+  if (tSheet && tSheet.getLastRow() > 1) {
+    const tData = tSheet.getDataRange().getValues();
+    const tHeaders = tData.shift();
+    const idCol = tHeaders.indexOf("transactionId");
+    const dateCol = tHeaders.indexOf("transactionDate");
+    const amtCol = tHeaders.indexOf("amount") !== -1 ? tHeaders.indexOf("amount") : (tHeaders.indexOf("netAmount") !== -1 ? tHeaders.indexOf("netAmount") : tHeaders.indexOf("grossAmount"));
+    const vendorCol = tHeaders.indexOf("payeeOrPayer") !== -1 ? tHeaders.indexOf("payeeOrPayer") : tHeaders.indexOf("vendorPayee");
+    const descCol = tHeaders.indexOf("description");
+    const prjCol = tHeaders.indexOf("capitalProjectId");
+    const persCol = tHeaders.indexOf("personalPurchase");
+    const chkCol = tHeaders.indexOf("checkNumber");
+    const dirCol = tHeaders.indexOf("direction");
+    const typeCol = tHeaders.indexOf("transactionType");
+
+    for (let i = 0; i < tData.length; i++) {
+      const row = tData[i];
+      const tId = String(row[idCol] || "");
+      const tDate = toDateStringSafe(row[dateCol]);
+      const tAmount = amtCol !== -1 ? Math.abs(Number(row[amtCol] || 0)) : 0;
+      const tVendor = vendorCol !== -1 ? String(row[vendorCol] || "") : "";
+      const normTVendor = normalizeVendorInGas(tVendor);
+      const tDesc = descCol !== -1 ? String(row[descCol] || "") : "";
+      const tPrj = prjCol !== -1 ? String(row[prjCol] || "") : "";
+      const tPers = (persCol !== -1 && (row[persCol] === true || String(row[persCol]).toLowerCase() === "true"));
+      const tDir = (dirCol !== -1 && row[dirCol]) ? String(row[dirCol]).trim().toUpperCase() : "";
+      const tType = (typeCol !== -1 && row[typeCol]) ? String(row[typeCol]).trim() : "";
+
+      const isIncomeTxn = (tDir === "INCOME" || tType.toLowerCase().indexOf("income") !== -1 || tType.toLowerCase().indexOf("offering") !== -1 || tType.toLowerCase().indexOf("tithe") !== -1);
+      const isExpenseTxn = (tDir === "EXPENSE" || tType.toLowerCase().indexOf("expense") !== -1 || (!isIncomeTxn && tAmount > 0));
+
+      // Financial Direction & Type Compatibility Rules
+      if (p.documentType === "Offering / Income Evidence") {
+        // Must be an income transaction (never suggest church expense for donation proof)
+        if (!isIncomeTxn) continue;
+      } else if (p.documentType === "Receipt" || p.documentType === "Invoice" || p.documentType === "Check" || p.documentType === "Reimbursement Proof" || p.documentType === "Reimbursement Evidence" || p.documentType === "Refund / Credit") {
+        // Purchase & refund evidence must only match expenses (never suggest donation income for a receipt or refund)
+        if (isIncomeTxn && !isExpenseTxn) continue;
+      }
+
+      let score = 0;
+      const reasons = [];
+
+      // Amount Match
+      if (queryAmount != null && Math.abs(queryAmount - tAmount) < 0.005) {
+        score += 40;
+        reasons.push("Exact amount match: $" + queryAmount.toFixed(2));
+      } else if (queryAmount != null && Math.abs(queryAmount - tAmount) < 1.0) {
+        score += 15;
+        reasons.push("Close amount match");
+      }
+
+      // Date Match
+      if (queryDate && tDate) {
+        if (queryDate === tDate) {
+          score += 30;
+          reasons.push("Exact date match (" + queryDate + ")");
+        } else {
+          const d1 = new Date(queryDate);
+          const d2 = new Date(tDate);
+          const diffDays = Math.round(Math.abs(d2.getTime() - d1.getTime()) / (1000 * 60 * 60 * 24));
+          if (diffDays <= 3) {
+            score += 20;
+            reasons.push("Date within " + diffDays + " days");
+          } else if (diffDays <= 7) {
+            score += 10;
+            reasons.push("Date within " + diffDays + " days");
+          }
+        }
+      }
+
+      // Vendor Match
+      if (queryVendor && normTVendor) {
+        if (queryVendor === normTVendor) {
+          score += 25;
+          reasons.push("Exact vendor match: \"" + tVendor + "\"");
+        } else if (normTVendor.indexOf(queryVendor) !== -1 || queryVendor.indexOf(normTVendor) !== -1) {
+          score += 15;
+          reasons.push("Partial vendor match: \"" + tVendor + "\"");
+        }
+      }
+
+      // Capital Project Match
+      if (p.capitalProjectId && tPrj && p.capitalProjectId === tPrj) {
+        score += 15;
+        reasons.push("Capital Project match (" + tPrj + ")");
+      }
+
+      // Check Number Match
+      const tChk = (chkCol !== -1 && row[chkCol]) ? String(row[chkCol]).trim() : "";
+      if (p.checkNumber && tChk && String(p.checkNumber).trim() === tChk) {
+        score += 25;
+        reasons.push("Check number match (" + tChk + ")");
+      }
+
+      // Reimbursement Context Match
+      if ((p.documentType === "Reimbursement Proof" || p.documentType === "Reimbursement Evidence") && tPers) {
+        score += 15;
+        reasons.push("Personal purchase transaction");
+      }
+
+      if (score >= 20) {
+        let confidence = "Weak Match";
+        if (score >= 75) confidence = "Strong Match";
+        else if (score >= 45) confidence = "Possible Match";
+
+        matches.push({
+          candidate: {
+            id: "TXN-" + tId,
+            entityType: "TRANSACTION",
+            entityId: tId,
+            displayTitle: (tVendor || tDesc || "Transaction") + " - $" + tAmount.toFixed(2),
+            amount: tAmount,
+            date: tDate,
+            vendorPayee: tVendor,
+            description: tDesc,
+            capitalProjectId: tPrj,
+            personalPurchase: tPers,
+            checkNumber: tChk || undefined
+          },
+          score: score,
+          confidenceLabel: confidence,
+          reasons: reasons
+        });
+      }
+    }
+  }
+
+  // 2. Search Reimbursements
+  const rSheet = db.getSheetByName("Reimbursements");
+  if (rSheet && rSheet.getLastRow() > 1 && p.documentType !== "Offering / Income Evidence") {
+    const rData = rSheet.getDataRange().getValues();
+    const rHeaders = rData.shift();
+    const idCol = rHeaders.indexOf("reimbursementId");
+    const dateCol = rHeaders.indexOf("reimbursementDate");
+    const nameCol = rHeaders.indexOf("claimantName");
+    const remCol = rHeaders.indexOf("remainingReimbursable");
+    const totCol = rHeaders.indexOf("totalPurchaseAmount");
+    const rChkCol = rHeaders.indexOf("checkNumber");
+
+    for (let i = 0; i < rData.length; i++) {
+      const row = rData[i];
+      const rId = String(row[idCol] || "");
+      const rDate = toDateStringSafe(row[dateCol]);
+      const rName = String(row[nameCol] || "");
+      const rAmount = Number(row[remCol] || row[totCol] || 0);
+      const rChk = (rChkCol !== -1 && row[rChkCol]) ? String(row[rChkCol]).trim() : "";
+
+      let score = 0;
+      const reasons = [];
+
+      if (queryAmount != null && Math.abs(queryAmount - rAmount) < 0.005) {
+        score += 40;
+        reasons.push("Exact reimbursement obligation match: $" + queryAmount.toFixed(2));
+      }
+
+      if (queryDate && rDate && queryDate === rDate) {
+        score += 30;
+        reasons.push("Exact date match (" + queryDate + ")");
+      }
+
+      if (p.checkNumber && rChk && String(p.checkNumber).trim() === rChk) {
+        score += 25;
+        reasons.push("Check number match (" + rChk + ")");
+      }
+
+      if (p.documentType === "Reimbursement Proof" || p.documentType === "Reimbursement Evidence") {
+        score += 15;
+        reasons.push("Reimbursement category match");
+      }
+
+      if (score >= 20) {
+        let confidence = "Weak Match";
+        if (score >= 75) confidence = "Strong Match";
+        else if (score >= 45) confidence = "Possible Match";
+
+        matches.push({
+          candidate: {
+            id: "REIM-" + rId,
+            entityType: "REIMBURSEMENT",
+            entityId: rId,
+            displayTitle: "Reimbursement: " + rName + " - $" + rAmount.toFixed(2),
+            amount: rAmount,
+            date: rDate,
+            vendorPayee: rName,
+            description: "Reimbursement obligation for " + rName,
+            checkNumber: rChk || undefined
+          },
+          score: score,
+          confidenceLabel: confidence,
+          reasons: reasons
+        });
+      }
+    }
+  }
+
+  // 3. Search Capital Projects
+  const cSheet = db.getSheetByName("Capital_Projects");
+  if (cSheet && cSheet.getLastRow() > 1 && p.documentType !== "Offering / Income Evidence" && (p.documentType === "Capital Project" || p.capitalProjectId)) {
+    const cData = cSheet.getDataRange().getValues();
+    const cHeaders = cData.shift();
+    const pIdCol = cHeaders.indexOf("projectId");
+    const pNameCol = cHeaders.indexOf("projectName");
+    const pBudgetCol = cHeaders.indexOf("approvedBudget");
+
+    for (let i = 0; i < cData.length; i++) {
+      const row = cData[i];
+      const pId = String(row[pIdCol] || "");
+      const pName = String(row[pNameCol] || "");
+      const pBudget = Number(row[pBudgetCol] || 0);
+
+      let score = 0;
+      const reasons = [];
+
+      if (p.capitalProjectId && (p.capitalProjectId === pId || p.capitalProjectId === pName)) {
+        score += 50;
+        reasons.push("Explicit project match (" + pName + ")");
+      } else if (queryVendor && (pName.toLowerCase().indexOf(queryVendor.toLowerCase()) !== -1 || queryVendor.toLowerCase().indexOf(pName.toLowerCase()) !== -1)) {
+        score += 30;
+        reasons.push("Project name similarity: " + pName);
+      }
+
+      if (score >= 20) {
+        let confidence = "Weak Match";
+        if (score >= 75) confidence = "Strong Match";
+        else if (score >= 45) confidence = "Possible Match";
+
+        matches.push({
+          candidate: {
+            id: "CAP-" + pId,
+            entityType: "CAPITAL_PROJECT",
+            entityId: pId,
+            displayTitle: "Capital Project: " + pName + " (Budget: $" + pBudget.toFixed(2) + ")",
+            amount: pBudget,
+            vendorPayee: pName,
+            description: "Capital Project " + pName,
+            capitalProjectId: pId
+          },
+          score: score,
+          confidenceLabel: confidence,
+          reasons: reasons
+        });
+      }
+    }
+  }
+
+  // Sort descending by score
+  matches.sort(function(a, b) { return b.score - a.score; });
+
+  return {
+    success: true,
+    count: matches.length,
+    matches: matches
+  };
+}
+
+/**
+ * Retrieves sanitized options and authoritative closed periods for Smart Upload UI (Read-only)
+ */
+function getSmartUploadOptions(p) {
+  const db = getDB(false, "getSmartUploadOptions");
+
+  // 1. Retrieve Closed Periods from Monthly_Close
+  const closedPeriods = [];
+  const mcSheet = db.getSheetByName("Monthly_Close");
+  if (mcSheet && mcSheet.getLastRow() > 1) {
+    const mcData = mcSheet.getDataRange().getValues();
+    const mcHeaders = mcData.shift();
+    const periodCol = mcHeaders.indexOf("periodKey");
+    const statusCol = mcHeaders.indexOf("status");
+    if (periodCol !== -1 && statusCol !== -1) {
+      for (let i = 0; i < mcData.length; i++) {
+        const row = mcData[i];
+        if (String(row[statusCol] || "").trim().toLowerCase() === "closed") {
+          const key = String(row[periodCol] || "").trim();
+          if (key && closedPeriods.indexOf(key) === -1) {
+            closedPeriods.push(key);
+          }
+        }
+      }
+    }
+  }
+
+  // 2. Retrieve Capital Projects from Capital_Projects
+  const capitalProjects = [];
+  const cpSheet = db.getSheetByName("Capital_Projects");
+  if (cpSheet && cpSheet.getLastRow() > 1) {
+    const cpData = cpSheet.getDataRange().getValues();
+    const cpHeaders = cpData.shift();
+    const idCol = cpHeaders.indexOf("projectId");
+    const nameCol = cpHeaders.indexOf("projectName");
+    const statusCol = cpHeaders.indexOf("status");
+    if (idCol !== -1 && nameCol !== -1) {
+      for (let i = 0; i < cpData.length; i++) {
+        const row = cpData[i];
+        const status = String(row[statusCol] || "").trim();
+        if (!status || status.toLowerCase() === "active" || status.toLowerCase() === "open") {
+          const pid = String(row[idCol] || "").trim();
+          const pname = String(row[nameCol] || "").trim();
+          capitalProjects.push({
+            id: pid,
+            name: pname,
+            projectId: pid,
+            projectName: pname
+          });
+        }
+      }
+    }
+  }
+
+  const config = (typeof getConfig === "function") ? getConfig() : {};
+  const writesEnabled = config && config.environment === "production"
+    ? (config.productionWritesEnabled === "true" || config.productionWritesEnabled === true)
+    : true;
+
+  return {
+    success: true,
+    closedPeriods: closedPeriods,
+    capitalProjects: capitalProjects,
+    documentTypes: DOCUMENT_TYPES,
+    writesEnabled: writesEnabled
+  };
+}
+
 if (typeof module !== "undefined" && module.exports) {
   module.exports = {
     DOCUMENT_TYPES,
@@ -1012,6 +1534,10 @@ if (typeof module !== "undefined" && module.exports) {
     uploadDocument,
     linkDocumentToEntity,
     updateDocumentStatus,
-    deleteDocument
+    deleteDocument,
+    checkDocumentDuplicate,
+    findDocumentMatches,
+    getSmartUploadOptions,
+    normalizeVendorInGas
   };
 }
