@@ -25,6 +25,11 @@ if (typeof require !== 'undefined') {
     const audit = require('./Audit.gs');
     global.logAuditEvent = audit.logAuditEvent;
   }
+  if (typeof authorizeAction === 'undefined') {
+    const auth = require('./Auth.gs');
+    global.authorizeAction = auth.authorizeAction;
+    global.getApprovedUser = auth.getApprovedUser;
+  }
   if (typeof initializeSandboxSchema === 'undefined') {
     const tx = require('./Transactions.gs');
     global.initializeSandboxSchema = tx.initializeSandboxSchema;
@@ -37,6 +42,17 @@ if (typeof require !== 'undefined') {
 function ensureCommitteeTables(db) {
   if (typeof initializeSandboxSchema === 'function') {
     initializeSandboxSchema();
+  }
+}
+
+function assertCommitteeWriteAuthorized(action, userEmail) {
+  const user = typeof getApprovedUser === 'function' ? getApprovedUser(userEmail) : null;
+  const role = user && user.role;
+  const authorization = typeof authorizeAction === 'function'
+    ? authorizeAction(action, role)
+    : { authorized: false };
+  if (!authorization.authorized) {
+    throw new Error('Unauthorized: ' + (authorization.reason || 'Committee write permission is required.'));
   }
 }
 
@@ -103,6 +119,7 @@ function getCommitteeMembers() {
  */
 function addCommitteeMember(p, userEmail) {
   p = p || {};
+  assertCommitteeWriteAuthorized('addCommitteeMember', userEmail);
   assertSandboxSheet('addCommitteeMember');
   const db = getDB(true, 'addCommitteeMember');
   ensureCommitteeTables(db);
@@ -160,6 +177,7 @@ function addCommitteeMember(p, userEmail) {
  */
 function updateCommitteeMember(p, userEmail) {
   p = p || {};
+  assertCommitteeWriteAuthorized('updateCommitteeMember', userEmail);
   assertSandboxSheet('updateCommitteeMember');
   const db = getDB(true, 'updateCommitteeMember');
   ensureCommitteeTables(db);
@@ -213,6 +231,7 @@ function updateCommitteeMember(p, userEmail) {
  */
 function deactivateCommitteeMember(p, userEmail) {
   p = p || {};
+  assertCommitteeWriteAuthorized('deactivateCommitteeMember', userEmail);
   assertSandboxSheet('deactivateCommitteeMember');
   const db = getDB(true, 'deactivateCommitteeMember');
   ensureCommitteeTables(db);
@@ -462,11 +481,34 @@ function getMonthlyExpensePacket(p) {
 /**
  * Deterministically computes approval result based on the configured rule
  */
+const ALLOWED_COMMITTEE_DECISIONS = [
+  'APPROVED',
+  'APPROVED_WITH_COMMENT',
+  'ABSTAINED',
+  'NOT_PRESENT',
+  'RETURNED_FOR_CLARIFICATION'
+];
+
+/**
+ * Calculates approval outcome based on committee rule and individual member decisions
+ */
 function calculateApprovalOutcome(rule, eligibleMembers, decisions) {
   rule = rule || 'MAJORITY_OF_ELIGIBLE_MEMBERS';
+  eligibleMembers = eligibleMembers || [];
   const eligibleCount = eligibleMembers.length;
   const decisionMap = {};
-  (decisions || []).forEach(function(d) {
+
+  if (!Array.isArray(decisions) || decisions.length === 0) {
+    throw new Error('Committee decisions are required to calculate outcome.');
+  }
+
+  decisions.forEach(function(d) {
+    if (!d || !d.memberId) {
+      throw new Error('Invalid decision item: memberId is required.');
+    }
+    if (!d.decision || ALLOWED_COMMITTEE_DECISIONS.indexOf(d.decision) === -1) {
+      throw new Error('Invalid or unrecorded committee decision: "' + (d.decision || 'empty') + '" for member ' + d.memberId + '. Must be one of: ' + ALLOWED_COMMITTEE_DECISIONS.join(', '));
+    }
     decisionMap[d.memberId] = d;
   });
 
@@ -478,17 +520,22 @@ function calculateApprovalOutcome(rule, eligibleMembers, decisions) {
 
   eligibleMembers.forEach(function(m) {
     const d = decisionMap[m.memberId];
-    if (!d || d.decision === 'NOT_PRESENT') {
-      notPresentCount++;
-    } else if (d.decision === 'APPROVED') {
+    if (!d) {
+      throw new Error('Missing committee decision for eligible member: ' + (m.fullName || m.memberId) + ' (' + m.memberId + '). All eligible members must have an explicit decision recorded.');
+    }
+    if (d.decision === 'APPROVED') {
       approvedCount++;
     } else if (d.decision === 'APPROVED_WITH_COMMENT') {
       approvedCount++;
       exceptionCount++;
     } else if (d.decision === 'ABSTAINED') {
       abstainedCount++;
+    } else if (d.decision === 'NOT_PRESENT') {
+      notPresentCount++;
     } else if (d.decision === 'RETURNED_FOR_CLARIFICATION') {
       returnedCount++;
+    } else {
+      throw new Error('Unrecognized committee decision: "' + d.decision + '" for member ' + m.memberId);
     }
   });
 
@@ -543,6 +590,7 @@ function calculateApprovalOutcome(rule, eligibleMembers, decisions) {
  */
 function recordCommitteeApproval(p, userEmail) {
   p = p || {};
+  assertCommitteeWriteAuthorized(p.overrideApplied ? 'overrideCommitteeApproval' : 'recordCommitteeApproval', userEmail);
   assertSandboxSheet('recordCommitteeApproval');
   const db = getDB(true, 'recordCommitteeApproval');
   ensureCommitteeTables(db);
@@ -563,15 +611,58 @@ function recordCommitteeApproval(p, userEmail) {
     return m.status === 'ACTIVE' && from <= bounds.endDate && to >= bounds.startDate;
   });
 
+  if (!Array.isArray(p.decisions) || p.decisions.length === 0) {
+    throw new Error('Committee decisions list is required.');
+  }
+
+  const memberMap = {};
+  eligibleMembers.forEach(function(m) { memberMap[m.memberId] = m; });
+
+  // Strictly validate every submitted decision against eligible members
+  const submittedMemberIds = {};
+  p.decisions.forEach(function(d) {
+    if (!d || !d.memberId) {
+      throw new Error('Invalid decision entry: missing memberId.');
+    }
+    const member = memberMap[d.memberId];
+    if (!member) {
+      throw new Error('Unknown or ineligible committee member ID: "' + d.memberId + '". Every decision must resolve to an active, eligible committee member.');
+    }
+    if (!d.decision || ALLOWED_COMMITTEE_DECISIONS.indexOf(d.decision) === -1) {
+      throw new Error('Invalid or unrecorded committee decision: "' + (d.decision || 'empty') + '" for member ' + d.memberId + '. Must be one of: ' + ALLOWED_COMMITTEE_DECISIONS.join(', '));
+    }
+    if (submittedMemberIds[d.memberId]) {
+      throw new Error('Duplicate decision submitted for committee member: ' + d.memberId);
+    }
+    submittedMemberIds[d.memberId] = true;
+  });
+
+  // Verify that all eligible members have a recorded decision
+  eligibleMembers.forEach(function(em) {
+    if (!submittedMemberIds[em.memberId]) {
+      throw new Error('Missing committee decision for eligible member: ' + em.fullName + ' (' + em.memberId + '). Explicit decisions are required for all eligible members.');
+    }
+  });
+
   const rule = p.approvalRule || 'MAJORITY_OF_ELIGIBLE_MEMBERS';
-  const outcome = calculateApprovalOutcome(rule, eligibleMembers, p.decisions || []);
+  const outcome = calculateApprovalOutcome(rule, eligibleMembers, p.decisions);
 
   let finalStatus = outcome.status;
   let overrideApplied = false;
   let overrideReason = '';
 
+  // Authoritative server-side verification of user role
+  let callerRole = '';
+  if (typeof getApprovedUser === 'function') {
+    const u = getApprovedUser(userEmail);
+    if (u) callerRole = u.role;
+  }
+
   // Support Primary Admin override if rule is not met
   if (!outcome.isThresholdMet && p.overrideApplied) {
+    if (callerRole !== 'Primary Admin') {
+      throw new Error('Unauthorized: Only Primary Admin may apply an administrative override.');
+    }
     if (!p.overrideReason || !String(p.overrideReason).trim()) {
       throw new Error('Override requires a mandatory reason.');
     }
@@ -644,12 +735,9 @@ function recordCommitteeApproval(p, userEmail) {
     ? SANDBOX_SCHEMA_EXTENSIONS.Committee_Approval_Decisions
     : ['decisionId', 'approvalId', 'periodKey', 'packetVersion', 'memberId', 'memberNameSnapshot', 'memberRoleSnapshot', 'decision', 'decisionDate', 'approvalMethod', 'comment', 'recordedBy', 'recordedAt'];
 
-  const memberMap = {};
-  (membersRes.members || []).forEach(function(m) { memberMap[m.memberId] = m; });
-
   const decisionRecords = [];
-  (p.decisions || []).forEach(function(d, idx) {
-    const member = memberMap[d.memberId] || { fullName: 'Unknown Member', roleTitle: 'Committee Member' };
+  p.decisions.forEach(function(d, idx) {
+    const member = memberMap[d.memberId]; // Guaranteed to exist by previous validation
     const decId = 'CAD-' + periodKey.replace('-', '') + '-1-' + (idx + 1);
 
     const rec = {
@@ -660,7 +748,7 @@ function recordCommitteeApproval(p, userEmail) {
       memberId: d.memberId,
       memberNameSnapshot: member.fullName, // IMMUTABLE SNAPSHOT
       memberRoleSnapshot: member.roleTitle, // IMMUTABLE SNAPSHOT
-      decision: d.decision || 'APPROVED',
+      decision: d.decision, // STRICT ENUM VALUE — NO DEFAULT
       decisionDate: d.decisionDate || p.meetingDate || now.split('T')[0],
       approvalMethod: d.approvalMethod || p.approvalMethod || 'COMMITTEE_MEETING',
       comment: d.comment || '',
@@ -808,6 +896,7 @@ function getMonthlyCommitteeApproval(p) {
  */
 function createCommitteeApprovalAmendment(p, userEmail) {
   p = p || {};
+  assertCommitteeWriteAuthorized('createCommitteeApprovalAmendment', userEmail);
   assertSandboxSheet('createCommitteeApprovalAmendment');
   const db = getDB(true, 'createCommitteeApprovalAmendment');
   ensureCommitteeTables(db);
@@ -830,20 +919,12 @@ function createCommitteeApprovalAmendment(p, userEmail) {
   const newApprovalId = 'MCA-' + periodKey.replace('-', '') + '-V' + newVersion;
   const now = new Date().toISOString();
 
-  // Mark previous version as isLatestVersion = false
   const approvalSheet = db.getSheetByName('Monthly_Committee_Approval');
   const decisionSheet = db.getSheetByName('Committee_Approval_Decisions');
   const appData = approvalSheet.getDataRange().getValues();
   const appHeaders = appData[0];
   const idCol = appHeaders.indexOf('approvalId');
   const latestCol = appHeaders.indexOf('isLatestVersion');
-
-  for (let i = 1; i < appData.length; i++) {
-    if (appData[i][idCol] === prev.approvalId) {
-      approvalSheet.getRange(i + 1, latestCol + 1).setValue(false);
-      break;
-    }
-  }
 
   // Generate fresh packet for revised expenses
   const packet = getMonthlyExpensePacket({ periodKey: periodKey });
@@ -856,8 +937,49 @@ function createCommitteeApprovalAmendment(p, userEmail) {
     return m.status === 'ACTIVE' && from <= bounds.endDate && to >= bounds.startDate;
   });
 
+  if (!Array.isArray(p.decisions) || p.decisions.length === 0) {
+    throw new Error('Committee decisions list is required for amendment.');
+  }
+
+  const memberMap = {};
+  eligibleMembers.forEach(function(m) { memberMap[m.memberId] = m; });
+
+  // Strictly validate every submitted decision against eligible members
+  const submittedMemberIds = {};
+  p.decisions.forEach(function(d) {
+    if (!d || !d.memberId) {
+      throw new Error('Invalid decision entry: missing memberId.');
+    }
+    const member = memberMap[d.memberId];
+    if (!member) {
+      throw new Error('Unknown or ineligible committee member ID: "' + d.memberId + '". Every decision must resolve to an active, eligible committee member.');
+    }
+    if (!d.decision || ALLOWED_COMMITTEE_DECISIONS.indexOf(d.decision) === -1) {
+      throw new Error('Invalid or unrecorded committee decision: "' + (d.decision || 'empty') + '" for member ' + d.memberId + '. Must be one of: ' + ALLOWED_COMMITTEE_DECISIONS.join(', '));
+    }
+    if (submittedMemberIds[d.memberId]) {
+      throw new Error('Duplicate decision submitted for committee member: ' + d.memberId);
+    }
+    submittedMemberIds[d.memberId] = true;
+  });
+
+  // Verify that all eligible members have a recorded decision
+  eligibleMembers.forEach(function(em) {
+    if (!submittedMemberIds[em.memberId]) {
+      throw new Error('Missing committee decision for eligible member: ' + em.fullName + ' (' + em.memberId + '). Explicit decisions are required for all eligible members.');
+    }
+  });
+
   const rule = p.approvalRule || prev.approvalRuleSnapshot || 'MAJORITY_OF_ELIGIBLE_MEMBERS';
-  const outcome = calculateApprovalOutcome(rule, eligibleMembers, p.decisions || []);
+  const outcome = calculateApprovalOutcome(rule, eligibleMembers, p.decisions);
+
+  // Only retire V1 after the complete V2 request has passed validation.
+  for (let i = 1; i < appData.length; i++) {
+    if (appData[i][idCol] === prev.approvalId) {
+      approvalSheet.getRange(i + 1, latestCol + 1).setValue(false);
+      break;
+    }
+  }
 
   const amendmentRecord = {
     approvalId: newApprovalId,
@@ -907,12 +1029,9 @@ function createCommitteeApprovalAmendment(p, userEmail) {
     ? SANDBOX_SCHEMA_EXTENSIONS.Committee_Approval_Decisions
     : ['decisionId', 'approvalId', 'periodKey', 'packetVersion', 'memberId', 'memberNameSnapshot', 'memberRoleSnapshot', 'decision', 'decisionDate', 'approvalMethod', 'comment', 'recordedBy', 'recordedAt'];
 
-  const memberMap = {};
-  (membersRes.members || []).forEach(function(m) { memberMap[m.memberId] = m; });
-
   const decisionRecords = [];
-  (p.decisions || []).forEach(function(d, idx) {
-    const member = memberMap[d.memberId] || { fullName: 'Unknown Member', roleTitle: 'Committee Member' };
+  p.decisions.forEach(function(d, idx) {
+    const member = memberMap[d.memberId]; // Guaranteed to exist by previous validation
     const decId = 'CAD-' + periodKey.replace('-', '') + '-' + newVersion + '-' + (idx + 1);
 
     const rec = {
@@ -923,7 +1042,7 @@ function createCommitteeApprovalAmendment(p, userEmail) {
       memberId: d.memberId,
       memberNameSnapshot: member.fullName,
       memberRoleSnapshot: member.roleTitle,
-      decision: d.decision || 'APPROVED',
+      decision: d.decision, // STRICT ENUM VALUE — NO DEFAULT
       decisionDate: d.decisionDate || p.meetingDate || now.split('T')[0],
       approvalMethod: d.approvalMethod || p.approvalMethod || 'COMMITTEE_MEETING',
       comment: d.comment || '',

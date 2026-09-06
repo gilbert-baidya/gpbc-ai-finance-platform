@@ -105,12 +105,27 @@
   border-left: 4px solid #16a34a;
 }
 
+.committee-member-vote-row.unrecorded {
+  border-left: 4px solid #f59e0b;
+  background: #fffdfa;
+}
+
 .committee-member-vote-row.abstained {
   border-left: 4px solid #64748b;
 }
 
 .committee-member-vote-row.returned {
   border-left: 4px solid #dc2626;
+}
+
+.vote-unrecorded-badge {
+  font-size: 0.75rem;
+  color: #b45309;
+  background: #fef3c7;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-weight: 600;
+  border: 1px solid #fde68a;
 }
 
 .vote-member-header {
@@ -207,6 +222,12 @@
 .committee-threshold-banner.not-met {
   background: #fffbeb;
   border: 1px solid #fef3c7;
+  color: #92400e;
+}
+
+.committee-threshold-banner.unrecorded {
+  background: #fffbeb;
+  border: 1px solid #fde68a;
   color: #92400e;
 }
 

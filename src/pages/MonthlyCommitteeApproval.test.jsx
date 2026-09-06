@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import MonthlyCommitteeApproval from './MonthlyCommitteeApproval';
 import { committeeApi } from '../api/committeeApi';
+import { monthlyCloseApi } from '../api/monthlyCloseApi';
 import { generateCommitteePacketPdf } from '../utils/generateCommitteePacketPdf';
 
 let mockUser = {
@@ -34,6 +35,12 @@ vi.mock('../utils/generateCommitteePacketPdf', () => ({
   generateCommitteePacketPdf: vi.fn(() => ({
     save: vi.fn()
   }))
+}));
+
+vi.mock('../api/monthlyCloseApi', () => ({
+  monthlyCloseApi: {
+    getMonthlyClose: vi.fn()
+  }
 }));
 
 const mockPacket = {
@@ -138,6 +145,10 @@ describe('MonthlyCommitteeApproval Page', () => {
     committeeApi.getMonthlyExpensePacket.mockResolvedValue(mockPacket);
     committeeApi.getMonthlyCommitteeApproval.mockResolvedValue(mockApproval);
     committeeApi.getCommitteeMembers.mockResolvedValue({ success: true, members: mockMembers });
+    monthlyCloseApi.getMonthlyClose.mockResolvedValue({
+      success: true,
+      closeRecord: { periodKey: '2026-09', status: 'READY' }
+    });
   });
 
   it('renders the committee approval header and period selector', async () => {

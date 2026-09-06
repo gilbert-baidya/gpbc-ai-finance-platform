@@ -27,13 +27,14 @@ export default function RecordApprovalModal({
   const [submitting, setSubmitting] = useState(false);
 
   // Filter active members eligible for the period
+  // Filter active members eligible for the period
   const eligibleMembers = (members || []).filter(m => m.status === 'ACTIVE' || m.isActive === true || m.isActive === 'TRUE');
 
   useEffect(() => {
     if (isOpen) {
       const init = {};
       eligibleMembers.forEach(m => {
-        init[m.memberId] = { decision: 'APPROVED', comment: '' };
+        init[m.memberId] = { decision: 'UNRECORDED', comment: '' };
       });
       setDecisions(init);
       setOverrideApplied(false);
@@ -66,38 +67,61 @@ export default function RecordApprovalModal({
   let abstainedCount = 0;
   let notPresentCount = 0;
   let returnedCount = 0;
+  let unrecordedCount = 0;
 
   eligibleMembers.forEach(m => {
-    const d = decisions[m.memberId]?.decision || 'NOT_PRESENT';
-    if (d === 'APPROVED') approvedCount++;
-    else if (d === 'APPROVED_WITH_COMMENT') { approvedCount++; exceptionCount++; }
-    else if (d === 'ABSTAINED') abstainedCount++;
-    else if (d === 'NOT_PRESENT') notPresentCount++;
-    else if (d === 'RETURNED_FOR_CLARIFICATION') returnedCount++;
+    const d = decisions[m.memberId]?.decision;
+    if (!d || d === 'UNRECORDED') {
+      unrecordedCount++;
+    } else if (d === 'APPROVED') {
+      approvedCount++;
+    } else if (d === 'APPROVED_WITH_COMMENT') {
+      approvedCount++;
+      exceptionCount++;
+    } else if (d === 'ABSTAINED') {
+      abstainedCount++;
+    } else if (d === 'NOT_PRESENT') {
+      notPresentCount++;
+    } else if (d === 'RETURNED_FOR_CLARIFICATION') {
+      returnedCount++;
+    } else {
+      unrecordedCount++;
+    }
   });
 
   const totalEligible = eligibleMembers.length;
   let requiredCount = Math.floor(totalEligible / 2) + 1;
   let isMet = false;
 
-  if (approvalRule === 'MAJORITY_OF_ELIGIBLE_MEMBERS') {
-    requiredCount = Math.floor(totalEligible / 2) + 1;
-    isMet = approvedCount >= requiredCount && returnedCount === 0;
-  } else if (approvalRule === 'UNANIMOUS_OF_PRESENT_MEMBERS') {
-    const present = totalEligible - notPresentCount;
-    requiredCount = present;
-    isMet = present > 0 && approvedCount === present && returnedCount === 0;
-  } else if (approvalRule === 'MINIMUM_APPROVAL_COUNT') {
-    requiredCount = 3;
-    isMet = approvedCount >= requiredCount && returnedCount === 0;
-  } else {
-    requiredCount = Math.floor(totalEligible / 2) + 1;
-    isMet = approvedCount >= requiredCount && returnedCount === 0;
+  if (unrecordedCount === 0) {
+    if (approvalRule === 'MAJORITY_OF_ELIGIBLE_MEMBERS') {
+      requiredCount = Math.floor(totalEligible / 2) + 1;
+      isMet = approvedCount >= requiredCount && returnedCount === 0;
+    } else if (approvalRule === 'UNANIMOUS_OF_PRESENT_MEMBERS') {
+      const present = totalEligible - notPresentCount;
+      requiredCount = present;
+      isMet = present > 0 && approvedCount === present && returnedCount === 0;
+    } else if (approvalRule === 'MINIMUM_APPROVAL_COUNT') {
+      requiredCount = 3;
+      isMet = approvedCount >= requiredCount && returnedCount === 0;
+    } else {
+      requiredCount = Math.floor(totalEligible / 2) + 1;
+      isMet = approvedCount >= requiredCount && returnedCount === 0;
+    }
   }
 
   const isPrimaryAdmin = currentUserRole === 'Primary Admin';
 
   const handleSubmit = async () => {
+    const unrecordedMembers = eligibleMembers.filter(m => {
+      const d = decisions[m.memberId]?.decision;
+      return !d || d === 'UNRECORDED';
+    });
+    if (unrecordedMembers.length > 0) {
+      errorToast(`Please record an explicit decision for all members (${unrecordedMembers.length} unrecorded).`);
+      return;
+    }
+
     if (isAmendment && !amendmentReason.trim()) {
       errorToast('Amendment reason is required.');
       return;
@@ -115,13 +139,19 @@ export default function RecordApprovalModal({
 
     setSubmitting(true);
     try {
-      const decisionList = eligibleMembers.map(m => ({
-        memberId: m.memberId,
-        decision: decisions[m.memberId]?.decision || 'NOT_PRESENT',
-        comment: decisions[m.memberId]?.comment || '',
-        approvalMethod: approvalMethod,
-        decisionDate: meetingDate
-      }));
+      const decisionList = eligibleMembers.map(m => {
+        const d = decisions[m.memberId]?.decision;
+        if (!d || d === 'UNRECORDED') {
+          throw new Error(`Decision not recorded for ${m.fullName}`);
+        }
+        return {
+          memberId: m.memberId,
+          decision: d,
+          comment: decisions[m.memberId]?.comment || '',
+          approvalMethod: approvalMethod,
+          decisionDate: meetingDate
+        };
+      });
 
       if (isAmendment) {
         await committeeApi.createCommitteeApprovalAmendment({
@@ -239,19 +269,33 @@ export default function RecordApprovalModal({
             </label>
             <div className="committee-members-voting-list">
               {eligibleMembers.map(m => {
-                const currentDec = decisions[m.memberId]?.decision || 'NOT_PRESENT';
+                const currentDec = decisions[m.memberId]?.decision || 'UNRECORDED';
+                const isUnrecorded = currentDec === 'UNRECORDED';
                 const currentComment = decisions[m.memberId]?.comment || '';
 
                 return (
                   <div
                     key={m.memberId}
-                    className={`committee-member-vote-row ${currentDec === 'APPROVED' ? 'approved' : currentDec === 'ABSTAINED' ? 'abstained' : currentDec === 'RETURNED_FOR_CLARIFICATION' ? 'returned' : ''}`}
+                    className={`committee-member-vote-row ${
+                      isUnrecorded
+                        ? 'unrecorded'
+                        : currentDec === 'APPROVED' || currentDec === 'APPROVED_WITH_COMMENT'
+                        ? 'approved'
+                        : currentDec === 'ABSTAINED'
+                        ? 'abstained'
+                        : currentDec === 'RETURNED_FOR_CLARIFICATION'
+                        ? 'returned'
+                        : ''
+                    }`}
                   >
                     <div className="vote-member-header">
                       <div>
                         <span className="vote-member-name">{m.fullName}</span>
                         <span className="vote-member-role" style={{ marginLeft: '8px' }}>{m.roleTitle}</span>
                       </div>
+                      {isUnrecorded && (
+                        <span className="vote-unrecorded-badge">Decision not recorded</span>
+                      )}
                     </div>
 
                     <div className="vote-options-group">
@@ -332,20 +376,23 @@ export default function RecordApprovalModal({
           </div>
 
           {/* Threshold Status Banner */}
-          <div className={`committee-threshold-banner ${returnedCount > 0 ? 'returned' : isMet ? 'met' : 'not-met'}`}>
+          <div className={`committee-threshold-banner ${unrecordedCount > 0 ? 'unrecorded' : returnedCount > 0 ? 'returned' : isMet ? 'met' : 'not-met'}`}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              {returnedCount > 0 ? <AlertCircle size={18} /> : isMet ? <CheckCircle2 size={18} /> : <AlertTriangle size={18} />}
+              {unrecordedCount > 0 ? <AlertCircle size={18} /> : returnedCount > 0 ? <AlertCircle size={18} /> : isMet ? <CheckCircle2 size={18} /> : <AlertTriangle size={18} />}
               <div>
                 <strong>
-                  {returnedCount > 0
+                  {unrecordedCount > 0
+                    ? `Decisions Pending (${unrecordedCount} unrecorded)`
+                    : returnedCount > 0
                     ? 'Returned for Clarification'
                     : isMet
                     ? (exceptionCount > 0 ? 'Rule Satisfied — Approved with Exceptions' : 'Rule Satisfied — Approved')
                     : 'Rule Threshold Not Met'}
                 </strong>
                 <div style={{ fontSize: '0.8rem', marginTop: '2px' }}>
-                  {approvedCount} of {totalEligible} members approving (Required: {requiredCount}).
-                  {returnedCount > 0 && ` ${returnedCount} member(s) requested clarification.`}
+                  {unrecordedCount > 0
+                    ? `${unrecordedCount} member(s) have no decision recorded. Please explicitly choose each member's decision.`
+                    : `${approvedCount} of ${totalEligible} members approving (Required: ${requiredCount}).${returnedCount > 0 ? ` ${returnedCount} member(s) requested clarification.` : ''}`}
                 </div>
               </div>
             </div>
@@ -401,7 +448,7 @@ export default function RecordApprovalModal({
             type="button"
             className="committee-btn committee-btn-primary"
             onClick={handleSubmit}
-            disabled={submitting || (!isMet && !overrideApplied)}
+            disabled={submitting || unrecordedCount > 0 || (!isMet && !overrideApplied)}
           >
             {submitting ? 'Saving...' : isAmendment ? 'Ratify Amendment' : 'Record Approval'}
           </button>

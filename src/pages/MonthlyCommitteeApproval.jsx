@@ -2,11 +2,14 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
   ShieldCheck, FileText, Download, CheckCircle2, AlertTriangle,
   Clock, Users, RefreshCw, Calendar, AlertCircle, ArrowRight,
-  ClipboardList, Check, History, PlusCircle
+  ClipboardList, Check, History, PlusCircle, CloudUpload
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { committeeApi } from '../api/committeeApi';
+import { monthlyCloseApi } from '../api/monthlyCloseApi';
+import { documentApi } from '../api/documentApi';
 import { generateCommitteePacketPdf } from '../utils/generateCommitteePacketPdf';
+import { buildCommitteePacketDocumentMetadata } from '../utils/committeePacketMetadata';
 import RecordApprovalModal from '../components/committee/RecordApprovalModal';
 import CommitteeMembersModal from '../components/committee/CommitteeMembersModal';
 import { successToast, errorToast } from '../utils/toast';
@@ -23,11 +26,13 @@ export default function MonthlyCommitteeApproval() {
   const [periodKey, setPeriodKey] = useState('2026-09');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [uploadingPacket, setUploadingPacket] = useState(false);
 
   // Data states
   const [packetData, setPacketData] = useState(null);
   const [approvalData, setApprovalData] = useState(null);
   const [members, setMembers] = useState([]);
+  const [closeRecord, setCloseRecord] = useState(null);
 
   // Modals
   const [approvalModalOpen, setApprovalModalOpen] = useState(false);
@@ -36,15 +41,21 @@ export default function MonthlyCommitteeApproval() {
 
   const loadData = useCallback(async () => {
     try {
-      const [pktRes, appRes, memRes] = await Promise.all([
+      const [pktRes, appRes, memRes, closeRes] = await Promise.all([
         committeeApi.getMonthlyExpensePacket(periodKey),
         committeeApi.getMonthlyCommitteeApproval(periodKey),
-        committeeApi.getCommitteeMembers()
+        committeeApi.getCommitteeMembers(),
+        monthlyCloseApi.getMonthlyClose({ periodKey }).catch(() => null)
       ]);
 
       if (pktRes && pktRes.success) setPacketData(pktRes);
       if (appRes && appRes.success) setApprovalData(appRes);
       if (memRes && memRes.success) setMembers(memRes.members || []);
+      if (closeRes && closeRes.closeRecord) {
+        setCloseRecord(closeRes.closeRecord);
+      } else {
+        setCloseRecord(null);
+      }
     } catch (err) {
       console.error('Failed to load committee approval data:', err);
       errorToast('Failed to load committee governance data.');
@@ -86,6 +97,56 @@ export default function MonthlyCommitteeApproval() {
     }
   };
 
+  const handleRegisterCanonicalPacket = async () => {
+    if (!packetData || !packetData.summary) {
+      errorToast('Expense packet data not ready.');
+      return;
+    }
+    if (!approval || (approvalStatus !== 'APPROVED' && approvalStatus !== 'APPROVED_WITH_EXCEPTIONS')) {
+      errorToast('Committee must ratify the packet before registering canonical evidence.');
+      return;
+    }
+
+    setUploadingPacket(true);
+    try {
+      const pdf = generateCommitteePacketPdf({
+        summary: packetData.summary,
+        expenses: packetData.expenses || [],
+        reimbursementSettlements: packetData.reimbursementSettlements || [],
+        approval: approval,
+        decisions: decisions
+      });
+
+      const fileBase64 = pdf.getBase64();
+      const fileName = pdf.fileName;
+      const documentMetadata = buildCommitteePacketDocumentMetadata(approval);
+
+      const uploadRes = await documentApi.uploadDocument({
+        fileBase64,
+        originalFileName: fileName,
+        mimeType: 'application/pdf',
+        ...documentMetadata,
+        title: `GPBC Committee Approval Packet - ${periodKey} V${approval.packetVersion || 1}`,
+        documentDate: approval.meetingDate || new Date().toISOString().split('T')[0],
+        postCloseReason: isAccountingClosed ? 'Monthly Committee Governance Ratification' : undefined,
+        notes: `Packet fingerprint: ${summary.packetHash} | Version: ${approval.packetVersion}`,
+        isAuthoritative: true
+      });
+
+      if (uploadRes && uploadRes.success) {
+        successToast(`Canonical packet stored in Drive & registered (${uploadRes.documentId}).`);
+        loadData();
+      } else {
+        errorToast(uploadRes?.message || 'Failed to register document.');
+      }
+    } catch (err) {
+      console.error(err);
+      errorToast(err.message || 'Failed to upload canonical packet.');
+    } finally {
+      setUploadingPacket(false);
+    }
+  };
+
   const summary = packetData?.summary || {
     totalRecognizedExpenses: 0,
     expenseCount: 0,
@@ -111,7 +172,11 @@ export default function MonthlyCommitteeApproval() {
   const isExceptionsResolved = (summary.needsClarificationCount || 0) === 0;
   const isPacketGenerated = Boolean(packetData);
   const isApprovalRecorded = Boolean(approval && (approvalStatus === 'APPROVED' || approvalStatus === 'APPROVED_WITH_EXCEPTIONS'));
-  const isAccountingClosed = periodKey === '2026-09'; // September is closed
+
+  // Authoritative Close Status from Backend Monthly_Close
+  const closeStatusRaw = String(closeRecord?.status || 'OPEN').toUpperCase();
+  const accountingCloseStatus = ['OPEN', 'READY', 'CLOSED'].includes(closeStatusRaw) ? closeStatusRaw : 'OPEN';
+  const isAccountingClosed = accountingCloseStatus === 'CLOSED';
 
   return (
     <div className="committee-page-container">
@@ -163,6 +228,19 @@ export default function MonthlyCommitteeApproval() {
             <Download size={16} />
             <span>Export PDF Packet</span>
           </button>
+
+          {approval && (approvalStatus === 'APPROVED' || approvalStatus === 'APPROVED_WITH_EXCEPTIONS') && (
+            <button
+              type="button"
+              className="committee-btn committee-btn-secondary"
+              onClick={handleRegisterCanonicalPacket}
+              disabled={uploadingPacket}
+              title="Store canonical approval packet in Google Drive and register in Document_Register"
+            >
+              <CloudUpload size={16} />
+              <span>{uploadingPacket ? 'Registering...' : approval.documentId ? `Registered (${approval.documentId})` : 'Store Canonical Evidence'}</span>
+            </button>
+          )}
 
           {isAdmin && (
             <button
@@ -249,9 +327,10 @@ export default function MonthlyCommitteeApproval() {
             {isApprovalRecorded ? <Check size={14} /> : <Clock size={14} />}
             <span>Committee approval recorded</span>
           </div>
-          <div className={`checklist-step ${isAccountingClosed ? 'done' : 'pending'}`}>
+          <div className={`checklist-step ${isAccountingClosed ? 'done' : accountingCloseStatus === 'READY' ? 'ready' : 'pending'}`}>
             {isAccountingClosed ? <Check size={14} /> : <Clock size={14} />}
             <span>Accounting close status</span>
+            <span>: {accountingCloseStatus}</span>
           </div>
         </div>
       </div>

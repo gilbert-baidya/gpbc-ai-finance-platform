@@ -1,5 +1,6 @@
 import { jsPDF } from 'jspdf';
 import { ExpensePacketSummary, PacketExpenseItem, ReimbursementSettlementItem, MonthlyCommitteeApprovalRecord, CommitteeDecisionRecord } from '../api/committeeApi';
+import { CHURCH_CONFIG } from '../tenants/tenantConfig';
 
 export interface CommitteePacketPdfOptions {
   summary: ExpensePacketSummary;
@@ -11,6 +12,7 @@ export interface CommitteePacketPdfOptions {
 
 export function generateCommitteePacketPdf(options: CommitteePacketPdfOptions) {
   const { summary, expenses, reimbursementSettlements = [], approval, decisions = [] } = options;
+  const isDraft = !approval || (approval.status !== 'APPROVED' && approval.status !== 'APPROVED_WITH_EXCEPTIONS');
   const doc = new jsPDF();
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
@@ -26,16 +28,27 @@ export function generateCommitteePacketPdf(options: CommitteePacketPdfOptions) {
   };
 
   const renderHeader = () => {
+    if (isDraft) {
+      doc.setFillColor(254, 242, 242);
+      doc.setDrawColor(239, 68, 68);
+      doc.roundedRect(margin, y, pageWidth - (margin * 2), 9, 2, 2, 'FD');
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(185, 28, 28);
+      doc.text('DRAFT — NOT YET COMMITTEE APPROVED', pageWidth / 2, y + 6, { align: 'center' });
+      y += 13;
+    }
+
     doc.setFontSize(16);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(30, 41, 59);
-    doc.text('Grace and Praise Bangladeshi Church', margin, y);
+    doc.text(CHURCH_CONFIG.name, margin, y);
     y += 6;
 
     doc.setFontSize(10);
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(100, 116, 139);
-    doc.text('1325 Richardson St., San Bernardino, CA 92408 | EIN: 39-4558295', margin, y);
+    doc.text(`${CHURCH_CONFIG.address} | EIN: ${CHURCH_CONFIG.ein}`, margin, y);
     y += 8;
 
     doc.setDrawColor(203, 213, 225);
@@ -52,7 +65,9 @@ export function generateCommitteePacketPdf(options: CommitteePacketPdfOptions) {
     doc.setFontSize(9);
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(71, 85, 105);
-    const versionText = approval ? ('Version: ' + approval.packetVersion + ' | Status: ' + approval.status) : 'Version: DRAFT PACKET';
+    const versionText = isDraft
+      ? 'Status: DRAFT — NOT YET COMMITTEE APPROVED'
+      : ('Version: V' + approval.packetVersion + ' | Status: ' + approval.status);
     doc.text(versionText, margin, y);
     doc.text('Packet Fingerprint: ' + (summary.packetHash || 'pending'), pageWidth - margin, y, { align: 'right' });
     y += 9;
@@ -283,11 +298,17 @@ export function generateCommitteePacketPdf(options: CommitteePacketPdfOptions) {
     doc.text('Page ' + i + ' of ' + totalPages, pageWidth - margin, pageHeight - 10, { align: 'right' });
   }
 
-  const fileName = 'GPBC_Committee_Packet_' + summary.periodKey + '_V' + (approval?.packetVersion || 1) + '.pdf';
+  const fileName = isDraft
+    ? ('GPBC_Committee_Packet_' + summary.periodKey + '_DRAFT.pdf')
+    : ('GPBC_Committee_Packet_' + summary.periodKey + '_V' + (approval?.packetVersion || 1) + '.pdf');
 
   return {
     doc,
     fileName,
-    save: () => doc.save(fileName)
+    save: () => doc.save(fileName),
+    getBase64: () => {
+      const dataUri = doc.output('datauristring');
+      return dataUri.split(',')[1];
+    }
   };
 }

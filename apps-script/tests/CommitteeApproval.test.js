@@ -340,7 +340,9 @@ describe('Monthly Committee Expense Approval Service', () => {
       const outcome = calculateApprovalOutcome('MAJORITY_OF_ELIGIBLE_MEMBERS', members, [
         { memberId: 'M1', decision: 'APPROVED' },
         { memberId: 'M2', decision: 'APPROVED' },
-        { memberId: 'M3', decision: 'APPROVED' }
+        { memberId: 'M3', decision: 'APPROVED' },
+        { memberId: 'M4', decision: 'NOT_PRESENT' },
+        { memberId: 'M5', decision: 'NOT_PRESENT' }
       ]);
       expect(outcome.isThresholdMet).toBe(true);
       expect(outcome.requiredApprovalCount).toBe(3);
@@ -352,7 +354,9 @@ describe('Monthly Committee Expense Approval Service', () => {
       const outcome = calculateApprovalOutcome('MAJORITY_OF_ELIGIBLE_MEMBERS', members, [
         { memberId: 'M1', decision: 'APPROVED' },
         { memberId: 'M2', decision: 'APPROVED_WITH_COMMENT', comment: 'Receipt for HVAC needs follow-up' },
-        { memberId: 'M3', decision: 'APPROVED' }
+        { memberId: 'M3', decision: 'APPROVED' },
+        { memberId: 'M4', decision: 'NOT_PRESENT' },
+        { memberId: 'M5', decision: 'NOT_PRESENT' }
       ]);
       expect(outcome.isThresholdMet).toBe(true);
       expect(outcome.status).toBe('APPROVED_WITH_EXCEPTIONS');
@@ -364,7 +368,8 @@ describe('Monthly Committee Expense Approval Service', () => {
         { memberId: 'M1', decision: 'APPROVED' },
         { memberId: 'M2', decision: 'APPROVED' },
         { memberId: 'M3', decision: 'APPROVED' },
-        { memberId: 'M4', decision: 'RETURNED_FOR_CLARIFICATION', comment: 'Need invoice copy' }
+        { memberId: 'M4', decision: 'RETURNED_FOR_CLARIFICATION', comment: 'Need invoice copy' },
+        { memberId: 'M5', decision: 'NOT_PRESENT' }
       ]);
       expect(outcome.isThresholdMet).toBe(false);
       expect(outcome.status).toBe('RETURNED_FOR_CLARIFICATION');
@@ -383,6 +388,20 @@ describe('Monthly Committee Expense Approval Service', () => {
       expect(outcome.requiredApprovalCount).toBe(4);
       expect(outcome.actualApprovalCount).toBe(4);
       expect(outcome.status).toBe('APPROVED');
+    });
+
+    it('rejects missing, unknown, and invalid decisions before writing approval data', () => {
+      expect(() => calculateApprovalOutcome('MAJORITY_OF_ELIGIBLE_MEMBERS', members, [
+        { memberId: 'M1', decision: 'APPROVED' }
+      ])).toThrow(/Missing committee decision/);
+
+      expect(() => calculateApprovalOutcome('MAJORITY_OF_ELIGIBLE_MEMBERS', members, [
+        { memberId: 'M1', decision: 'APPROVED' },
+        { memberId: 'M2', decision: 'APPROVED' },
+        { memberId: 'M3', decision: 'APPROVED' },
+        { memberId: 'M4', decision: 'NOT_PRESENT' },
+        { memberId: 'M5', decision: 'NOPE' }
+      ])).toThrow(/Invalid or unrecorded committee decision/);
     });
   });
 
@@ -594,6 +613,23 @@ describe('Monthly Committee Expense Approval Service', () => {
 
       // Unknown user is denied
       expect(authorizeAction('getMonthlyCommitteeApproval', 'Unknown Role').authorized).toBe(false);
+    });
+
+    it('denies direct committee writes for Viewer and Presbyter identities', () => {
+      expect(() => addCommitteeMember({ fullName: 'Blocked Viewer', roleTitle: 'Member' }, 'viewer@gracepraise.church'))
+        .toThrow(/Unauthorized/);
+      expect(() => addCommitteeMember({ fullName: 'Blocked Presbyter', roleTitle: 'Member' }, 'presbyter@socalnetwork.org'))
+        .toThrow(/Unauthorized/);
+    });
+
+    it('rejects an unknown member ID before recording any approval rows', () => {
+      addCommitteeMember({ fullName: 'Known Member', roleTitle: 'Treasurer', effectiveFrom: '2026-01-01' }, 'primary.admin@gracepraise.church');
+      expect(() => recordCommitteeApproval({
+        periodKey: '2026-08',
+        decisions: [{ memberId: 'NOT-A-REAL-MEMBER', decision: 'APPROVED' }]
+      }, 'finance.editor@gracepraise.church')).toThrow(/Unknown or ineligible committee member ID/);
+      expect(mockDb.getSheetByName('Monthly_Committee_Approval').getLastRow()).toBe(1);
+      expect(mockDb.getSheetByName('Committee_Approval_Decisions').getLastRow()).toBe(1);
     });
   });
 });

@@ -7,6 +7,7 @@ export type DocumentType =
   | 'Credit Card Statement'
   | 'Capital Project'
   | 'Finance Report'
+  | 'Committee Approval Packet'
   | 'Other Supporting Document';
 
 export type DocumentStatus =
@@ -31,6 +32,9 @@ export interface DocumentRecord {
   financeMonth: number;
   relatedEntityType?: string;
   relatedEntityId?: string;
+  periodKey?: string;
+  packetVersion?: number;
+  packetHash?: string;
   relatedTransactionId?: string;
   relatedReimbursementId?: string;
   relatedCapitalProjectId?: string;
