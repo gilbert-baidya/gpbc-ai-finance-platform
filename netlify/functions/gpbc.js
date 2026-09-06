@@ -8,7 +8,7 @@
  * receives final JSON responses directly without cross-origin redirects.
  */
 
-const UPSTREAM_URL = 'https://script.google.com/macros/s/AKfycbwx3CYYFDu_wUIepfOuY3rVu9OE9lC5woV1X01lcDYFz_QMMx25wsyviSamIKkhILG5/exec';
+const UPSTREAM_URL = 'https://script.google.com/macros/s/AKfycbzDMKjMowjTPOpqvvPIiv7YjWNrCs-orCgUhRKlnD7iutv8zif7GcyUFYrVPlrZ8_51pQ/exec';
 
 export const handler = async (event) => {
   const method = event.httpMethod;

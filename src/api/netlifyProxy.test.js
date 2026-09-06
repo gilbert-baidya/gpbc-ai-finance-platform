@@ -34,7 +34,7 @@ describe('Netlify API Proxy Function (gpbc.js)', () => {
     expect(res.headers['Cache-Control']).toBe('no-store');
 
     expect(globalThis.fetch).toHaveBeenCalledWith(
-      'https://script.google.com/macros/s/AKfycbwx3CYYFDu_wUIepfOuY3rVu9OE9lC5woV1X01lcDYFz_QMMx25wsyviSamIKkhILG5/exec',
+      'https://script.google.com/macros/s/AKfycbzDMKjMowjTPOpqvvPIiv7YjWNrCs-orCgUhRKlnD7iutv8zif7GcyUFYrVPlrZ8_51pQ/exec',
       expect.objectContaining({
         method: 'GET',
         redirect: 'follow',
@@ -54,7 +54,7 @@ describe('Netlify API Proxy Function (gpbc.js)', () => {
     expect(res.statusCode).toBe(200);
 
     expect(globalThis.fetch).toHaveBeenCalledWith(
-      'https://script.google.com/macros/s/AKfycbwx3CYYFDu_wUIepfOuY3rVu9OE9lC5woV1X01lcDYFz_QMMx25wsyviSamIKkhILG5/exec?action=health',
+      'https://script.google.com/macros/s/AKfycbzDMKjMowjTPOpqvvPIiv7YjWNrCs-orCgUhRKlnD7iutv8zif7GcyUFYrVPlrZ8_51pQ/exec?action=health',
       expect.objectContaining({
         method: 'GET',
         redirect: 'follow',
@@ -81,7 +81,7 @@ describe('Netlify API Proxy Function (gpbc.js)', () => {
     expect(res.body).toBe(mockResponse);
 
     expect(globalThis.fetch).toHaveBeenCalledWith(
-      'https://script.google.com/macros/s/AKfycbwx3CYYFDu_wUIepfOuY3rVu9OE9lC5woV1X01lcDYFz_QMMx25wsyviSamIKkhILG5/exec',
+      'https://script.google.com/macros/s/AKfycbzDMKjMowjTPOpqvvPIiv7YjWNrCs-orCgUhRKlnD7iutv8zif7GcyUFYrVPlrZ8_51pQ/exec',
       expect.objectContaining({
         method: 'POST',
         headers: expect.objectContaining({ 'Content-Type': 'text/plain' }),
@@ -136,7 +136,7 @@ describe('Netlify API Proxy Function (gpbc.js)', () => {
     expect(res.body).not.toContain('script.googleusercontent.com');
 
     expect(globalThis.fetch).toHaveBeenCalledWith(
-      'https://script.google.com/macros/s/AKfycbwx3CYYFDu_wUIepfOuY3rVu9OE9lC5woV1X01lcDYFz_QMMx25wsyviSamIKkhILG5/exec',
+      'https://script.google.com/macros/s/AKfycbzDMKjMowjTPOpqvvPIiv7YjWNrCs-orCgUhRKlnD7iutv8zif7GcyUFYrVPlrZ8_51pQ/exec',
       expect.objectContaining({
         method: 'POST',
         headers: expect.objectContaining({ 'Content-Type': 'text/plain' }),

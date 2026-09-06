@@ -17,7 +17,7 @@
  */
 
 const UPSTREAM_URL =
-  'https://script.google.com/macros/s/AKfycbwx3CYYFDu_wUIepfOuY3rVu9OE9lC5woV1X01lcDYFz_QMMx25wsyviSamIKkhILG5/exec';
+  'https://script.google.com/macros/s/AKfycbzDMKjMowjTPOpqvvPIiv7YjWNrCs-orCgUhRKlnD7iutv8zif7GcyUFYrVPlrZ8_51pQ/exec';
 
 const ALLOWED_ROLES = ['Primary Admin', 'Backup Admin', 'Finance Editor'];
 const DENIED_ROLES = ['Viewer', 'Presbyter Read-Only', 'Presbyter'];
