@@ -1,7 +1,7 @@
 import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import Reconciliation from './Reconciliation';
+import Reconciliation, { formatFinancialAmount } from './Reconciliation';
 import { reconciliationApi } from '../api/reconciliationApi';
 import { AuthProvider, useAuth } from '../context/AuthContext';
 import { PeriodProvider } from '../context/PeriodContext';
@@ -35,6 +35,45 @@ const AuthInitializer = ({ children }) => {
 describe('Reconciliation UI Page & Modal Button Rendering Suite', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
+  });
+
+  it.each([
+    ['undefined', undefined, '—'],
+    ['null', null, '—'],
+    ['numeric', 12.5, '$12.50'],
+    ['zero', 0, '$0.00']
+  ])('renders safely when expectedAmount is %s', async (_label, expectedAmount, expectedDisplay) => {
+    reconciliationApi.getReconciliationRecords.mockResolvedValue({
+      success: true,
+      summary: { totalRecords: 1, matchedCount: 0, reconciledCount: 0, unmatchedCount: 1, needsReviewCount: 0, differenceAmount: 0, differenceFormatted: '$0.00' },
+      records: [{
+        transactionId: `TXN-EXPECTED-${_label}`,
+        transactionDate: '2026-09-02',
+        transactionType: 'Expense',
+        payeeOrPayer: 'Test Vendor',
+        expectedAmount,
+        reconciliationStatus: 'UNMATCHED',
+        differenceAmount: 0,
+        differenceFormatted: '$0.00',
+        evidenceStatus: 'No Evidence'
+      }]
+    });
+
+    expect(() => formatFinancialAmount(expectedAmount)).not.toThrow();
+    expect(formatFinancialAmount(expectedAmount)).toBe(expectedDisplay);
+
+    render(
+      <TestWrapper>
+        <Reconciliation />
+      </TestWrapper>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText(`TXN-EXPECTED-${_label}`)).toBeInTheDocument();
+    });
+
+    expect(screen.getAllByText(expectedDisplay).length).toBeGreaterThan(0);
+    expect(screen.queryByText(/NaN/)).not.toBeInTheDocument();
   });
 
   it('renders visible enabled Reconcile button when status is MATCHED and rules are satisfied', async () => {

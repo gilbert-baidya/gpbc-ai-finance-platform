@@ -34,6 +34,30 @@ import { EvidenceDrawerModal } from '../components/EvidenceDrawerModal';
 import SmartStatementImportModal from '../components/statement/SmartStatementImportModal';
 import StatementReviewQueue from '../components/statement/StatementReviewQueue';
 
+export function normalizeFinancialAmount(value) {
+  if (value === null || value === undefined || value === '') return null;
+  const amount = typeof value === 'number' ? value : Number(value);
+  return Number.isFinite(amount) ? amount : null;
+}
+
+export function formatFinancialAmount(value) {
+  const amount = normalizeFinancialAmount(value);
+  return amount === null ? '—' : `$${amount.toFixed(2)}`;
+}
+
+function normalizeReconciliationRecord(record) {
+  const differenceAmount = normalizeFinancialAmount(record.differenceAmount);
+  return {
+    ...record,
+    expectedAmount: normalizeFinancialAmount(record.expectedAmount),
+    reconciledAmount: normalizeFinancialAmount(record.reconciledAmount),
+    differenceAmount,
+    differenceFormatted: differenceAmount === null
+      ? (record.differenceFormatted || '—')
+      : formatFinancialAmount(differenceAmount)
+  };
+}
+
 export default function Reconciliation() {
   const { user } = useAuth();
   const { periodKey, setPeriodKey } = usePeriod();
@@ -123,7 +147,8 @@ export default function Reconciliation() {
   };
 
   // Filter records by tab
-  const filteredRecords = records.filter(r => {
+  const normalizedRecords = records.map(normalizeReconciliationRecord);
+  const filteredRecords = normalizedRecords.filter(r => {
     if (activeTab === 'ALL') return true;
     return r.reconciliationStatus === activeTab;
   });
@@ -369,7 +394,7 @@ export default function Reconciliation() {
                       <td style={{ padding: '10px', fontWeight: 600 }}>{r.payeeOrPayer || '—'}</td>
                       <td style={{ padding: '10px', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.description || '—'}</td>
                       <td style={{ padding: '10px', textAlign: 'right', fontWeight: 700, color: r.direction === 'INCOME' ? 'var(--forest-green)' : 'var(--slate-blue-dark)' }}>
-                        ${r.expectedAmount.toFixed(2)}
+                        {formatFinancialAmount(r.expectedAmount)}
                       </td>
                       <td style={{ padding: '10px' }}>
                         <span
@@ -443,7 +468,7 @@ export default function Reconciliation() {
                     </div>
                     <div style={{ textAlign: 'right' }}>
                       <div style={{ fontWeight: 800, fontSize: '1.1rem', color: r.direction === 'INCOME' ? 'var(--forest-green)' : 'var(--slate-blue-dark)' }}>
-                        ${r.expectedAmount.toFixed(2)}
+                        {formatFinancialAmount(r.expectedAmount)}
                       </div>
                       {r.differenceAmount !== 0 && (
                         <div style={{ fontSize: '0.75rem', color: r.differenceAmount > 0 ? '#B06000' : 'var(--forest-green)', fontWeight: 600 }}>
@@ -540,7 +565,7 @@ export default function Reconciliation() {
                 <div><strong>Date:</strong> {selectedRecord.transactionDate}</div>
                 <div><strong>Type:</strong> {selectedRecord.transactionType}</div>
                 <div><strong>Payee/Payer:</strong> {selectedRecord.payeeOrPayer}</div>
-                <div><strong>Expected Amount:</strong> ${selectedRecord.expectedAmount.toFixed(2)}</div>
+                <div><strong>Expected Amount:</strong> {formatFinancialAmount(selectedRecord.expectedAmount)}</div>
                 <div><strong>Evidence Status:</strong> {selectedRecord.evidenceStatus}</div>
                 <div><strong>Difference:</strong> {selectedRecord.differenceFormatted}</div>
               </div>
