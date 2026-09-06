@@ -578,6 +578,223 @@ export function getMockFixture(action: string, payload: Record<string, unknown> 
         count: 2
       };
 
+    case 'getCommitteeMembers':
+      return {
+        success: true,
+        members: [
+          {
+            memberId: 'CM-001',
+            fullName: 'Rev. Gilbert S. Baidya',
+            roleTitle: 'Pastor / Chair',
+            email: 'pastor.gilbert@gracepraise.church',
+            phone: '909-763-0454',
+            status: 'ACTIVE',
+            effectiveFrom: '2024-01-01'
+          },
+          {
+            memberId: 'CM-002',
+            fullName: 'Barnali Baidya',
+            roleTitle: 'Secretary',
+            email: 'secretary@gracepraise.church',
+            status: 'ACTIVE',
+            effectiveFrom: '2024-01-01'
+          },
+          {
+            memberId: 'CM-003',
+            fullName: 'Subhash Roy',
+            roleTitle: 'Treasurer',
+            email: 'treasurer@gracepraise.church',
+            status: 'ACTIVE',
+            effectiveFrom: '2024-01-01'
+          },
+          {
+            memberId: 'CM-004',
+            fullName: 'Prodip Mazumder',
+            roleTitle: 'Board Member',
+            status: 'ACTIVE',
+            effectiveFrom: '2024-01-01'
+          },
+          {
+            memberId: 'CM-005',
+            fullName: 'Nirmal Halder',
+            roleTitle: 'Board Member',
+            status: 'ACTIVE',
+            effectiveFrom: '2024-01-01'
+          }
+        ]
+      };
+
+    case 'getMonthlyExpensePacket':
+      return {
+        success: true,
+        periodKey: '2026-09',
+        summary: {
+          churchName: 'Grace and Praise Bangladeshi Church',
+          address: '1325 Richardson St., San Bernardino, CA 92408',
+          periodKey: '2026-09',
+          startDate: '2026-09-01',
+          endDate: '2026-09-30',
+          totalRecognizedExpenses: 3043.21,
+          expenseCount: 3,
+          receiptsCompleteCount: 2,
+          missingEvidenceCount: 1,
+          needsClarificationCount: 0,
+          reimbursementSettlementTotal: 250.00,
+          reimbursementSettlementCount: 1,
+          capitalProjectTotal: 0.00,
+          packetHash: 'hash_sep2026_mock'
+        },
+        expenses: [
+          {
+            transactionId: 'TXN-2026-002',
+            date: '2026-09-02',
+            payeeOrPayer: 'Pacific Gas & Electric',
+            category: 'Utilities',
+            description: 'Monthly Sanctuary Electric & Gas',
+            amount: 384.50,
+            paymentMethod: 'ACH',
+            receiptStatus: 'ATTACHED',
+            receiptId: 'DOC-2026-001',
+            reconciliationStatus: 'RECONCILED',
+            accountingImpact: 'EXPENSE'
+          },
+          {
+            transactionId: 'TXN-2026-003',
+            date: '2026-09-03',
+            payeeOrPayer: 'Churchwest Insurance',
+            category: 'Insurance',
+            description: 'Church Property & Liability Policy',
+            amount: 2567.50,
+            paymentMethod: 'ACH',
+            receiptStatus: 'ATTACHED',
+            receiptId: 'DOC-2026-002',
+            reconciliationStatus: 'RECONCILED',
+            accountingImpact: 'EXPENSE'
+          },
+          {
+            transactionId: 'TXN-2026-004',
+            date: '2026-09-04',
+            payeeOrPayer: 'San Bernardino Alarm',
+            category: 'Security & Utilities',
+            description: 'Alarm Monitoring Service',
+            amount: 31.21,
+            paymentMethod: 'DEBIT_CARD',
+            receiptStatus: 'MISSING',
+            receiptId: '',
+            reconciliationStatus: 'RECONCILED',
+            accountingImpact: 'EXPENSE'
+          }
+        ],
+        reimbursementSettlements: [
+          {
+            transactionId: 'TXN-2026-005',
+            date: '2026-09-10',
+            payeeOrPayer: 'Sarah Jenkins',
+            amount: 250.00,
+            paymentMethod: 'CHECK',
+            checkNumber: '1048',
+            notes: 'Reimbursement settlement payout'
+          }
+        ],
+        packetHash: 'hash_sep2026_mock'
+      };
+
+    case 'getMonthlyCommitteeApproval':
+      return {
+        success: true,
+        periodKey: '2026-09',
+        approval: {
+          approvalId: 'MCA-202609-V1',
+          periodKey: '2026-09',
+          packetVersion: 1,
+          isLatestVersion: true,
+          status: 'APPROVED',
+          totalRecognizedExpenses: 3043.21,
+          expenseCount: 3,
+          receiptsCompleteCount: 2,
+          missingEvidenceCount: 1,
+          needsClarificationCount: 0,
+          reimbursementSettlementTotal: 250.00,
+          capitalProjectTotal: 0.00,
+          packetHash: 'hash_sep2026_mock',
+          expenseSnapshotJson: '[]',
+          approvalRuleSnapshot: 'MAJORITY_OF_ELIGIBLE_MEMBERS',
+          eligibleMemberCount: 5,
+          requiredApprovalCount: 3,
+          actualApprovalCount: 4,
+          meetingDate: '2026-09-30',
+          approvalMethod: 'COMMITTEE_MEETING',
+          meetingMinutesRef: 'Minutes #2026-09-30',
+          generalComments: 'Reviewed and ratified by church committee.'
+        },
+        decisions: [
+          {
+            decisionId: 'CAD-202609-1-1',
+            approvalId: 'MCA-202609-V1',
+            periodKey: '2026-09',
+            packetVersion: 1,
+            memberId: 'CM-001',
+            memberNameSnapshot: 'Rev. Gilbert S. Baidya',
+            memberRoleSnapshot: 'Pastor / Chair',
+            decision: 'APPROVED',
+            decisionDate: '2026-09-30',
+            approvalMethod: 'COMMITTEE_MEETING'
+          },
+          {
+            decisionId: 'CAD-202609-1-2',
+            approvalId: 'MCA-202609-V1',
+            periodKey: '2026-09',
+            packetVersion: 1,
+            memberId: 'CM-002',
+            memberNameSnapshot: 'Barnali Baidya',
+            memberRoleSnapshot: 'Secretary',
+            decision: 'APPROVED',
+            decisionDate: '2026-09-30',
+            approvalMethod: 'COMMITTEE_MEETING'
+          },
+          {
+            decisionId: 'CAD-202609-1-3',
+            approvalId: 'MCA-202609-V1',
+            periodKey: '2026-09',
+            packetVersion: 1,
+            memberId: 'CM-003',
+            memberNameSnapshot: 'Subhash Roy',
+            memberRoleSnapshot: 'Treasurer',
+            decision: 'APPROVED_WITH_COMMENT',
+            decisionDate: '2026-09-30',
+            approvalMethod: 'COMMITTEE_MEETING',
+            comment: 'Attach alarm receipt when received'
+          },
+          {
+            decisionId: 'CAD-202609-1-4',
+            approvalId: 'MCA-202609-V1',
+            periodKey: '2026-09',
+            packetVersion: 1,
+            memberId: 'CM-004',
+            memberNameSnapshot: 'Prodip Mazumder',
+            memberRoleSnapshot: 'Board Member',
+            decision: 'APPROVED',
+            decisionDate: '2026-09-30',
+            approvalMethod: 'COMMITTEE_MEETING'
+          },
+          {
+            decisionId: 'CAD-202609-1-5',
+            approvalId: 'MCA-202609-V1',
+            periodKey: '2026-09',
+            packetVersion: 1,
+            memberId: 'CM-005',
+            memberNameSnapshot: 'Nirmal Halder',
+            memberRoleSnapshot: 'Board Member',
+            decision: 'NOT_PRESENT',
+            decisionDate: '2026-09-30',
+            approvalMethod: 'COMMITTEE_MEETING'
+          }
+        ],
+        history: [],
+        hasPacketChanged: false,
+        amendmentRequired: false
+      };
+
     default:
       return {
         success: true,

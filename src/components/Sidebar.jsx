@@ -33,6 +33,7 @@ const Sidebar = ({ mobileOpen = false, onClose }) => {
       group: 'Executive Oversight',
       items: [
         { icon: <FileCheck2 size={18} />, label: 'Presbyter Reports', path: '/presbyter-reports', isPrimary: true },
+        { icon: <ShieldCheck size={18} />, label: 'Committee Approval', path: '/committee-approval' },
         { icon: <BookOpen size={18} />, label: 'Help & Training', path: '/help' }
       ]
     }
@@ -66,6 +67,7 @@ const Sidebar = ({ mobileOpen = false, onClose }) => {
       items: [
         { icon: <GitCompare size={18} />, label: 'Reconciliation', path: '/reconciliation' },
         { icon: <ShieldCheck size={18} />, label: 'Audit Center', path: '/audit' },
+        { icon: <CheckSquare size={18} />, label: 'Committee Approval', path: '/committee-approval' },
         { icon: <CalendarCheck size={18} />, label: 'Monthly Close', path: '/monthly-close' },
         { icon: <FileCheck2 size={18} />, label: 'Presbyter Reports', path: '/presbyter-reports' }
       ],

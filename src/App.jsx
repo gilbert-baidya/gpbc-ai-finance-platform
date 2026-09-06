@@ -19,6 +19,7 @@ import {
   Reconciliation,
   AuditCenter,
   MonthlyClose,
+  MonthlyCommitteeApproval,
   PresbyterReports,
   Settings,
   HelpCenter,
@@ -73,6 +74,7 @@ function App() {
                   {/* Control & Oversight Routes */}
                   <Route path="reconciliation" element={<Reconciliation />} />
                   <Route path="audit" element={<AuditCenter />} />
+                  <Route path="committee-approval" element={<MonthlyCommitteeApproval />} />
                   <Route path="monthly-close" element={<MonthlyClose />} />
                   <Route path="presbyter-reports" element={<PresbyterReports />} />
                   <Route path="settings" element={<Settings />} />

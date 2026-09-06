@@ -4,13 +4,19 @@
  *************************************************/
 
 // In Node/test environment, load FinanceMath helpers
-if (typeof require !== "undefined" && typeof assertPeriodWritable === "undefined") {
-  const financeMath = require("./FinanceMath.gs");
-  global.assertPeriodWritable = financeMath.assertPeriodWritable;
-  global.getPeriodKey = financeMath.getPeriodKey;
-  global.getPeriodBounds = financeMath.getPeriodBounds;
-  global.isDateInClosedPeriod = financeMath.isDateInClosedPeriod;
-  global.calculatePurchaseBalance = financeMath.calculatePurchaseBalance;
+if (typeof require !== "undefined") {
+  if (typeof assertPeriodWritable === "undefined") {
+    const financeMath = require("./FinanceMath.gs");
+    global.assertPeriodWritable = financeMath.assertPeriodWritable;
+    global.getPeriodKey = financeMath.getPeriodKey;
+    global.getPeriodBounds = financeMath.getPeriodBounds;
+    global.isDateInClosedPeriod = financeMath.isDateInClosedPeriod;
+    global.calculatePurchaseBalance = financeMath.calculatePurchaseBalance;
+  }
+  if (typeof global.SANDBOX_SCHEMA_EXTENSIONS === "undefined") {
+    const config = require("./Config.gs");
+    global.SANDBOX_SCHEMA_EXTENSIONS = config.SANDBOX_SCHEMA_EXTENSIONS;
+  }
 }
 
 function normalizeTransactionDateValue(value) {
@@ -35,9 +41,11 @@ function initializeSandboxSchema() {
   assertSandboxSheet("initializeSandboxSchema");
   const db = getDB(true, "initializeSandboxSchema");
   const initializedTabs = [];
+  const sandboxExtensions = (typeof SANDBOX_SCHEMA_EXTENSIONS !== "undefined") ? SANDBOX_SCHEMA_EXTENSIONS : {};
+  const allTabs = Object.assign({}, SCHEMA_DEFINITIONS, sandboxExtensions);
 
-  Object.keys(SCHEMA_DEFINITIONS).forEach(function(tabName) {
-    const headers = SCHEMA_DEFINITIONS[tabName];
+  Object.keys(allTabs).forEach(function(tabName) {
+    const headers = allTabs[tabName];
     let sheet = db.getSheetByName(tabName);
 
     if (!sheet) {

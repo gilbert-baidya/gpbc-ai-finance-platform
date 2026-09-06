@@ -236,6 +236,30 @@ function getMonthlyCloseReadiness(p) {
     informational.push(postCloseDocs.length + " post-close evidence additions attached");
   }
 
+  // Committee Approval Governance Check
+  let committeeApprovalStatus = "None";
+  try {
+    if (typeof getMonthlyCommitteeApproval === "function") {
+      const commRes = getMonthlyCommitteeApproval({ periodKey: periodKey });
+      if (commRes && commRes.approval) {
+        committeeApprovalStatus = commRes.approval.status;
+      }
+    }
+  } catch (e) {
+    // Graceful fallback
+  }
+
+  const isCommitteeApproved = (committeeApprovalStatus === "APPROVED" || committeeApprovalStatus === "APPROVED_WITH_EXCEPTIONS");
+  const committeeApprovalRequired = Boolean(p.committeeApprovalRequiredForClose || false);
+
+  if (committeeApprovalRequired && !isCommitteeApproved) {
+    blockingIssues.push("Committee approval is required before closing period " + periodKey + " (current: " + committeeApprovalStatus + ")");
+  } else if (!isCommitteeApproved) {
+    informational.push("Committee approval pending for period " + periodKey + " (status: " + committeeApprovalStatus + ")");
+  } else {
+    informational.push("Committee approval recorded (" + committeeApprovalStatus + ")");
+  }
+
   const readyToClose = (blockingIssues.length === 0);
 
   // 6. Existing Close Status & Inconsistency Check
@@ -261,6 +285,8 @@ function getMonthlyCloseReadiness(p) {
     closedBy: closeRecord ? (closeRecord.closedBy || "") : "",
     closedAt: closeRecord ? (closeRecord.closedAt || "") : "",
     readyToClose: readyToClose,
+    committeeApprovalStatus: committeeApprovalStatus,
+    committeeApprovalRequired: committeeApprovalRequired,
     reportPackagePrepared: reportPackagePrepared,
     duplicateReportDetected: duplicateReportDetected,
     blockingIssues: blockingIssues,

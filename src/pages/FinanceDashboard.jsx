@@ -12,6 +12,7 @@ import {
 } from 'recharts';
 import { financeApi } from '../api/financeApi';
 import { auditApi } from '../api/auditApi';
+import { committeeApi } from '../api/committeeApi';
 import './FinanceDashboard.css';
 
 const RESOLVED_STATUSES = new Set(['Reviewed', 'Cleared', 'Reconciled', 'Resolved']);
@@ -124,7 +125,8 @@ const BreakdownCard = ({ title, data, emptyText }) => (
 
 const initialData = {
   transactions: null, reimbursements: null, receipts: null,
-  projects: null, auditIssues: null, auditHealthScore: null
+  projects: null, auditIssues: null, auditHealthScore: null,
+  committeeApproval: null
 };
 
 const FinanceDashboard = () => {
@@ -140,7 +142,8 @@ const FinanceDashboard = () => {
       ['receipts', financeApi.getReceipts()],
       ['projects', financeApi.getCapitalProjects()],
       ['auditIssues', auditApi.getAuditIssues()],
-      ['auditHealthScore', auditApi.getAuditSummary()]
+      ['auditHealthScore', auditApi.getAuditSummary()],
+      ['committeeApproval', committeeApi?.getMonthlyCommitteeApproval ? committeeApi.getMonthlyCommitteeApproval('2026-09').catch(() => null) : Promise.resolve(null)]
     ];
     const results = await Promise.allSettled(requests.map(([, request]) => request));
     const next = { ...initialData };
@@ -148,12 +151,13 @@ const FinanceDashboard = () => {
     results.forEach((result, index) => {
       const source = requests[index][0];
       if (result.status === 'rejected') {
-        failures.push(source);
+        if (source !== 'committeeApproval') failures.push(source);
       } else if (source === 'transactions') next.transactions = result.value.transactions || [];
       else if (source === 'reimbursements') next.reimbursements = result.value.reimbursements || [];
       else if (source === 'receipts') next.receipts = result.value.receipts || [];
       else if (source === 'projects') next.projects = result.value.projects || [];
       else if (source === 'auditIssues') next.auditIssues = result.value.issues || [];
+      else if (source === 'committeeApproval') next.committeeApproval = result.value?.approval || result.value || null;
       else next.auditHealthScore = result.value.healthScore || null;
     });
     setData(next);
@@ -188,6 +192,30 @@ const FinanceDashboard = () => {
   const priorityIssues = openIssues ? [...openIssues].sort((a, b) => ({ CRITICAL: 0, HIGH: 1, MEDIUM: 2, LOW: 3 }[a.severity] ?? 4) - ({ CRITICAL: 0, HIGH: 1, MEDIUM: 2, LOW: 3 }[b.severity] ?? 4)).slice(0, 5) : [];
   const auditScore = typeof data.auditHealthScore?.score === 'number' ? data.auditHealthScore.score : null;
 
+  const committeeApproval = data.committeeApproval;
+  let committeeValue = 'Pending Review';
+  let committeeDetail = 'September 2026 packet awaiting review';
+  let committeeTone = 'neutral';
+  if (committeeApproval) {
+    if (committeeApproval.approvalStatus === 'APPROVED') {
+      committeeValue = 'Approved';
+      committeeDetail = `${committeeApproval.approvalCount || 0} of ${committeeApproval.totalMembers || 0} approved · Sep 2026`;
+      committeeTone = 'positive';
+    } else if (committeeApproval.approvalStatus === 'APPROVED_WITH_EXCEPTIONS') {
+      committeeValue = 'Exceptions';
+      committeeDetail = `${committeeApproval.approvalCount || 0} of ${committeeApproval.totalMembers || 0} · Approved w/ exceptions`;
+      committeeTone = 'warning';
+    } else if (committeeApproval.approvalStatus === 'REJECTED') {
+      committeeValue = 'Returned';
+      committeeDetail = 'Committee requested revisions';
+      committeeTone = 'expense';
+    } else if (committeeApproval.approvalStatus === 'AMENDMENT_REQUIRED') {
+      committeeValue = 'Amend Needed';
+      committeeDetail = 'Underlying expenses altered';
+      committeeTone = 'warning';
+    }
+  }
+
   return (
     <div className="finance-dashboard animate-fade-in">
       <header className="fd-page-header">
@@ -218,7 +246,9 @@ const FinanceDashboard = () => {
         <div className="fd-secondary-grid">
           <Metric icon={CalendarDays} label="Sunday Offering" value={money(sundayOffering)} detail={sundayOffering === null ? 'Not available yet' : 'Recorded offering income'} unavailable={sundayOffering === null} />
           <Metric icon={HandCoins} label="Designated Donations" value={money(designatedDonations)} detail={designatedDonations === null ? 'Not available yet' : 'Purpose-restricted income'} unavailable={designatedDonations === null} />
-          <Metric icon={ReceiptText} label="Missing Receipts" value={count(missingReceipts)} detail={missingReceipts === null ? 'Not available yet' : 'Open documentation gaps'} tone="warning" unavailable={missingReceipts === null} />
+          <Link to="/committee-approval" style={{ textDecoration: 'none', color: 'inherit', display: 'block' }}>
+            <Metric icon={ShieldCheck} label="Committee Approval" value={committeeValue} detail={committeeDetail} tone={committeeTone} />
+          </Link>
           <Metric icon={BadgeDollarSign} label="Pending Reimbursements" value={money(pendingReimbursements)} detail={pendingReimbursements === null ? 'Not available yet' : 'Remaining eligible amount'} tone="warning" unavailable={pendingReimbursements === null} />
         </div>
       </section>

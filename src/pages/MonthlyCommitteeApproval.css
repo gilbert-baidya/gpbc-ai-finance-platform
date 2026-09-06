@@ -1,0 +1,382 @@
+.committee-page-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 24px 16px 48px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.committee-header-section {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.committee-title-group h1 {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.committee-subtitle {
+  color: #64748b;
+  font-size: 0.95rem;
+  margin-top: 4px;
+}
+
+.committee-header-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+/* Checklist Bar */
+.governance-checklist-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 16px 20px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.checklist-title {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #334155;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.checklist-items-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 10px;
+}
+
+.checklist-step {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 0.82rem;
+  font-weight: 500;
+}
+
+.checklist-step.done {
+  background: #f0fdf4;
+  color: #166534;
+  border: 1px solid #dcfce7;
+}
+
+.checklist-step.pending {
+  background: #f8fafc;
+  color: #64748b;
+  border: 1px solid #e2e8f0;
+}
+
+.checklist-step.warning {
+  background: #fffbeb;
+  color: #b45309;
+  border: 1px solid #fef3c7;
+}
+
+/* Metrics Grid */
+.committee-metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 16px;
+}
+
+.committee-metric-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.committee-metric-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.committee-metric-val {
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.committee-metric-sub {
+  font-size: 0.85rem;
+  color: #64748b;
+  margin-top: 2px;
+}
+
+/* Alert Banner */
+.committee-alert-banner {
+  padding: 14px 18px;
+  border-radius: 8px;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  font-size: 0.9rem;
+}
+
+.committee-alert-banner.warning {
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  color: #92400e;
+}
+
+.committee-alert-banner.danger {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #991b1b;
+}
+
+.committee-alert-banner.success {
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  color: #166534;
+}
+
+/* Ratification Status Card */
+.ratification-status-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.ratification-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.ratification-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-weight: 700;
+  font-size: 0.85rem;
+}
+
+.ratification-status-badge.APPROVED {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.ratification-status-badge.APPROVED_WITH_EXCEPTIONS {
+  background: #fef9c3;
+  color: #a16207;
+}
+
+.ratification-status-badge.SUBMITTED,
+.ratification-status-badge.READY_FOR_REVIEW {
+  background: #e0f2fe;
+  color: #0369a1;
+}
+
+.ratification-status-badge.RETURNED_FOR_CLARIFICATION {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.ratification-status-badge.DRAFT {
+  background: #f1f5f9;
+  color: #475569;
+}
+
+/* Ratification Members Grid */
+.ratification-members-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 12px;
+}
+
+.ratification-member-pill {
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 12px 14px;
+  background: #f8fafc;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.member-pill-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.member-pill-name {
+  font-weight: 600;
+  color: #0f172a;
+  font-size: 0.9rem;
+}
+
+.member-pill-role {
+  font-size: 0.75rem;
+  color: #64748b;
+}
+
+.member-pill-decision {
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+/* Expense List Card */
+.expense-schedule-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.schedule-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.schedule-title {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0;
+}
+
+.schedule-table-container {
+  overflow-x: auto;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+}
+
+.schedule-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+  text-align: left;
+}
+
+.schedule-table th {
+  background: #f8fafc;
+  padding: 12px 14px;
+  font-weight: 600;
+  color: #475569;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.schedule-table td {
+  padding: 12px 14px;
+  border-bottom: 1px solid #f1f5f9;
+  color: #1e293b;
+}
+
+/* Mobile cards for schedule */
+.mobile-schedule-cards {
+  display: none;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.mobile-expense-card {
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 14px;
+  background: #ffffff;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.mobile-card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.mobile-card-amount {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+/* History Accordion */
+.approval-history-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.history-item-row {
+  border-left: 2px solid #cbd5e1;
+  padding-left: 16px;
+  margin-left: 8px;
+  padding-bottom: 16px;
+  position: relative;
+}
+
+.history-item-row::before {
+  content: '';
+  position: absolute;
+  left: -6px;
+  top: 0;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #3b82f6;
+}
+
+@media (max-width: 768px) {
+  .schedule-table-container {
+    display: none;
+  }
+  .mobile-schedule-cards {
+    display: flex;
+  }
+  .committee-header-section {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .committee-header-actions {
+    flex-direction: column;
+  }
+  .committee-header-actions button,
+  .committee-header-actions select {
+    width: 100%;
+  }
+}

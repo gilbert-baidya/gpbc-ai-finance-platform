@@ -355,6 +355,79 @@ const SCHEMA_DEFINITIONS = {
 };
 
 /**
+ * Sandbox-Only Governance Schema Extensions
+ * These tables exist in the SANDBOX environment for monthly committee approval.
+ * They do NOT modify or pollute the canonical 16-tab production schema.
+ */
+const SANDBOX_SCHEMA_EXTENSIONS = {
+  "Committee_Members": [
+    "memberId",
+    "fullName",
+    "roleTitle",
+    "email",
+    "phone",
+    "status",
+    "effectiveFrom",
+    "effectiveTo",
+    "createdBy",
+    "createdAt",
+    "updatedBy",
+    "updatedAt"
+  ],
+  "Monthly_Committee_Approval": [
+    "approvalId",
+    "periodKey",
+    "packetVersion",
+    "isLatestVersion",
+    "status",
+    "totalRecognizedExpenses",
+    "expenseCount",
+    "receiptsCompleteCount",
+    "missingEvidenceCount",
+    "needsClarificationCount",
+    "reimbursementSettlementTotal",
+    "capitalProjectTotal",
+    "packetHash",
+    "expenseSnapshotJson",
+    "approvalRuleSnapshot",
+    "eligibleMemberCount",
+    "requiredApprovalCount",
+    "actualApprovalCount",
+    "meetingDate",
+    "approvalMethod",
+    "meetingMinutesRef",
+    "generalComments",
+    "overrideApplied",
+    "overrideReason",
+    "overrideBy",
+    "documentId",
+    "amendmentReason",
+    "previousApprovalId",
+    "submittedBy",
+    "submittedAt",
+    "finalizedBy",
+    "finalizedAt",
+    "createdAt",
+    "updatedAt"
+  ],
+  "Committee_Approval_Decisions": [
+    "decisionId",
+    "approvalId",
+    "periodKey",
+    "packetVersion",
+    "memberId",
+    "memberNameSnapshot",
+    "memberRoleSnapshot",
+    "decision",
+    "decisionDate",
+    "approvalMethod",
+    "comment",
+    "recordedBy",
+    "recordedAt"
+  ]
+};
+
+/**
  * Retrieves script configuration from ScriptProperties — FAILS CLOSED
  * Never silently defaults missing sheetId or environment to production.
  */
@@ -733,6 +806,7 @@ if (typeof module !== "undefined" && module.exports) {
     SANDBOX_DRIVE_ROOT_ID,
     CHURCH_INFO,
     SCHEMA_DEFINITIONS,
+    SANDBOX_SCHEMA_EXTENSIONS,
     getConfig,
     assertSandboxSheet,
     getDB,

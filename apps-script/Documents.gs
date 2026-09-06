@@ -31,6 +31,7 @@ const DOCUMENT_TYPES = [
   "Credit Card Statement",
   "Capital Project",
   "Finance Report",
+  "Committee Approval Packet",
   "Other Supporting Document"
 ];
 
@@ -43,6 +44,7 @@ const DOCUMENT_CATEGORY_FOLDERS = {
   "Credit Card Statement": "Credit Card Statements",
   "Capital Project": "Capital Projects",
   "Finance Report": "Reports",
+  "Committee Approval Packet": "Committee Approvals",
   "Other Supporting Document": "Other"
 };
 
@@ -561,6 +563,10 @@ function uploadDocument(p, userEmail) {
       if (!p.relatedEntityId) {
         throw new Error("Related monthly close ID is required when relatedEntityType is MONTHLY_CLOSE.");
       }
+    } else if (normEntityType === "MONTHLY_COMMITTEE_APPROVAL") {
+      if (!p.relatedEntityId) {
+        throw new Error("Related committee approval ID is required when relatedEntityType is MONTHLY_COMMITTEE_APPROVAL.");
+      }
     } else {
       normEntityType = "NONE";
       relTxnId = "";
@@ -574,6 +580,9 @@ function uploadDocument(p, userEmail) {
     let status = p.status || (hasEntityRelation ? "Linked" : "Unlinked");
 
     if (isClosed) {
+      if (normEntityType === "MONTHLY_COMMITTEE_APPROVAL" && !p.postCloseReason) {
+        p.postCloseReason = "Monthly Committee Governance Ratification";
+      }
       if (!p.postCloseReason || !String(p.postCloseReason).trim()) {
         throw new Error(
           "Period " + periodKey + " is CLOSED. Adding post-close supporting evidence requires an authorized documented reason (postCloseReason)."
@@ -584,7 +593,7 @@ function uploadDocument(p, userEmail) {
       addedAfterCloseAt = nowIso;
       addedAfterCloseBy = actor;
       closedPeriodReference = periodKey;
-      status = p.status || "Needs Review";
+      status = p.status || (hasEntityRelation ? "Linked" : "Needs Review");
     }
     currentStage = "DOC_UPLOAD_06_PERIOD_CHECKED";
 
@@ -864,6 +873,27 @@ function uploadDocument(p, userEmail) {
     ]);
     currentStage = "DOC_UPLOAD_14_ROW_APPENDED";
 
+    // Backfill documentId to Monthly_Committee_Approval record if linked
+    if (normEntityType === "MONTHLY_COMMITTEE_APPROVAL" && relEntityId) {
+      try {
+        const mcaSheet = db.getSheetByName("Monthly_Committee_Approval");
+        if (mcaSheet && mcaSheet.getLastRow() > 1) {
+          const mcaData = mcaSheet.getDataRange().getValues();
+          const mcaHeaders = mcaData.shift();
+          const idCol = mcaHeaders.indexOf("approvalId");
+          const docIdCol = mcaHeaders.indexOf("documentId");
+          if (idCol !== -1 && docIdCol !== -1) {
+            const mcaIdx = mcaData.findIndex(function(r) { return r[idCol] === relEntityId; });
+            if (mcaIdx !== -1) {
+              mcaSheet.getRange(mcaIdx + 2, docIdCol + 1).setValue(documentId);
+            }
+          }
+        }
+      } catch (e) {
+        // Non-blocking backfill
+      }
+    }
+
     currentStage = "DOC_UPLOAD_15_COMPLETE";
     return {
       success: true,
@@ -913,7 +943,7 @@ function uploadDocument(p, userEmail) {
 function linkDocumentToEntity(p, userEmail) {
   p = p || {};
   if (!p.documentId) throw new Error("documentId is required");
-  if (!p.relatedEntityType && !p.relatedTransactionId && !p.relatedReimbursementId && !p.relatedCheckId && !p.relatedCapitalProjectId) {
+  if (!p.relatedEntityType && !p.relatedTransactionId && !p.relatedReimbursementId && !p.relatedCheckId && !p.relatedCapitalProjectId && !p.relatedEntityId) {
     throw new Error("At least one related entity reference is required");
   }
 

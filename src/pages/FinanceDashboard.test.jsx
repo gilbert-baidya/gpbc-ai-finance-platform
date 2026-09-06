@@ -22,6 +22,14 @@ vi.mock('../api/auditApi', () => ({
   }
 }));
 
+vi.mock('../api/committeeApi', () => ({
+  committeeApi: {
+    getMonthlyCommitteeApproval: vi.fn().mockResolvedValue({ approval: null }),
+    getMonthlyExpensePacket: vi.fn().mockResolvedValue({ packet: null }),
+    getCommitteeMembers: vi.fn().mockResolvedValue({ members: [] })
+  }
+}));
+
 vi.mock('recharts', () => {
   const Container = ({ children }) => <div>{children}</div>;
   return {
