@@ -75,9 +75,9 @@ export default function Settings() {
   const websiteCardValue = hasSuccessfulData ? 'Live' : 'Unable to verify';
 
   return (
-    <div style={{ padding: '24px', maxWidth: '1200px', margin: '0 auto' }}>
+    <div className="finance-page-container" style={{ maxWidth: '1200px', margin: '0 auto' }}>
       {/* Header */}
-      <div style={{ marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+      <div style={{ marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px' }}>
         <div>
           <h1 style={{ fontSize: '1.75rem', fontWeight: '700', color: 'var(--slate-blue-dark)', margin: 0 }}>
             System Settings & Production Governance
@@ -133,7 +133,7 @@ export default function Settings() {
       </div>
 
       {/* Environment Configuration Summary Cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px', marginBottom: '24px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 260px), 1fr))', gap: '16px', marginBottom: '24px' }}>
         <div className="glass-panel" style={{ padding: '16px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', color: 'var(--slate-blue-dark)', fontWeight: '600' }}>
             <Server size={18} />
@@ -244,6 +244,8 @@ export default function Settings() {
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'space-between',
+                    flexWrap: 'wrap',
+                    gap: '8px',
                     padding: '12px 16px',
                     background: isWarning ? '#FFF5F5' : isUnverified ? '#F8FAFC' : 'rgba(255, 255, 255, 0.7)',
                     border: isWarning ? '1px solid #FEB2B2' : '1px solid var(--border-light)',

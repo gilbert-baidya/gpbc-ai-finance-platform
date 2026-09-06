@@ -14,7 +14,8 @@ import {
   ExternalLink,
   Receipt,
   FileText,
-  Upload
+  Upload,
+  X
 } from 'lucide-react';
 import { useAuth } from '../auth/AuthContext';
 import { auditApi } from '../api/auditApi';
@@ -217,7 +218,7 @@ export const AuditCenter = () => {
   const pendingReimbursementsCount = issues.filter(i => (i.ruleId === 'RULE-PRP-001' || i.ruleId === 'RULE-RMB-001') && !['Reviewed', 'Cleared', 'Reconciled'].includes(i.status)).length;
 
   return (
-    <div className="finance-page-container animate-fade-in" style={{ padding: '24px', maxWidth: '1400px', margin: '0 auto' }}>
+    <div className="finance-page-container animate-fade-in" style={{ maxWidth: '1400px', margin: '0 auto' }}>
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '16px' }}>
         <div>
@@ -443,7 +444,7 @@ export const AuditCenter = () => {
 
           {/* Audit Issues Table */}
           <div className="glass-panel" style={{ padding: '0', overflow: 'hidden' }}>
-            <div style={{ overflowX: 'auto' }}>
+            <div className="desktop-table-view" style={{ overflowX: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.875rem' }}>
                 <thead>
                   <tr style={{ background: '#FAF6F0', borderBottom: '2px solid #E2E8F0', color: 'var(--warm-gray)' }}>
@@ -560,13 +561,105 @@ export const AuditCenter = () => {
                 </tbody>
               </table>
             </div>
+
+            <div className="mobile-card-view" style={{ padding: '12px' }}>
+              {loading ? (
+                <div style={{ padding: '24px', textAlign: 'center', color: 'var(--warm-gray)' }}>Loading audit findings...</div>
+              ) : filteredIssues.length === 0 ? (
+                <div style={{ padding: '24px', textAlign: 'center', color: 'var(--warm-gray)' }}>No audit issues found matching criteria.</div>
+              ) : (
+                filteredIssues.map((issue) => {
+                  const isResolved = ['Reviewed', 'Cleared', 'Reconciled'].includes(issue.status);
+                  const sevBadgeColor =
+                    issue.severity === 'CRITICAL' ? { bg: '#FEE2E2', color: '#991B1B' } :
+                    issue.severity === 'HIGH' ? { bg: '#FFEDD5', color: '#C05621' } :
+                    issue.severity === 'MEDIUM' ? { bg: '#FEF3C7', color: '#B45309' } :
+                    { bg: '#DBEAFE', color: '#1E40AF' };
+
+                  return (
+                    <div key={issue.auditIssueId} className="glass-card" style={{ padding: '14px', background: isResolved ? '#F8FAFC' : '#FFF', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{
+                          background: sevBadgeColor.bg,
+                          color: sevBadgeColor.color,
+                          padding: '3px 8px',
+                          borderRadius: '4px',
+                          fontSize: '0.75rem',
+                          fontWeight: 800
+                        }}>
+                          {issue.severity}
+                        </span>
+                        <span style={{
+                          padding: '3px 8px',
+                          borderRadius: '4px',
+                          fontSize: '0.75rem',
+                          fontWeight: 700,
+                          background: issue.status === 'Cleared' || issue.status === 'Reconciled'
+                            ? '#DCFCE7'
+                            : (issue.status === 'Reviewed' ? '#FEF3C7' : '#F1F5F9'),
+                          color: issue.status === 'Cleared' || issue.status === 'Reconciled'
+                            ? '#166534'
+                            : (issue.status === 'Reviewed' ? '#92400E' : 'var(--slate-blue)')
+                        }}>
+                          {issue.status === 'Reviewed' ? 'Reviewed (Active)' : issue.status}
+                        </span>
+                      </div>
+
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                        <div style={{ fontWeight: 700, fontSize: '0.95rem', color: isResolved ? 'var(--warm-gray)' : 'var(--slate-blue)' }}>
+                          {issue.title}
+                        </div>
+                        {issue.amount > 0 && (
+                          <div style={{ fontWeight: 800, fontSize: '1rem', color: 'var(--slate-blue-dark)' }}>
+                            ${Number(issue.amount).toFixed(2)}
+                          </div>
+                        )}
+                      </div>
+
+                      <div style={{ fontSize: '0.78rem', color: 'var(--warm-gray)' }}>
+                        Rule: {issue.ruleId} • Affected: <span style={{ fontFamily: 'monospace', fontWeight: 600 }}>{issue.entityId}</span>
+                      </div>
+
+                      <div style={{ fontSize: '0.8rem', color: 'var(--slate-blue-dark)', background: '#FAF6F0', padding: '8px 10px', borderRadius: '6px', lineHeight: 1.4 }}>
+                        <span style={{ fontWeight: 600, color: 'var(--warm-gray)' }}>Action: </span>
+                        {issue.recommendedAction}
+                      </div>
+
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '6px', borderTop: '1px solid #F1F5F9' }}>
+                        {issue.evidenceUrl ? (
+                          <a href={issue.evidenceUrl} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.8rem', color: 'var(--slate-blue)', fontWeight: 600 }}>
+                            <ExternalLink size={13} /> View Evidence
+                          </a>
+                        ) : <span />}
+
+                        {canWrite && (
+                          <button
+                            type="button"
+                            className="btn btn-outline"
+                            onClick={() => {
+                              setSelectedIssue(issue);
+                              setResolveStatus(issue.status === 'Reviewed' ? 'Cleared' : 'Reviewed');
+                              setResolveNotes(issue.resolutionNotes || '');
+                              setResolveEvidence(issue.evidenceUrl || '');
+                            }}
+                            style={{ minHeight: '38px', padding: '4px 14px', fontSize: '0.82rem' }}
+                          >
+                            {isResolved ? 'Update' : 'Resolve'}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
           </div>
         </>
       )}
 
       {/* TAB 2: RECONCILIATION VIEW */}
       {activeTab === 'reconciliation' && (
-        <div style={{ display: 'grid', gridTemplateColumns: '350px 1fr', gap: '20px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 320px), 1fr))', gap: '20px' }}>
           {/* CSV Import Panel */}
           <div className="glass-panel" style={{ padding: '20px', background: '#FAF6F0', height: 'fit-content' }}>
             <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: 'var(--slate-blue)', margin: '0 0 12px 0' }}>
@@ -731,7 +824,7 @@ export const AuditCenter = () => {
 
       {/* RESOLUTION MODAL */}
       {selectedIssue && (
-        <div style={{
+        <div className="finance-modal-overlay" style={{
           position: 'fixed',
           top: 0,
           left: 0,
@@ -744,15 +837,20 @@ export const AuditCenter = () => {
           zIndex: 1000,
           padding: '20px'
         }}>
-          <div className="glass-panel" style={{ background: '#FFF', maxWidth: '540px', width: '100%', padding: '24px' }}>
-            <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--slate-blue)', margin: '0 0 12px 0' }}>
-              Review Audit Issue
-            </h2>
+          <div className="glass-panel finance-modal-container" style={{ background: '#FFF', maxWidth: '540px', width: '100%', padding: '24px' }}>
+            <div className="finance-modal-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+              <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--slate-blue)', margin: 0 }}>
+                Review Audit Issue
+              </h2>
+              <button type="button" onClick={() => setSelectedIssue(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--warm-gray)', padding: '4px' }}>
+                <X size={20} />
+              </button>
+            </div>
             <p style={{ fontSize: '0.85rem', color: 'var(--warm-gray)', margin: '0 0 16px 0' }}>
               {selectedIssue.title} ({selectedIssue.ruleId})
             </p>
 
-            <form onSubmit={handleResolveIssue}>
+            <form onSubmit={handleResolveIssue} className="finance-modal-body">
               <div className="form-group" style={{ marginBottom: '14px' }}>
                 <label htmlFor={resolutionStatusSelectId} className="form-label" style={{ fontSize: '0.85rem' }}>Resolution Status</label>
                 <select
@@ -792,7 +890,7 @@ export const AuditCenter = () => {
                 />
               </div>
 
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+              <div className="finance-modal-footer" style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
                 <button
                   type="button"
                   className="btn btn-outline"

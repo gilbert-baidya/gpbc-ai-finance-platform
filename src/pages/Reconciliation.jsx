@@ -23,7 +23,8 @@ import {
   CheckSquare,
   Zap,
   ArrowRight,
-  FileCheck
+  FileCheck,
+  X
 } from 'lucide-react';
 import { reconciliationApi } from '../api/reconciliationApi';
 import { useAuth } from '../context/AuthContext';
@@ -160,7 +161,7 @@ export default function Reconciliation() {
   };
 
   return (
-    <div className="page-container" style={{ padding: '2rem', maxWidth: '1280px', margin: '0 auto' }}>
+    <div className="finance-page-container" style={{ maxWidth: '1280px', margin: '0 auto' }}>
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
         <div>
@@ -321,159 +322,258 @@ export default function Reconciliation() {
         ) : filteredRecords.length === 0 ? (
           <FinanceDataState title="No reconciliation records found" description="Try selecting another period key or clearing filters." />
         ) : (
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
-              <thead>
-                <tr style={{ borderBottom: '2px solid var(--mist-blue-dark)', textAlign: 'left', color: 'var(--warm-gray)' }}>
-                  <th style={{ padding: '10px' }}>Date</th>
-                  <th style={{ padding: '10px' }}>Transaction ID</th>
-                  <th style={{ padding: '10px' }}>Type</th>
-                  <th style={{ padding: '10px' }}>Payee / Payer</th>
-                  <th style={{ padding: '10px' }}>Description</th>
-                  <th style={{ padding: '10px', textAlign: 'right' }}>Amount</th>
-                  <th style={{ padding: '10px' }}>Evidence</th>
-                  <th style={{ padding: '10px' }}>Reference</th>
-                  <th style={{ padding: '10px' }}>Status</th>
-                  <th style={{ padding: '10px', textAlign: 'right' }}>Difference</th>
-                  <th style={{ padding: '10px', textAlign: 'center' }}>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredRecords.map((r, idx) => (
-                  <tr key={idx} style={{ borderBottom: '1px solid var(--mist-blue)', background: idx % 2 === 0 ? '#FFFFFF' : '#FAFAFA' }}>
-                    <td style={{ padding: '10px', whiteSpace: 'nowrap' }}>{r.transactionDate}</td>
-                    <td style={{ padding: '10px', fontWeight: 600, color: 'var(--slate-blue-dark)' }}>{r.transactionId}</td>
-                    <td style={{ padding: '10px' }}>{r.transactionType}</td>
-                    <td style={{ padding: '10px', fontWeight: 600 }}>{r.payeeOrPayer || '—'}</td>
-                    <td style={{ padding: '10px', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.description || '—'}</td>
-                    <td style={{ padding: '10px', textAlign: 'right', fontWeight: 700, color: r.direction === 'INCOME' ? 'var(--forest-green)' : 'var(--slate-blue-dark)' }}>
-                      ${r.expectedAmount.toFixed(2)}
-                    </td>
-                    <td style={{ padding: '10px' }}>
+          <>
+            <div className="desktop-table-view" style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
+                <thead>
+                  <tr style={{ borderBottom: '2px solid var(--mist-blue-dark)', textAlign: 'left', color: 'var(--warm-gray)' }}>
+                    <th style={{ padding: '10px' }}>Date</th>
+                    <th style={{ padding: '10px' }}>Transaction ID</th>
+                    <th style={{ padding: '10px' }}>Type</th>
+                    <th style={{ padding: '10px' }}>Payee / Payer</th>
+                    <th style={{ padding: '10px' }}>Description</th>
+                    <th style={{ padding: '10px', textAlign: 'right' }}>Amount</th>
+                    <th style={{ padding: '10px' }}>Evidence</th>
+                    <th style={{ padding: '10px' }}>Reference</th>
+                    <th style={{ padding: '10px' }}>Status</th>
+                    <th style={{ padding: '10px', textAlign: 'right' }}>Difference</th>
+                    <th style={{ padding: '10px', textAlign: 'center' }}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredRecords.map((r, idx) => (
+                    <tr key={idx} style={{ borderBottom: '1px solid var(--mist-blue)', background: idx % 2 === 0 ? '#FFFFFF' : '#FAFAFA' }}>
+                      <td style={{ padding: '10px', whiteSpace: 'nowrap' }}>{r.transactionDate}</td>
+                      <td style={{ padding: '10px', fontWeight: 600, color: 'var(--slate-blue-dark)' }}>{r.transactionId}</td>
+                      <td style={{ padding: '10px' }}>{r.transactionType}</td>
+                      <td style={{ padding: '10px', fontWeight: 600 }}>{r.payeeOrPayer || '—'}</td>
+                      <td style={{ padding: '10px', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.description || '—'}</td>
+                      <td style={{ padding: '10px', textAlign: 'right', fontWeight: 700, color: r.direction === 'INCOME' ? 'var(--forest-green)' : 'var(--slate-blue-dark)' }}>
+                        ${r.expectedAmount.toFixed(2)}
+                      </td>
+                      <td style={{ padding: '10px' }}>
+                        <span
+                          onClick={() => { setSelectedRecord(r); setEvidenceDrawerOpen(true); }}
+                          style={{ cursor: 'pointer', textDecoration: 'underline', color: 'var(--slate-blue)', fontSize: '0.8rem', fontWeight: 600 }}
+                        >
+                          {r.evidenceStatus}
+                        </span>
+                      </td>
+                      <td style={{ padding: '10px' }}>{r.checkNumber ? `#${r.checkNumber}` : '—'}</td>
+                      <td style={{ padding: '10px' }}>{getStatusBadge(r.reconciliationStatus)}</td>
+                      <td style={{ padding: '10px', textAlign: 'right', fontWeight: 600, color: r.differenceAmount > 0 ? '#B06000' : 'var(--forest-green)' }}>
+                        {r.differenceFormatted}
+                      </td>
+                      <td style={{ padding: '10px', textAlign: 'center' }}>
+                        <div style={{ display: 'flex', gap: '6px', justifyContent: 'center' }}>
+                          <button
+                            onClick={() => { setSelectedRecord(r); setReviewNotes(r.notes || ''); setCustomReconciledAmt(r.reconciledAmount); setReviewModalOpen(true); }}
+                            className="btn btn-secondary"
+                            style={{ padding: '4px 8px', fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '4px' }}
+                          >
+                            <Eye size={13} /> Review
+                          </button>
+                          {isEditor && r.reconciliationStatus === 'UNMATCHED' && (
+                            <button
+                              onClick={() => handleReconcileSingle(r, 'MATCHED')}
+                              className="btn btn-secondary"
+                              disabled={actionLoading}
+                              style={{ padding: '4px 8px', fontSize: '0.75rem' }}
+                            >
+                              Mark Matched
+                            </button>
+                          )}
+                          {isEditor && r.reconciliationStatus === 'MATCHED' && (
+                            <button
+                              onClick={() => handleReconcileSingle(r, 'RECONCILED')}
+                              className="btn btn-primary"
+                              disabled={actionLoading || !r.satisfiesRules}
+                              title={!r.satisfiesRules ? r.blockingReasons.join('; ') : 'Reconcile record'}
+                              style={{
+                                padding: '4px 8px',
+                                fontSize: '0.75rem',
+                                background: r.satisfiesRules ? 'var(--forest-green, #137333)' : '#9AA0A6',
+                                borderColor: r.satisfiesRules ? 'var(--forest-green, #137333)' : '#9AA0A6',
+                                color: '#FFFFFF',
+                                cursor: r.satisfiesRules ? 'pointer' : 'not-allowed'
+                              }}
+                            >
+                              Reconcile
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="mobile-card-view">
+              {filteredRecords.map((r, idx) => (
+                <div key={idx} className="glass-card" style={{ padding: '14px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: '0.8rem', color: 'var(--warm-gray)', fontWeight: 600 }}>{r.transactionDate}</span>
+                    {getStatusBadge(r.reconciliationStatus)}
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                    <div>
+                      <div style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--slate-blue-dark)' }}>{r.payeeOrPayer || '—'}</div>
+                      <div style={{ fontSize: '0.78rem', color: 'var(--warm-gray)' }}>{r.transactionId} • {r.transactionType}</div>
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                      <div style={{ fontWeight: 800, fontSize: '1.1rem', color: r.direction === 'INCOME' ? 'var(--forest-green)' : 'var(--slate-blue-dark)' }}>
+                        ${r.expectedAmount.toFixed(2)}
+                      </div>
+                      {r.differenceAmount !== 0 && (
+                        <div style={{ fontSize: '0.75rem', color: r.differenceAmount > 0 ? '#B06000' : 'var(--forest-green)', fontWeight: 600 }}>
+                          Diff: {r.differenceFormatted}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  {r.description && (
+                    <div style={{ fontSize: '0.8rem', color: 'var(--slate-blue-dark)', background: '#F8FAFC', padding: '6px 10px', borderRadius: '6px' }}>
+                      {r.description}
+                    </div>
+                  )}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.78rem', borderTop: '1px solid #F1F5F9', paddingTop: '8px' }}>
+                    <div>
+                      <span style={{ color: 'var(--warm-gray)' }}>Evidence: </span>
                       <span
                         onClick={() => { setSelectedRecord(r); setEvidenceDrawerOpen(true); }}
-                        style={{ cursor: 'pointer', textDecoration: 'underline', color: 'var(--slate-blue)', fontSize: '0.8rem', fontWeight: 600 }}
+                        style={{ cursor: 'pointer', textDecoration: 'underline', color: 'var(--slate-blue)', fontWeight: 600 }}
                       >
                         {r.evidenceStatus}
                       </span>
-                    </td>
-                    <td style={{ padding: '10px' }}>{r.checkNumber ? `#${r.checkNumber}` : '—'}</td>
-                    <td style={{ padding: '10px' }}>{getStatusBadge(r.reconciliationStatus)}</td>
-                    <td style={{ padding: '10px', textAlign: 'right', fontWeight: 600, color: r.differenceAmount > 0 ? '#B06000' : 'var(--forest-green)' }}>
-                      {r.differenceFormatted}
-                    </td>
-                    <td style={{ padding: '10px', textAlign: 'center' }}>
-                      <div style={{ display: 'flex', gap: '6px', justifyContent: 'center' }}>
-                        <button
-                          onClick={() => { setSelectedRecord(r); setReviewNotes(r.notes || ''); setCustomReconciledAmt(r.reconciledAmount); setReviewModalOpen(true); }}
-                          className="btn btn-secondary"
-                          style={{ padding: '4px 8px', fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '4px' }}
-                        >
-                          <Eye size={13} /> Review
-                        </button>
-                        {isEditor && r.reconciliationStatus === 'UNMATCHED' && (
-                          <button
-                            onClick={() => handleReconcileSingle(r, 'MATCHED')}
-                            className="btn btn-secondary"
-                            disabled={actionLoading}
-                            style={{ padding: '4px 8px', fontSize: '0.75rem' }}
-                          >
-                            Mark Matched
-                          </button>
-                        )}
-                        {isEditor && r.reconciliationStatus === 'MATCHED' && (
-                          <button
-                            onClick={() => handleReconcileSingle(r, 'RECONCILED')}
-                            className="btn btn-primary"
-                            disabled={actionLoading || !r.satisfiesRules}
-                            title={!r.satisfiesRules ? r.blockingReasons.join('; ') : 'Reconcile record'}
-                            style={{
-                              padding: '4px 8px',
-                              fontSize: '0.75rem',
-                              background: r.satisfiesRules ? 'var(--forest-green, #137333)' : '#9AA0A6',
-                              borderColor: r.satisfiesRules ? 'var(--forest-green, #137333)' : '#9AA0A6',
-                              color: '#FFFFFF',
-                              cursor: r.satisfiesRules ? 'pointer' : 'not-allowed'
-                            }}
-                          >
-                            Reconcile
-                          </button>
-                        )}
+                    </div>
+                    {r.checkNumber && (
+                      <div style={{ color: 'var(--warm-gray)' }}>
+                        Ref: <span style={{ fontWeight: 600, color: 'var(--slate-blue-dark)' }}>#{r.checkNumber}</span>
                       </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                    )}
+                  </div>
+                  <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
+                    <button
+                      type="button"
+                      onClick={() => { setSelectedRecord(r); setReviewNotes(r.notes || ''); setCustomReconciledAmt(r.reconciledAmount); setReviewModalOpen(true); }}
+                      className="btn btn-secondary"
+                      style={{ flex: 1, minHeight: '40px', fontSize: '0.82rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}
+                    >
+                      <Eye size={14} /> Review
+                    </button>
+                    {isEditor && r.reconciliationStatus === 'UNMATCHED' && (
+                      <button
+                        type="button"
+                        onClick={() => handleReconcileSingle(r, 'MATCHED')}
+                        className="btn btn-secondary"
+                        disabled={actionLoading}
+                        style={{ flex: 1, minHeight: '40px', fontSize: '0.82rem' }}
+                      >
+                        Mark Matched
+                      </button>
+                    )}
+                    {isEditor && r.reconciliationStatus === 'MATCHED' && (
+                      <button
+                        type="button"
+                        onClick={() => handleReconcileSingle(r, 'RECONCILED')}
+                        className="btn btn-primary"
+                        disabled={actionLoading || !r.satisfiesRules}
+                        title={!r.satisfiesRules ? r.blockingReasons.join('; ') : 'Reconcile record'}
+                        style={{
+                          flex: 1,
+                          minHeight: '40px',
+                          fontSize: '0.82rem',
+                          background: r.satisfiesRules ? 'var(--forest-green, #137333)' : '#9AA0A6',
+                          borderColor: r.satisfiesRules ? 'var(--forest-green, #137333)' : '#9AA0A6',
+                          color: '#FFFFFF',
+                          cursor: r.satisfiesRules ? 'pointer' : 'not-allowed'
+                        }}
+                      >
+                        Reconcile
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
         )}
       </div>
 
       {/* Record Review Modal */}
       {reviewModalOpen && selectedRecord && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '1rem' }}>
-          <div style={{ background: '#FFFFFF', borderRadius: '12px', padding: '2rem', maxWidth: '600px', width: '100%', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)' }}>
-            <h3 style={{ margin: '0 0 1rem 0', fontSize: '1.2rem', fontWeight: 700, color: 'var(--slate-blue-dark)' }}>
-              Reconciliation Review — {selectedRecord.transactionId}
-            </h3>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', fontSize: '0.85rem', marginBottom: '1.25rem', background: '#FAFAFA', padding: '1rem', borderRadius: '8px' }}>
-              <div><strong>Date:</strong> {selectedRecord.transactionDate}</div>
-              <div><strong>Type:</strong> {selectedRecord.transactionType}</div>
-              <div><strong>Payee/Payer:</strong> {selectedRecord.payeeOrPayer}</div>
-              <div><strong>Expected Amount:</strong> ${selectedRecord.expectedAmount.toFixed(2)}</div>
-              <div><strong>Evidence Status:</strong> {selectedRecord.evidenceStatus}</div>
-              <div><strong>Difference:</strong> {selectedRecord.differenceFormatted}</div>
+        <div className="finance-modal-overlay" style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '1rem' }}>
+          <div className="finance-modal-container" style={{ background: '#FFFFFF', borderRadius: '12px', padding: '1.5rem', maxWidth: '600px', width: '100%', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)', overflowY: 'auto' }}>
+            <div className="finance-modal-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+              <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 700, color: 'var(--slate-blue-dark)' }}>
+                Reconciliation Review — {selectedRecord.transactionId}
+              </h3>
+              <button type="button" onClick={() => setReviewModalOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--warm-gray)', padding: '4px' }}>
+                <X size={20} />
+              </button>
             </div>
 
-            {/* Status & Rule Conditions */}
-            {selectedRecord.reconciliationStatus === 'RECONCILED' ? (
-              <div style={{ background: '#E6F4EA', border: '1px solid #CEEAD6', color: '#137333', padding: '10px 14px', borderRadius: '8px', marginBottom: '1.25rem', fontSize: '0.85rem', fontWeight: 600 }}>
-                ✓ RECONCILED — Historical & Canonical Record Verified. Record is immutable.
+            <div className="finance-modal-body">
+              <div className="form-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', fontSize: '0.85rem', marginBottom: '1.25rem', background: '#FAFAFA', padding: '1rem', borderRadius: '8px' }}>
+                <div><strong>Date:</strong> {selectedRecord.transactionDate}</div>
+                <div><strong>Type:</strong> {selectedRecord.transactionType}</div>
+                <div><strong>Payee/Payer:</strong> {selectedRecord.payeeOrPayer}</div>
+                <div><strong>Expected Amount:</strong> ${selectedRecord.expectedAmount.toFixed(2)}</div>
+                <div><strong>Evidence Status:</strong> {selectedRecord.evidenceStatus}</div>
+                <div><strong>Difference:</strong> {selectedRecord.differenceFormatted}</div>
               </div>
-            ) : !selectedRecord.satisfiesRules ? (
-              <div style={{ background: '#FCE8E6', border: '1px solid #FAD2CF', color: '#C5221F', padding: '10px 14px', borderRadius: '8px', marginBottom: '1.25rem', fontSize: '0.85rem' }}>
-                <div style={{ fontWeight: 700, marginBottom: '4px' }}>Reconciliation Blockers:</div>
-                <ul style={{ margin: 0, paddingLeft: '20px' }}>
-                  {selectedRecord.blockingReasons.map((reason, i) => (
-                    <li key={i}>{reason}</li>
-                  ))}
-                </ul>
-              </div>
-            ) : (
-              <div style={{ background: '#E6F4EA', border: '1px solid #CEEAD6', color: '#137333', padding: '10px 14px', borderRadius: '8px', marginBottom: '1.25rem', fontSize: '0.85rem', fontWeight: 600 }}>
-                ✓ Deterministic accounting rules satisfied. Record is ready to reconcile.
-              </div>
-            )}
 
-            <div style={{ marginBottom: '1.25rem' }}>
-              <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '6px' }}>Review Notes / Comments</label>
-              <textarea
-                rows={3}
-                value={reviewNotes}
-                onChange={(e) => setReviewNotes(e.target.value)}
-                placeholder="Enter reconciliation verification notes..."
-                disabled={selectedRecord.reconciliationStatus === 'RECONCILED'}
-                style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--mist-blue-dark)', fontSize: '0.85rem', outline: 'none' }}
-              />
+              {/* Status & Rule Conditions */}
+              {selectedRecord.reconciliationStatus === 'RECONCILED' ? (
+                <div style={{ background: '#E6F4EA', border: '1px solid #CEEAD6', color: '#137333', padding: '10px 14px', borderRadius: '8px', marginBottom: '1.25rem', fontSize: '0.85rem', fontWeight: 600 }}>
+                  ✓ RECONCILED — Historical & Canonical Record Verified. Record is immutable.
+                </div>
+              ) : !selectedRecord.satisfiesRules ? (
+                <div style={{ background: '#FCE8E6', border: '1px solid #FAD2CF', color: '#C5221F', padding: '10px 14px', borderRadius: '8px', marginBottom: '1.25rem', fontSize: '0.85rem' }}>
+                  <div style={{ fontWeight: 700, marginBottom: '4px' }}>Reconciliation Blockers:</div>
+                  <ul style={{ margin: 0, paddingLeft: '20px' }}>
+                    {selectedRecord.blockingReasons.map((reason, i) => (
+                      <li key={i}>{reason}</li>
+                    ))}
+                  </ul>
+                </div>
+              ) : (
+                <div style={{ background: '#E6F4EA', border: '1px solid #CEEAD6', color: '#137333', padding: '10px 14px', borderRadius: '8px', marginBottom: '1.25rem', fontSize: '0.85rem', fontWeight: 600 }}>
+                  ✓ Deterministic accounting rules satisfied. Record is ready to reconcile.
+                </div>
+              )}
+
+              <div style={{ marginBottom: '1.25rem' }}>
+                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '6px' }}>Review Notes / Comments</label>
+                <textarea
+                  rows={3}
+                  value={reviewNotes}
+                  onChange={(e) => setReviewNotes(e.target.value)}
+                  placeholder="Enter reconciliation verification notes..."
+                  disabled={selectedRecord.reconciliationStatus === 'RECONCILED'}
+                  style={{ width: '100%', padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--mist-blue-dark)', fontSize: '0.85rem', outline: 'none' }}
+                />
+              </div>
             </div>
 
-            <div style={{ display: 'flex', justifyContent: 'space-between', gap: '10px', flexWrap: 'wrap' }}>
+            <div className="finance-modal-footer" style={{ display: 'flex', justifyContent: 'space-between', gap: '10px', flexWrap: 'wrap' }}>
               <button
                 type="button"
                 onClick={() => setReviewModalOpen(false)}
                 className="btn btn-secondary"
+                style={{ minHeight: '40px' }}
               >
                 Close
               </button>
 
               {isEditor && selectedRecord.reconciliationStatus !== 'RECONCILED' && (
-                <div style={{ display: 'flex', gap: '8px' }}>
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                   <button
                     type="button"
                     onClick={() => handleReconcileSingle(selectedRecord, 'NEEDS_REVIEW')}
                     className="btn btn-secondary"
-                    style={{ color: '#C5221F', borderColor: '#FAD2CF' }}
+                    style={{ color: '#C5221F', borderColor: '#FAD2CF', minHeight: '40px' }}
                     disabled={actionLoading}
                   >
                     Flag Needs Review
@@ -484,6 +584,7 @@ export default function Reconciliation() {
                       onClick={() => handleReconcileSingle(selectedRecord, 'MATCHED')}
                       className="btn btn-secondary"
                       disabled={actionLoading}
+                      style={{ minHeight: '40px' }}
                     >
                       Mark Matched
                     </button>
@@ -499,7 +600,8 @@ export default function Reconciliation() {
                       borderColor: selectedRecord.satisfiesRules ? 'var(--forest-green, #137333)' : '#9AA0A6',
                       color: '#FFFFFF',
                       cursor: selectedRecord.satisfiesRules ? 'pointer' : 'not-allowed',
-                      fontWeight: 600
+                      fontWeight: 600,
+                      minHeight: '40px'
                     }}
                   >
                     Reconcile

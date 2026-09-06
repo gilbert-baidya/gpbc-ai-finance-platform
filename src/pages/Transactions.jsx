@@ -134,9 +134,9 @@ export const Transactions = () => {
   const canWrite = user?.role === 'Primary Admin' || user?.role === 'Backup Admin' || user?.role === 'Finance Editor';
 
   return (
-    <div className="finance-page-container animate-fade-in" style={{ padding: '24px', maxWidth: '1400px', margin: '0 auto' }}>
+    <div className="finance-page-container animate-fade-in" style={{ maxWidth: '1400px', margin: '0 auto' }}>
       {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '16px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <h1 style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--slate-blue)', margin: 0 }}>
@@ -159,7 +159,7 @@ export const Transactions = () => {
           </p>
         </div>
 
-        <div style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
           <button
             type="button"
             className={`btn ${filterPeriodOnly ? 'btn-primary' : 'btn-outline'}`}
@@ -194,7 +194,7 @@ export const Transactions = () => {
       </div>
 
       {/* Metric Cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '16px', marginBottom: '24px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 220px), 1fr))', gap: '12px', marginBottom: '20px' }}>
         <div className="glass-panel" style={{ padding: '20px', background: '#FAF6F0' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--warm-gray)', fontSize: '0.85rem', fontWeight: 600 }}>
             <span>TOTAL INFLOW</span>
@@ -304,95 +304,177 @@ export const Transactions = () => {
             <span style={{ fontSize: '0.85rem' }}>Try adjusting your filters or record a new transaction.</span>
           </div>
         ) : (
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.85rem' }}>
-              <thead>
-                <tr style={{ background: '#FAF6F0', borderBottom: '1px solid var(--mist-blue-dark)', color: 'var(--slate-blue-dark)' }}>
-                  <th style={{ padding: '12px 16px' }}>Date</th>
-                  <th style={{ padding: '12px 16px' }}>ID / Type</th>
-                  <th style={{ padding: '12px 16px' }}>Payee / Donor</th>
-                  <th style={{ padding: '12px 16px' }}>Description</th>
-                  <th style={{ padding: '12px 16px' }}>Fund / Category</th>
-                  <th style={{ padding: '12px 16px' }}>Method</th>
-                  <th style={{ padding: '12px 16px', textAlign: 'right' }}>Amount</th>
-                  <th style={{ padding: '12px 16px', textAlign: 'center' }}>Receipt / Evidence</th>
-                  <th style={{ padding: '12px 16px', textAlign: 'center' }}>Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {transactions.map((t, idx) => (
-                  <tr key={idx} style={{ borderBottom: '1px solid var(--border-light)', transition: 'background 0.15s' }}>
-                    <td style={{ padding: '12px 16px', whiteSpace: 'nowrap', fontWeight: 500 }}>
-                      {t.transactionDate}
-                    </td>
-                    <td style={{ padding: '12px 16px' }}>
-                      <div style={{ fontWeight: 600, color: 'var(--slate-blue)' }}>{t.transactionType}</div>
-                      <div style={{ fontSize: '0.75rem', color: 'var(--warm-gray)' }}>{t.transactionId}</div>
-                    </td>
-                    <td style={{ padding: '12px 16px', fontWeight: 600 }}>
-                      {t.payeeOrPayer}
-                      {t.personalPurchase && (
-                        <span style={{ display: 'inline-block', marginLeft: '6px', fontSize: '0.7rem', padding: '1px 6px', background: '#FEF3C7', color: '#92400E', borderRadius: '4px' }}>
-                          Personal Card
+          <>
+            <div className="desktop-table-view" style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.85rem' }}>
+                <thead>
+                  <tr style={{ background: '#FAF6F0', borderBottom: '1px solid var(--mist-blue-dark)', color: 'var(--slate-blue-dark)' }}>
+                    <th style={{ padding: '12px 16px' }}>Date</th>
+                    <th style={{ padding: '12px 16px' }}>ID / Type</th>
+                    <th style={{ padding: '12px 16px' }}>Payee / Donor</th>
+                    <th style={{ padding: '12px 16px' }}>Description</th>
+                    <th style={{ padding: '12px 16px' }}>Fund / Category</th>
+                    <th style={{ padding: '12px 16px' }}>Method</th>
+                    <th style={{ padding: '12px 16px', textAlign: 'right' }}>Amount</th>
+                    <th style={{ padding: '12px 16px', textAlign: 'center' }}>Receipt / Evidence</th>
+                    <th style={{ padding: '12px 16px', textAlign: 'center' }}>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {transactions.map((t, idx) => (
+                    <tr key={idx} style={{ borderBottom: '1px solid var(--border-light)', transition: 'background 0.15s' }}>
+                      <td style={{ padding: '12px 16px', whiteSpace: 'nowrap', fontWeight: 500 }}>
+                        {t.transactionDate}
+                      </td>
+                      <td style={{ padding: '12px 16px' }}>
+                        <div style={{ fontWeight: 600, color: 'var(--slate-blue)' }}>{t.transactionType}</div>
+                        <div style={{ fontSize: '0.75rem', color: 'var(--warm-gray)' }}>{t.transactionId}</div>
+                      </td>
+                      <td style={{ padding: '12px 16px', fontWeight: 600 }}>
+                        {t.payeeOrPayer}
+                        {t.personalPurchase && (
+                          <span style={{ display: 'inline-block', marginLeft: '6px', fontSize: '0.7rem', padding: '1px 6px', background: '#FEF3C7', color: '#92400E', borderRadius: '4px' }}>
+                            Personal Card
+                          </span>
+                        )}
+                      </td>
+                      <td style={{ padding: '12px 16px', color: 'var(--slate-blue-dark)', maxWidth: '240px' }}>
+                        {t.description || '—'}
+                      </td>
+                      <td style={{ padding: '12px 16px' }}>
+                        <span style={{ display: 'inline-block', padding: '2px 8px', borderRadius: '4px', background: '#EBF3F5', color: '#2C3E50', fontSize: '0.75rem', fontWeight: 500 }}>
+                          {t.fundId || 'General'}
                         </span>
-                      )}
-                    </td>
-                    <td style={{ padding: '12px 16px', color: 'var(--slate-blue-dark)', maxWidth: '240px' }}>
-                      {t.description || '—'}
-                    </td>
-                    <td style={{ padding: '12px 16px' }}>
-                      <span style={{ display: 'inline-block', padding: '2px 8px', borderRadius: '4px', background: '#EBF3F5', color: '#2C3E50', fontSize: '0.75rem', fontWeight: 500 }}>
+                        {t.category && <div style={{ fontSize: '0.75rem', color: 'var(--warm-gray)', marginTop: '2px' }}>{t.category}</div>}
+                      </td>
+                      <td style={{ padding: '12px 16px', color: 'var(--warm-gray)' }}>
+                        {t.paymentMethod} {t.checkNumber ? `#${t.checkNumber}` : ''}
+                      </td>
+                      <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: 700, fontSize: '0.95rem', color: t.direction === 'INCOME' ? '#165940' : '#991B1B' }}>
+                        {t.direction === 'INCOME' ? '+' : '-'}${Number(t.amount || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </td>
+                      <td style={{ padding: '12px 16px', textAlign: 'center' }}>
+                        <DocumentLinkBadge
+                          onAttachClick={() => setSelectedTxn(t)}
+                          onViewClick={() => setSelectedTxn(t)}
+                          attachLabel="Attach Receipt"
+                        />
+                      </td>
+                      <td style={{ padding: '12px 16px', textAlign: 'center' }}>
+                        <span style={{
+                          display: 'inline-block',
+                          padding: '2px 8px',
+                          borderRadius: '12px',
+                          fontSize: '0.75rem',
+                          fontWeight: 600,
+                          background: t.reconciliationStatus === 'Reconciled' ? '#DEF7EC' : '#FEF3C7',
+                          color: t.reconciliationStatus === 'Reconciled' ? '#03543F' : '#92400E'
+                        }}>
+                          {t.reconciliationStatus || 'Unreconciled'}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="mobile-card-view" style={{ padding: '10px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              {transactions.map((t, idx) => (
+                <div key={idx} style={{
+                  background: '#FFFFFF',
+                  border: '1px solid var(--mist-blue-dark)',
+                  borderRadius: '10px',
+                  padding: '12px 14px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '8px',
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.03)'
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px' }}>
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontWeight: 700, fontSize: '0.92rem', color: 'var(--slate-blue-dark)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {t.payeeOrPayer || '—'}
+                      </div>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--warm-gray)', marginTop: '2px' }}>
+                        {t.transactionDate} • {t.transactionType}
+                      </div>
+                    </div>
+                    <div style={{
+                      fontWeight: 800,
+                      fontSize: '1rem',
+                      whiteSpace: 'nowrap',
+                      color: t.direction === 'INCOME' ? '#165940' : '#991B1B'
+                    }}>
+                      {t.direction === 'INCOME' ? '+' : '-'}${Number(t.amount || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </div>
+                  </div>
+
+                  {t.description && (
+                    <div style={{ fontSize: '0.78rem', color: 'var(--warm-gray-dark)', lineHeight: 1.3 }}>
+                      {t.description}
+                    </div>
+                  )}
+
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '6px', paddingTop: '6px', borderTop: '1px solid #f1f5f9' }}>
+                    <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+                      <span style={{ fontSize: '0.72rem', background: '#EBF3F5', color: '#2C3E50', padding: '2px 6px', borderRadius: '4px', fontWeight: 600 }}>
                         {t.fundId || 'General'}
                       </span>
-                      {t.category && <div style={{ fontSize: '0.75rem', color: 'var(--warm-gray)', marginTop: '2px' }}>{t.category}</div>}
-                    </td>
-                    <td style={{ padding: '12px 16px', color: 'var(--warm-gray)' }}>
-                      {t.paymentMethod} {t.checkNumber ? `#${t.checkNumber}` : ''}
-                    </td>
-                    <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: 700, fontSize: '0.95rem', color: t.direction === 'INCOME' ? '#165940' : '#991B1B' }}>
-                      {t.direction === 'INCOME' ? '+' : '-'}${Number(t.amount || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </td>
-                    <td style={{ padding: '12px 16px', textAlign: 'center' }}>
-                      <DocumentLinkBadge
-                        onAttachClick={() => setSelectedTxn(t)}
-                        onViewClick={() => setSelectedTxn(t)}
-                        attachLabel="Attach Receipt"
-                      />
-                    </td>
-                    <td style={{ padding: '12px 16px', textAlign: 'center' }}>
-                      <span style={{
-                        display: 'inline-block',
-                        padding: '2px 8px',
-                        borderRadius: '12px',
-                        fontSize: '0.75rem',
-                        fontWeight: 600,
-                        background: t.reconciliationStatus === 'Reconciled' ? '#DEF7EC' : '#FEF3C7',
-                        color: t.reconciliationStatus === 'Reconciled' ? '#03543F' : '#92400E'
-                      }}>
-                        {t.reconciliationStatus || 'Unreconciled'}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                      {t.category && (
+                        <span style={{ fontSize: '0.72rem', background: '#f8fafc', color: 'var(--warm-gray)', padding: '2px 6px', borderRadius: '4px' }}>
+                          {t.category}
+                        </span>
+                      )}
+                      {t.personalPurchase && (
+                        <span style={{ fontSize: '0.72rem', background: '#FEF3C7', color: '#92400E', padding: '2px 6px', borderRadius: '4px', fontWeight: 600 }}>
+                          Personal
+                        </span>
+                      )}
+                    </div>
+                    <span style={{
+                      display: 'inline-block',
+                      padding: '2px 8px',
+                      borderRadius: '10px',
+                      fontSize: '0.7rem',
+                      fontWeight: 600,
+                      background: t.reconciliationStatus === 'Reconciled' ? '#DEF7EC' : '#FEF3C7',
+                      color: t.reconciliationStatus === 'Reconciled' ? '#03543F' : '#92400E'
+                    }}>
+                      {t.reconciliationStatus || 'Unreconciled'}
+                    </span>
+                  </div>
+
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '4px', borderTop: '1px dashed #f1f5f9' }}>
+                    <span style={{ fontSize: '0.72rem', color: 'var(--warm-gray-light)', fontFamily: 'monospace' }}>
+                      {t.transactionId}
+                    </span>
+                    <DocumentLinkBadge
+                      onAttachClick={() => setSelectedTxn(t)}
+                      onViewClick={() => setSelectedTxn(t)}
+                      attachLabel="Attach Receipt"
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
         )}
       </div>
 
       {/* Add Transaction Modal */}
       {showAddModal && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '16px' }}>
-          <div className="glass-panel" style={{ background: '#FFFFFF', maxWidth: '640px', width: '100%', maxHeight: '90vh', overflowY: 'auto', padding: '24px', borderRadius: '16px' }}>
+        <div className="finance-modal-overlay" style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '16px' }}>
+          <div className="glass-panel finance-modal-container" style={{ background: '#FFFFFF', maxWidth: '640px', width: '100%', maxHeight: '90vh', overflowY: 'auto', padding: '24px', borderRadius: '16px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
               <h2 style={{ fontSize: '1.25rem', color: 'var(--slate-blue)', margin: 0, fontWeight: 700 }}>Record New Transaction</h2>
-              <button type="button" onClick={() => setShowAddModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--warm-gray)' }}>
+              <button type="button" onClick={() => setShowAddModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--warm-gray)', padding: '8px' }}>
                 <X size={20} />
               </button>
             </div>
 
             <form onSubmit={handleCreateTransaction} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+              <div className="form-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
                 <div className="form-group">
                   <label className="form-label">Flow Direction</label>
                   <select

@@ -146,9 +146,9 @@ export const Reimbursements = () => {
   const canWrite = user?.role === 'Primary Admin' || user?.role === 'Backup Admin' || user?.role === 'Finance Editor';
 
   return (
-    <div className="finance-page-container animate-fade-in" style={{ padding: '24px', maxWidth: '1400px', margin: '0 auto' }}>
+    <div className="finance-page-container animate-fade-in" style={{ maxWidth: '1400px', margin: '0 auto' }}>
       {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '16px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '12px' }}>
         <div>
           <h1 style={{ fontSize: '1.75rem', fontWeight: 800, color: 'var(--slate-blue)', margin: 0 }}>
             Reimbursements & Personal Card Accounting
@@ -158,7 +158,7 @@ export const Reimbursements = () => {
           </p>
         </div>
 
-        <div style={{ display: 'flex', gap: '12px' }}>
+        <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
           <button type="button" className="btn btn-outline" onClick={loadReimbursements} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
             <RefreshCw size={16} />
             Refresh
@@ -173,60 +173,60 @@ export const Reimbursements = () => {
       </div>
 
       {/* Summary Cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '16px', marginBottom: '24px' }}>
-        <div className="glass-panel" style={{ padding: '20px', background: '#FAF6F0' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 220px), 1fr))', gap: '12px', marginBottom: '20px' }}>
+        <div className="glass-panel" style={{ padding: '16px', background: '#FAF6F0' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--warm-gray)', fontSize: '0.85rem', fontWeight: 600 }}>
             <span>PURCHASES CLAIMED</span>
             <CreditCard size={18} color="var(--slate-blue)" />
           </div>
-          <div style={{ fontSize: '1.6rem', fontWeight: 800, color: 'var(--slate-blue)', marginTop: '8px' }}>
+          <div style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--slate-blue)', marginTop: '6px' }}>
             {dataAvailable ? `$${totalPurchases.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '—'}
           </div>
-          <span style={{ fontSize: '0.75rem', color: 'var(--warm-gray)' }}>Underlying personal expenses</span>
+          <span style={{ fontSize: '0.72rem', color: 'var(--warm-gray)' }}>Underlying personal expenses</span>
         </div>
 
-        <div className="glass-panel" style={{ padding: '20px', background: '#FAF6F0' }}>
+        <div className="glass-panel" style={{ padding: '16px', background: '#FAF6F0' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--warm-gray)', fontSize: '0.85rem', fontWeight: 600 }}>
             <span>TOTAL REIMBURSED</span>
             <CheckCircle2 size={18} color="#2D8B6E" />
           </div>
-          <div style={{ fontSize: '1.6rem', fontWeight: 800, color: '#165940', marginTop: '8px' }}>
+          <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#165940', marginTop: '6px' }}>
             {dataAvailable ? `$${totalReimbursed.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '—'}
           </div>
-          <span style={{ fontSize: '0.75rem', color: 'var(--warm-gray)' }}>Paid by church check/Zelle</span>
+          <span style={{ fontSize: '0.72rem', color: 'var(--warm-gray)' }}>Paid by church check/Zelle</span>
         </div>
 
-        <div className="glass-panel" style={{ padding: '20px', background: '#FAF6F0' }}>
+        <div className="glass-panel" style={{ padding: '16px', background: '#FAF6F0' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--warm-gray)', fontSize: '0.85rem', fontWeight: 600 }}>
             <span>PERSONALLY ABSORBED</span>
             <HeartHandshake size={18} color="var(--gold-dark)" />
           </div>
-          <div style={{ fontSize: '1.6rem', fontWeight: 800, color: 'var(--gold-dark)', marginTop: '8px' }}>
+          <div style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--gold-dark)', marginTop: '6px' }}>
             {dataAvailable ? `$${totalAbsorbed.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '—'}
           </div>
-          <span style={{ fontSize: '0.75rem', color: 'var(--warm-gray)' }}>Absorbed as member gift</span>
+          <span style={{ fontSize: '0.72rem', color: 'var(--warm-gray)' }}>Absorbed as member gift</span>
         </div>
 
-        <div className="glass-panel" style={{ padding: '20px', background: '#FAF6F0' }}>
+        <div className="glass-panel" style={{ padding: '16px', background: '#FAF6F0' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--warm-gray)', fontSize: '0.85rem', fontWeight: 600 }}>
             <span>REMAINING PENDING</span>
             <Clock size={18} color="#C05621" />
           </div>
-          <div style={{ fontSize: '1.6rem', fontWeight: 800, color: totalPending > 0 ? '#C05621' : '#165940', marginTop: '8px' }}>
+          <div style={{ fontSize: '1.5rem', fontWeight: 800, color: totalPending > 0 ? '#C05621' : '#165940', marginTop: '6px' }}>
             {dataAvailable ? `$${totalPending.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '—'}
           </div>
-          <span style={{ fontSize: '0.75rem', color: 'var(--warm-gray)' }}>Pending future payout</span>
+          <span style={{ fontSize: '0.72rem', color: 'var(--warm-gray)' }}>Pending future payout</span>
         </div>
       </div>
 
       {/* Filter */}
-      <div className="glass-panel" style={{ padding: '16px', marginBottom: '24px', display: 'flex', gap: '16px', alignItems: 'center' }}>
+      <div className="glass-panel" style={{ padding: '14px 16px', marginBottom: '20px', display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
         <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--slate-blue-dark)' }}>Filter by Status:</span>
         <select
           className="form-select"
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value)}
-          style={{ width: '200px' }}
+          style={{ width: '200px', minHeight: '38px' }}
         >
           <option value="">All Reimbursements</option>
           <option value="Approved">Approved</option>
@@ -236,7 +236,7 @@ export const Reimbursements = () => {
         </select>
       </div>
 
-      {/* Table */}
+      {/* Table & Mobile Cards */}
       <div className="glass-panel" style={{ overflow: 'hidden', padding: 0 }}>
         {error && <div style={{ padding: '16px', background: '#FEE2E2', color: '#991B1B' }}>{error}</div>}
 
@@ -253,94 +253,169 @@ export const Reimbursements = () => {
             <p style={{ margin: 0, fontWeight: 600 }}>No reimbursement records</p>
           </div>
         ) : (
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.85rem' }}>
-              <thead>
-                <tr style={{ background: '#FAF6F0', borderBottom: '1px solid var(--mist-blue-dark)', color: 'var(--slate-blue-dark)' }}>
-                  <th style={{ padding: '12px 16px' }}>Date</th>
-                  <th style={{ padding: '12px 16px' }}>Reimbursement ID</th>
-                  <th style={{ padding: '12px 16px' }}>Claimant</th>
-                  <th style={{ padding: '12px 16px', textAlign: 'right' }}>Purchase Total</th>
-                  <th style={{ padding: '12px 16px', textAlign: 'right' }}>Reimbursed</th>
-                  <th style={{ padding: '12px 16px', textAlign: 'right' }}>Absorbed</th>
-                  <th style={{ padding: '12px 16px', textAlign: 'right' }}>Pending</th>
-                  <th style={{ padding: '12px 16px', textAlign: 'center' }}>Method</th>
-                  <th style={{ padding: '12px 16px', textAlign: 'center' }}>Evidence</th>
-                  <th style={{ padding: '12px 16px', textAlign: 'center' }}>Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map((r, idx) => (
-                  <tr key={idx} style={{ borderBottom: '1px solid var(--border-light)' }}>
-                    <td style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>{r.reimbursementDate}</td>
-                    <td style={{ padding: '12px 16px', fontWeight: 600, color: 'var(--slate-blue)' }}>{r.reimbursementId}</td>
-                    <td style={{ padding: '12px 16px', fontWeight: 600 }}>
-                      {r.claimantName}
-                      {r.allocations && r.allocations.length > 0 && (
-                        <div style={{ fontSize: '0.72rem', color: 'var(--warm-gray)', marginTop: '2px' }}>
-                          {r.allocations.length} linked purchase allocation{r.allocations.length > 1 ? 's' : ''}
-                        </div>
-                      )}
-                    </td>
-                    <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: 600 }}>
-                      ${Number(r.totalPurchaseAmount || 0).toFixed(2)}
-                    </td>
-                    <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: 700, color: '#165940' }}>
-                      ${Number(r.totalReimbursedAmount || 0).toFixed(2)}
-                    </td>
-                    <td style={{ padding: '12px 16px', textAlign: 'right', color: 'var(--gold-dark)', fontWeight: 600 }}>
-                      ${Number(r.totalPersonallyAbsorbed || 0).toFixed(2)}
-                    </td>
-                    <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: 600, color: Number(r.remainingReimbursable || 0) > 0 ? '#C05621' : 'var(--warm-gray)' }}>
-                      ${Number(r.remainingReimbursable || 0).toFixed(2)}
-                    </td>
-                    <td style={{ padding: '12px 16px', textAlign: 'center', color: 'var(--warm-gray)' }}>
-                      {r.paymentMethod} {r.checkNumber ? `#${r.checkNumber}` : ''}
-                    </td>
-                    <td style={{ padding: '12px 16px', textAlign: 'center' }}>
-                      <DocumentLinkBadge
-                        onAttachClick={() => setSelectedReimbursement(r)}
-                        onViewClick={() => setSelectedReimbursement(r)}
-                        attachLabel="Attach Evidence"
-                      />
-                    </td>
-                    <td style={{ padding: '12px 16px', textAlign: 'center' }}>
-                      <span style={{
-                        display: 'inline-block',
-                        padding: '2px 8px',
-                        borderRadius: '12px',
-                        fontSize: '0.75rem',
-                        fontWeight: 600,
-                        background: r.status === 'Fully Reimbursed' ? '#DEF7EC' : (r.status === 'Partially Reimbursed' ? '#FEF3C7' : '#EBF3F5'),
-                        color: r.status === 'Fully Reimbursed' ? '#03543F' : (r.status === 'Partially Reimbursed' ? '#92400E' : '#2C3E50')
-                      }}>
-                        {r.status}
-                      </span>
-                    </td>
+          <>
+            <div className="desktop-table-view" style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.85rem' }}>
+                <thead>
+                  <tr style={{ background: '#FAF6F0', borderBottom: '1px solid var(--mist-blue-dark)', color: 'var(--slate-blue-dark)' }}>
+                    <th style={{ padding: '12px 16px' }}>Date</th>
+                    <th style={{ padding: '12px 16px' }}>Reimbursement ID</th>
+                    <th style={{ padding: '12px 16px' }}>Claimant</th>
+                    <th style={{ padding: '12px 16px', textAlign: 'right' }}>Purchase Total</th>
+                    <th style={{ padding: '12px 16px', textAlign: 'right' }}>Reimbursed</th>
+                    <th style={{ padding: '12px 16px', textAlign: 'right' }}>Absorbed</th>
+                    <th style={{ padding: '12px 16px', textAlign: 'right' }}>Pending</th>
+                    <th style={{ padding: '12px 16px', textAlign: 'center' }}>Method</th>
+                    <th style={{ padding: '12px 16px', textAlign: 'center' }}>Evidence</th>
+                    <th style={{ padding: '12px 16px', textAlign: 'center' }}>Status</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {filtered.map((r, idx) => (
+                    <tr key={idx} style={{ borderBottom: '1px solid var(--border-light)' }}>
+                      <td style={{ padding: '12px 16px', whiteSpace: 'nowrap' }}>{r.reimbursementDate}</td>
+                      <td style={{ padding: '12px 16px', fontWeight: 600, color: 'var(--slate-blue)' }}>{r.reimbursementId}</td>
+                      <td style={{ padding: '12px 16px', fontWeight: 600 }}>
+                        {r.claimantName}
+                        {r.allocations && r.allocations.length > 0 && (
+                          <div style={{ fontSize: '0.72rem', color: 'var(--warm-gray)', marginTop: '2px' }}>
+                            {r.allocations.length} linked purchase allocation{r.allocations.length > 1 ? 's' : ''}
+                          </div>
+                        )}
+                      </td>
+                      <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: 600 }}>
+                        ${Number(r.totalPurchaseAmount || 0).toFixed(2)}
+                      </td>
+                      <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: 700, color: '#165940' }}>
+                        ${Number(r.totalReimbursedAmount || 0).toFixed(2)}
+                      </td>
+                      <td style={{ padding: '12px 16px', textAlign: 'right', color: 'var(--gold-dark)', fontWeight: 600 }}>
+                        ${Number(r.totalPersonallyAbsorbed || 0).toFixed(2)}
+                      </td>
+                      <td style={{ padding: '12px 16px', textAlign: 'right', fontWeight: 600, color: Number(r.remainingReimbursable || 0) > 0 ? '#C05621' : 'var(--warm-gray)' }}>
+                        ${Number(r.remainingReimbursable || 0).toFixed(2)}
+                      </td>
+                      <td style={{ padding: '12px 16px', textAlign: 'center', color: 'var(--warm-gray)' }}>
+                        {r.paymentMethod} {r.checkNumber ? `#${r.checkNumber}` : ''}
+                      </td>
+                      <td style={{ padding: '12px 16px', textAlign: 'center' }}>
+                        <DocumentLinkBadge
+                          onAttachClick={() => setSelectedReimbursement(r)}
+                          onViewClick={() => setSelectedReimbursement(r)}
+                          attachLabel="Attach Evidence"
+                        />
+                      </td>
+                      <td style={{ padding: '12px 16px', textAlign: 'center' }}>
+                        <span style={{
+                          display: 'inline-block',
+                          padding: '2px 8px',
+                          borderRadius: '12px',
+                          fontSize: '0.75rem',
+                          fontWeight: 600,
+                          background: r.status === 'Fully Reimbursed' ? '#DEF7EC' : (r.status === 'Partially Reimbursed' ? '#FEF3C7' : '#EBF3F5'),
+                          color: r.status === 'Fully Reimbursed' ? '#03543F' : (r.status === 'Partially Reimbursed' ? '#92400E' : '#2C3E50')
+                        }}>
+                          {r.status}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="mobile-card-view" style={{ padding: '10px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              {filtered.map((r, idx) => (
+                <div key={idx} style={{
+                  background: '#FFFFFF',
+                  border: '1px solid var(--mist-blue-dark)',
+                  borderRadius: '10px',
+                  padding: '12px 14px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '8px',
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.03)'
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px' }}>
+                    <div>
+                      <strong style={{ fontSize: '0.95rem', color: 'var(--slate-blue-dark)' }}>{r.claimantName || 'Unknown Claimant'}</strong>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--warm-gray)', marginTop: '2px' }}>
+                        {r.reimbursementDate} • <code style={{ fontSize: '0.72rem' }}>{r.reimbursementId}</code>
+                      </div>
+                    </div>
+                    <span style={{
+                      padding: '2px 8px',
+                      borderRadius: '10px',
+                      fontSize: '0.7rem',
+                      fontWeight: 600,
+                      background: r.status === 'Fully Reimbursed' ? '#DEF7EC' : (r.status === 'Partially Reimbursed' ? '#FEF3C7' : '#EBF3F5'),
+                      color: r.status === 'Fully Reimbursed' ? '#03543F' : (r.status === 'Partially Reimbursed' ? '#92400E' : '#2C3E50'),
+                      whiteSpace: 'nowrap'
+                    }}>
+                      {r.status}
+                    </span>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '8px', padding: '8px 10px', background: '#f8fafc', borderRadius: '8px', fontSize: '0.78rem' }}>
+                    <div>
+                      <span style={{ color: 'var(--warm-gray)' }}>Purchase Amount:</span>
+                      <div style={{ fontWeight: 700, color: 'var(--slate-blue-dark)' }}>
+                        ${Number(r.totalPurchaseAmount || 0).toFixed(2)}
+                      </div>
+                    </div>
+                    <div>
+                      <span style={{ color: 'var(--warm-gray)' }}>Reimbursed:</span>
+                      <div style={{ fontWeight: 700, color: '#165940' }}>
+                        ${Number(r.totalReimbursedAmount || 0).toFixed(2)}
+                      </div>
+                    </div>
+                    <div>
+                      <span style={{ color: 'var(--warm-gray)' }}>Personally Absorbed:</span>
+                      <div style={{ fontWeight: 600, color: 'var(--gold-dark)' }}>
+                        ${Number(r.totalPersonallyAbsorbed || 0).toFixed(2)}
+                      </div>
+                    </div>
+                    <div>
+                      <span style={{ color: 'var(--warm-gray)' }}>Remaining Pending:</span>
+                      <div style={{ fontWeight: 700, color: Number(r.remainingReimbursable || 0) > 0 ? '#C05621' : 'var(--warm-gray)' }}>
+                        ${Number(r.remainingReimbursable || 0).toFixed(2)}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '4px', borderTop: '1px dashed #f1f5f9' }}>
+                    <span style={{ fontSize: '0.72rem', color: 'var(--warm-gray)' }}>
+                      {r.paymentMethod} {r.checkNumber ? `#${r.checkNumber}` : ''}
+                    </span>
+                    <DocumentLinkBadge
+                      onAttachClick={() => setSelectedReimbursement(r)}
+                      onViewClick={() => setSelectedReimbursement(r)}
+                      attachLabel="Attach Evidence"
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
         )}
       </div>
 
       {/* Record Reimbursement Modal */}
       {showAddModal && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '16px' }}>
-          <div className="glass-panel" style={{ background: '#FFFFFF', maxWidth: '720px', width: '100%', maxHeight: '90vh', overflowY: 'auto', padding: '24px', borderRadius: '16px' }}>
+        <div className="finance-modal-overlay" style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '16px' }}>
+          <div className="glass-panel finance-modal-container" style={{ background: '#FFFFFF', maxWidth: '720px', width: '100%', maxHeight: '90vh', overflowY: 'auto', padding: '24px', borderRadius: '16px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
               <div>
                 <h2 style={{ fontSize: '1.25rem', color: 'var(--slate-blue)', margin: 0, fontWeight: 700 }}>Record Church Reimbursement</h2>
                 <span style={{ fontSize: '0.8rem', color: 'var(--warm-gray)' }}>Many-to-many allocation matching</span>
               </div>
-              <button type="button" onClick={() => setShowAddModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--warm-gray)' }}>
+              <button type="button" onClick={() => setShowAddModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--warm-gray)', padding: '8px' }}>
                 <X size={20} />
               </button>
             </div>
 
             <form onSubmit={handleCreateReimbursement} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+              <div className="form-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
                 <div className="form-group">
                   <label className="form-label">Claimant Name</label>
                   <input

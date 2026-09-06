@@ -112,11 +112,12 @@
 /* Mobile Adjustments */
 @media (max-width: 768px) {
   .app-container {
-    padding: var(--space-2);
+    padding: 8px 6px;
+    overflow-x: hidden;
   }
   
   .main-layout {
-    gap: var(--space-4);
+    gap: 0;
   }
   
   .metrics-grid,
@@ -125,7 +126,11 @@
     gap: var(--space-4);
   }
   
-  .dashboard-content { padding: var(--space-6) var(--space-3); }
+  .dashboard-content {
+    padding: 8px 4px;
+    max-width: 100%;
+    overflow-x: hidden;
+  }
 }
 
 .sidebar-mobile-backdrop {

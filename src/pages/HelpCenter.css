@@ -7,6 +7,12 @@
   color: var(--slate-blue-dark, #1F2D38);
 }
 
+@media (max-width: 640px) {
+  .help-center-container {
+    padding: 8px 4px;
+  }
+}
+
 .help-hero-banner {
   background: linear-gradient(135deg, #2C3E50 0%, #1F2D38 100%);
   color: #FFFFFF;

@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { DollarSign, Calendar, CreditCard, FileText, Tag, Building2, Paperclip } from 'lucide-react';
 import { gasFetch } from '../api/gasFetch';
+import { financeApi } from '../api/financeApi';
 import { successToast, errorToast } from '../utils/toast';
 import { FinanceDocumentUploadModal } from '../components/FinanceDocumentUploadModal';
 import { EvidenceDrawerModal } from '../components/EvidenceDrawerModal';
@@ -31,6 +32,22 @@ export default function Expenses() {
     const [createdExpenseId, setCreatedExpenseId] = useState(null);
     const [showUploadModal, setShowUploadModal] = useState(false);
     const [showEvidenceDrawer, setShowEvidenceDrawer] = useState(false);
+    const [recentExpenses, setRecentExpenses] = useState([]);
+
+    const loadRecentExpenses = useCallback(async () => {
+        try {
+            const res = await financeApi.getTransactions({ direction: 'EXPENSE' });
+            if (res.success && Array.isArray(res.transactions)) {
+                setRecentExpenses(res.transactions);
+            }
+        } catch {
+            // Silently swallow in case offline
+        }
+    }, []);
+
+    useEffect(() => {
+        loadRecentExpenses();
+    }, [loadRecentExpenses]);
 
     const handleCategoryChange = (e) => {
         const newCategory = e.target.value;
@@ -318,6 +335,7 @@ export default function Expenses() {
                         type="submit"
                         className="btn btn-primary btn-lg"
                         disabled={submitting}
+                        style={{ minHeight: '46px', fontSize: '1rem', fontWeight: 700 }}
                     >
                         {submitting ? (
                             <>
@@ -327,12 +345,112 @@ export default function Expenses() {
                         ) : (
                             <>
                                 <DollarSign size={18} />
-                                Save Expense
+                                Record Expense
                             </>
                         )}
                     </button>
                 </div>
             </form>
+
+            {/* Recent Recorded Expenses */}
+            {recentExpenses.length > 0 && (
+                <section style={{ marginTop: '32px' }}>
+                    <h3 style={{ margin: '0 0 16px 0', fontSize: '1.2rem', fontWeight: 700, color: 'var(--slate-blue-dark)' }}>
+                        Recent Recorded Expenses
+                    </h3>
+
+                    <div className="desktop-table-view" style={{ overflowX: 'auto' }}>
+                        <table style={{ width: '100%', background: '#fff', borderRadius: '8px', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
+                            <thead>
+                                <tr style={{ background: '#FAF6F0', borderBottom: '1px solid var(--border-light)' }}>
+                                    <th style={{ padding: '10px 14px', textAlign: 'left' }}>Date</th>
+                                    <th style={{ padding: '10px 14px', textAlign: 'left' }}>Vendor / Payee</th>
+                                    <th style={{ padding: '10px 14px', textAlign: 'left' }}>Category</th>
+                                    <th style={{ padding: '10px 14px', textAlign: 'right' }}>Amount</th>
+                                    <th style={{ padding: '10px 14px', textAlign: 'center' }}>Receipt Status</th>
+                                    <th style={{ padding: '10px 14px', textAlign: 'center' }}>Funding</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {recentExpenses.slice(0, 8).map((exp) => (
+                                    <tr key={exp.transactionId} style={{ borderBottom: '1px solid var(--border-light)' }}>
+                                        <td style={{ padding: '10px 14px', whiteSpace: 'nowrap' }}>{exp.transactionDate || '—'}</td>
+                                        <td style={{ padding: '10px 14px', fontWeight: 600 }}>{exp.payeeOrPayer || '—'}</td>
+                                        <td style={{ padding: '10px 14px' }}>{exp.category || 'General Expense'}</td>
+                                        <td style={{ padding: '10px 14px', textAlign: 'right', fontWeight: 700, color: '#a55f49' }}>
+                                            ${Number(exp.amount || 0).toFixed(2)}
+                                        </td>
+                                        <td style={{ padding: '10px 14px', textAlign: 'center' }}>
+                                            <span style={{
+                                                padding: '2px 8px',
+                                                borderRadius: '12px',
+                                                fontSize: '0.72rem',
+                                                fontWeight: 600,
+                                                background: exp.receiptStatus === 'Has Receipt' ? '#DEF7EC' : '#FEF3C7',
+                                                color: exp.receiptStatus === 'Has Receipt' ? '#03543F' : '#92400E'
+                                            }}>
+                                                {exp.receiptStatus || 'Needs Receipt'}
+                                            </span>
+                                        </td>
+                                        <td style={{ padding: '10px 14px', textAlign: 'center', fontSize: '0.75rem', color: 'var(--warm-gray)' }}>
+                                            {exp.personalPurchase ? 'Personal Card' : 'Church Paid'}
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div className="mobile-card-view" style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                        {recentExpenses.slice(0, 8).map((exp) => (
+                            <div key={exp.transactionId} style={{
+                                background: '#FFFFFF',
+                                border: '1px solid var(--mist-blue-dark)',
+                                borderRadius: '10px',
+                                padding: '12px 14px',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                gap: '8px',
+                                boxShadow: '0 1px 3px rgba(0,0,0,0.03)'
+                            }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px' }}>
+                                    <div>
+                                        <strong style={{ fontSize: '0.92rem', color: 'var(--slate-blue-dark)' }}>{exp.payeeOrPayer || '—'}</strong>
+                                        <div style={{ fontSize: '0.75rem', color: 'var(--warm-gray)', marginTop: '2px' }}>
+                                            {exp.transactionDate || '—'}
+                                        </div>
+                                    </div>
+                                    <div style={{ fontSize: '1rem', fontWeight: 800, color: '#a55f49', whiteSpace: 'nowrap' }}>
+                                        ${Number(exp.amount || 0).toFixed(2)}
+                                    </div>
+                                </div>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '6px', paddingTop: '6px', borderTop: '1px solid #f1f5f9', fontSize: '0.75rem' }}>
+                                    <span style={{ background: '#f8fafc', color: 'var(--warm-gray-dark)', padding: '2px 8px', borderRadius: '4px', fontWeight: 500 }}>
+                                        {exp.category || 'General Expense'}
+                                    </span>
+                                    <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                                        {exp.personalPurchase && (
+                                            <span style={{ background: '#fef3c7', color: '#92400e', padding: '2px 6px', borderRadius: '4px', fontWeight: 600, fontSize: '0.7rem' }}>
+                                                Personal Card
+                                            </span>
+                                        )}
+                                        <span style={{
+                                            padding: '2px 6px',
+                                            borderRadius: '4px',
+                                            fontSize: '0.7rem',
+                                            fontWeight: 600,
+                                            background: exp.receiptStatus === 'Has Receipt' ? '#def7ec' : '#fee2e2',
+                                            color: exp.receiptStatus === 'Has Receipt' ? '#03543f' : '#991b1b'
+                                        }}>
+                                            {exp.receiptStatus || 'Needs Receipt'}
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </section>
+            )}
 
             {/* Direct Receipt Upload Modal */}
             {createdExpenseId && (

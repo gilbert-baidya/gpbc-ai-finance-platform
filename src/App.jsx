@@ -37,6 +37,7 @@ import LettersPreview from './pages/LettersPreview';
 import './App.css';
 
 import { useAuth } from './context/AuthContext';
+import MobileTestBanner from './components/MobileTestBanner';
 
 function IndexRedirect() {
   const { user } = useAuth();
@@ -52,6 +53,7 @@ function App() {
       <TenantProvider>
         <PeriodProvider>
           <BrowserRouter>
+            <MobileTestBanner />
             <RoleProtectedRoute>
               <Routes>
                 <Route path="/" element={<Layout />}>

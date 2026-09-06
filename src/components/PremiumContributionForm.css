@@ -224,12 +224,17 @@
 }
 
 @media (max-width: 480px) {
+    .premium-contribution-form-container {
+        padding: 4px 0;
+    }
+
     .form-card {
-        padding: 20px;
+        padding: 16px 12px;
+        border-radius: 12px;
     }
 
     .form-header {
-        margin-bottom: 24px;
+        margin-bottom: 20px;
     }
 
     .form-title {
@@ -237,6 +242,6 @@
     }
 
     .contribution-form {
-        gap: 16px;
+        gap: 14px;
     }
 }
