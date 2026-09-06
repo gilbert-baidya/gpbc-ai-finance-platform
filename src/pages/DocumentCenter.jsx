@@ -34,6 +34,7 @@ import { documentApi } from '../api/documentApi';
 import FinanceDataState from '../components/FinanceDataState';
 import SmartUploadInbox from '../components/smart-upload/SmartUploadInbox';
 import SmartUploadModal from '../components/smart-upload/SmartUploadModal';
+import SmartStatementImportModal from '../components/statement/SmartStatementImportModal';
 import './DocumentCenter.css';
 
 const DOCUMENT_CATEGORIES = [
@@ -69,6 +70,7 @@ export const DocumentCenter = () => {
 
   // Upload Modal State
   const [showUploadModal, setShowUploadModal] = useState(false);
+  const [showStatementModal, setShowStatementModal] = useState(false);
   const [uploadSubmitting, setUploadSubmitting] = useState(false);
   const [uploadError, setUploadError] = useState(null);
   const [uploadDuplicate, setUploadDuplicate] = useState(null);
@@ -307,19 +309,32 @@ export const DocumentCenter = () => {
           </button>
 
           {canUpload && (
-            <button
-              type="button"
-              className="btn btn-gold"
-              onClick={() => {
-                setUploadError(null);
-                setUploadDuplicate(null);
-                setShowUploadModal(true);
-              }}
-              style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
-            >
-              <Upload size={16} />
-              <span>Upload Document</span>
-            </button>
+            <>
+              <button
+                type="button"
+                className="btn btn-outline"
+                onClick={() => setShowStatementModal(true)}
+                style={{ display: 'flex', alignItems: 'center', gap: '6px', borderColor: '#C5A880', color: '#8B6B38' }}
+                title="Zero-Input Smart Statement Import"
+              >
+                <FileText size={16} />
+                <span>Smart Statement Import</span>
+              </button>
+
+              <button
+                type="button"
+                className="btn btn-gold"
+                onClick={() => {
+                  setUploadError(null);
+                  setUploadDuplicate(null);
+                  setShowUploadModal(true);
+                }}
+                style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+              >
+                <Upload size={16} />
+                <span>Upload Document</span>
+              </button>
+            </>
           )}
         </div>
       </header>
@@ -936,6 +951,13 @@ export const DocumentCenter = () => {
           </div>
         </div>
       )}
+
+      {/* Zero-Input Smart Statement Import Modal */}
+      <SmartStatementImportModal
+        isOpen={showStatementModal}
+        onClose={() => setShowStatementModal(false)}
+        onSuccess={() => loadDocuments()}
+      />
     </div>
   );
 };

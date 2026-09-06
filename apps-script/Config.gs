@@ -241,7 +241,11 @@ const SCHEMA_DEFINITIONS = {
     "differenceAmount",
     "sourceFileName",
     "importedAt",
-    "importedBy"
+    "importedBy",
+    "postingStatus",
+    "sourceDocumentId",
+    "category",
+    "businessPurpose"
   ],
   "Reconciliation_Register": [
     "reconciliationId",

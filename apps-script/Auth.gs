@@ -58,8 +58,15 @@ function validateGoogleIdentity(idToken) {
       return { valid: false, error: "Token subject claim missing" };
     }
 
-    // 2. Validate Audience (Mandatory - strict single Finance Desk client ID)
-    if (claims.aud !== config.googleClientId) {
+    // 2. Validate Audience (Strict single client ID in prod; permit developer clasp in sandbox/dev)
+    const isSandboxOrDev = (config.environment === "sandbox" || config.environment === "development" || config.environment === "test");
+    const CLASP_DEV_CLIENT_ID = "1072944905499-vm2v2i5dvn0a0d2o4ca36i1vge8cvbn0.apps.googleusercontent.com";
+    const allowedAudiences = [
+      config.googleClientId,
+      (isSandboxOrDev ? CLASP_DEV_CLIENT_ID : null)
+    ].filter(Boolean);
+
+    if (allowedAudiences.indexOf(claims.aud) === -1) {
       return { valid: false, error: "Token audience mismatch" };
     }
 
@@ -240,6 +247,9 @@ function authorizeAction(action, role) {
     "reopenAuditIssue": FINANCE_WRITERS,
     "assignAuditIssue": FINANCE_WRITERS,
     "stageBankStatementLines": FINANCE_WRITERS,
+    "getStagedStatementLines": OPERATIONAL_READERS,
+    "saveStagedStatementLines": FINANCE_WRITERS,
+    "processStatementImport": FINANCE_WRITERS,
     "getReconciliationCandidates": OPERATIONAL_READERS,
     "matchReconciliationLine": FINANCE_WRITERS,
     "getReconciliationRecords": OPERATIONAL_READERS,

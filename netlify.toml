@@ -12,6 +12,12 @@
   force = true
 
 [[redirects]]
+  from = "/api/statement-extract"
+  to = "/.netlify/functions/statement-extract"
+  status = 200
+  force = true
+
+[[redirects]]
   from = "/*"
   to = "/index.html"
   status = 200

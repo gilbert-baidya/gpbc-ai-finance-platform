@@ -1,0 +1,150 @@
+/* GPBC Finance Desk — Statement Review Queue Styles */
+
+.review-queue-container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  background: #FFFFFF;
+  border-radius: 12px;
+  border: 1px solid #E5E7EB;
+  padding: 20px;
+}
+
+.review-queue-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.review-queue-title {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #1F2937;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.review-queue-badge {
+  background: #FEF3C7;
+  color: #92400E;
+  padding: 4px 10px;
+  border-radius: 9999px;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.review-queue-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.review-queue-card {
+  border: 1px solid #E5E7EB;
+  border-radius: 10px;
+  padding: 16px;
+  background: #F9FAFB;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  transition: border-color 0.15s ease;
+}
+
+.review-queue-card:hover {
+  border-color: #D1D5DB;
+}
+
+.review-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.review-card-vendor {
+  font-weight: 700;
+  color: #111827;
+  font-size: 1rem;
+}
+
+.review-card-amount {
+  font-weight: 700;
+  font-size: 1.05rem;
+}
+
+.review-card-amount.expense {
+  color: #DC2626;
+}
+
+.review-card-amount.income {
+  color: #059669;
+}
+
+.review-card-meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 0.8rem;
+  color: #6B7280;
+  flex-wrap: wrap;
+}
+
+.review-card-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-weight: 600;
+  font-size: 0.75rem;
+}
+
+.review-card-tag.warning {
+  background: #FEF3C7;
+  color: #92400E;
+}
+
+.review-card-tag.info {
+  background: #EFF6FF;
+  color: #1E40AF;
+}
+
+.review-card-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.review-action-btn {
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition: all 0.15s ease;
+}
+
+.review-action-btn.confirm {
+  background: #059669;
+  color: #FFFFFF;
+}
+
+.review-action-btn.confirm:hover {
+  background: #047857;
+}
+
+.review-action-btn.dismiss {
+  background: #FFFFFF;
+  border: 1px solid #D1D5DB;
+  color: #4B5563;
+}
+
+.review-action-btn.dismiss:hover {
+  background: #F3F4F6;
+}

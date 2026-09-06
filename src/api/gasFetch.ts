@@ -34,6 +34,8 @@ const WRITE_ACTIONS = new Set([
   'reopenAuditIssue',
   'assignAuditIssue',
   'stageBankStatementLines',
+  'saveStagedStatementLines',
+  'processStatementImport',
   'matchReconciliationLine',
   'initializeSandboxSchema'
 ]);
