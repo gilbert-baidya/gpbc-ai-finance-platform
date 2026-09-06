@@ -10,7 +10,10 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "mobile:build": "vite build --mode mobiletest",
+    "mobile:preview": "vite preview --mode mobiletest --host 0.0.0.0 --port 4173",
+    "mobile:test": "vite --mode mobiletest --host 0.0.0.0 --port 4173"
   },
   "dependencies": {
     "exceljs": "^4.4.0",

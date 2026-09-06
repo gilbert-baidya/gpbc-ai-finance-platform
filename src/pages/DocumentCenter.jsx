@@ -505,116 +505,198 @@ export const DocumentCenter = () => {
         )}
 
         {documents.length > 0 && (
-          <div className="doc-table-container glass-card">
-            <table className="doc-table">
-              <thead>
-                <tr>
-                  <th>Date</th>
-                  <th>Title & Filename</th>
-                  <th>Category</th>
-                  <th>File Info</th>
-                  <th>Related Record</th>
-                  <th>Status</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {documents.map((doc) => {
-                  return (
-                    <tr key={doc.documentId} className="doc-row">
-                      <td className="doc-date-cell">
-                        <strong>{doc.documentDate || '—'}</strong>
-                        <small className="doc-id-text">{doc.documentId}</small>
-                      </td>
-                      <td className="doc-title-cell">
-                        <div className="doc-title-main">
-                          <strong>{doc.title || doc.storedFileName}</strong>
-                          {doc.notes && <span className="doc-notes-preview">{doc.notes}</span>}
-                          <span className="doc-stored-name">{doc.storedFileName}</span>
-                        </div>
-                      </td>
-                      <td>
-                        <span className={`doc-type-badge doc-type--${(doc.documentType || '').toLowerCase().replace(/[^a-z]/g, '')}`}>
-                          {doc.documentType}
-                        </span>
-                      </td>
-                      <td className="doc-fileinfo-cell">
-                        <span>{formatFileSize(doc.fileSize)}</span>
-                        <small>{(doc.mimeType || 'pdf').split('/').pop()?.toUpperCase()}</small>
-                      </td>
-                      <td className="doc-entity-cell">
-                        {doc.relatedEntityId || doc.relatedTransactionId ? (
-                          <div className="doc-entity-badge">
-                            <LinkIcon size={12} />
-                            <span>{doc.relatedEntityType || 'RECORD'}: {doc.relatedEntityId || doc.relatedTransactionId}</span>
+          <>
+            <div className="desktop-table-view doc-table-container glass-card">
+              <table className="doc-table">
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Title & Filename</th>
+                    <th>Category</th>
+                    <th>File Info</th>
+                    <th>Related Record</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {documents.map((doc) => {
+                    return (
+                      <tr key={doc.documentId} className="doc-row">
+                        <td className="doc-date-cell">
+                          <strong>{doc.documentDate || '—'}</strong>
+                          <small className="doc-id-text">{doc.documentId}</small>
+                        </td>
+                        <td className="doc-title-cell">
+                          <div className="doc-title-main">
+                            <strong>{doc.title || doc.storedFileName}</strong>
+                            {doc.notes && <span className="doc-notes-preview">{doc.notes}</span>}
+                            <span className="doc-stored-name">{doc.storedFileName}</span>
                           </div>
-                        ) : (
-                          <span className="doc-unlinked-tag">Unlinked</span>
-                        )}
-                      </td>
-                      <td>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'flex-start' }}>
-                          <span className={`doc-status-badge status--${(doc.status || 'unlinked').toLowerCase().replace(/\s+/g, '-')}`}>
-                            {doc.status || 'Unlinked'}
+                        </td>
+                        <td>
+                          <span className={`doc-type-badge doc-type--${(doc.documentType || '').toLowerCase().replace(/[^a-z]/g, '')}`}>
+                            {doc.documentType}
                           </span>
-                          {doc.isPostCloseAddition && (
-                            <span
-                              className="doc-post-close-badge"
-                              title={doc.postCloseReason ? `Post-Close Reason: ${doc.postCloseReason}` : 'Traceable Post-Close Addition'}
-                            >
-                              Post-Close
-                            </span>
+                        </td>
+                        <td className="doc-fileinfo-cell">
+                          <span>{formatFileSize(doc.fileSize)}</span>
+                          <small>{(doc.mimeType || 'pdf').split('/').pop()?.toUpperCase()}</small>
+                        </td>
+                        <td className="doc-entity-cell">
+                          {doc.relatedEntityId || doc.relatedTransactionId ? (
+                            <div className="doc-entity-badge">
+                              <LinkIcon size={12} />
+                              <span>{doc.relatedEntityType || 'RECORD'}: {doc.relatedEntityId || doc.relatedTransactionId}</span>
+                            </div>
+                          ) : (
+                            <span className="doc-unlinked-tag">Unlinked</span>
                           )}
-                        </div>
-                      </td>
-                      <td className="doc-actions-cell">
-                        <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-                          {doc.driveFileUrl ? (
-                            <a
-                              href={doc.driveFileUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="doc-action-btn"
-                              title="Open in Google Drive"
-                            >
-                              <ExternalLink size={15} />
-                            </a>
-                          ) : null}
+                        </td>
+                        <td>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'flex-start' }}>
+                            <span className={`doc-status-badge status--${(doc.status || 'unlinked').toLowerCase().replace(/\s+/g, '-')}`}>
+                              {doc.status || 'Unlinked'}
+                            </span>
+                            {doc.isPostCloseAddition && (
+                              <span
+                                className="doc-post-close-badge"
+                                title={doc.postCloseReason ? `Post-Close Reason: ${doc.postCloseReason}` : 'Traceable Post-Close Addition'}
+                              >
+                                Post-Close
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="doc-actions-cell">
+                          <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                            {doc.driveFileUrl ? (
+                              <a
+                                href={doc.driveFileUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="doc-action-btn"
+                                title="Open in Google Drive"
+                              >
+                                <ExternalLink size={15} />
+                              </a>
+                            ) : null}
 
-                          <button
-                            type="button"
-                            className="doc-action-btn"
-                            onClick={() => setViewingDoc(doc)}
-                            title="View Metadata Details"
-                          >
-                            <Eye size={15} />
-                          </button>
-
-                          {canUpload && (
                             <button
                               type="button"
                               className="doc-action-btn"
-                              onClick={() => {
-                                setSelectedDocForLink(doc);
-                                setLinkForm({
-                                  relatedEntityType: doc.relatedEntityType || 'TRANSACTION',
-                                  relatedEntityId: doc.relatedEntityId || doc.relatedTransactionId || ''
-                                });
-                                setShowLinkModal(true);
-                              }}
-                              title="Link to Finance Record"
+                              onClick={() => setViewingDoc(doc)}
+                              title="View Metadata Details"
                             >
-                              <LinkIcon size={15} />
+                              <Eye size={15} />
                             </button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+
+                            {canUpload && (
+                              <button
+                                type="button"
+                                className="doc-action-btn"
+                                onClick={() => {
+                                  setSelectedDocForLink(doc);
+                                  setLinkForm({
+                                    relatedEntityType: doc.relatedEntityType || 'TRANSACTION',
+                                    relatedEntityId: doc.relatedEntityId || doc.relatedTransactionId || ''
+                                  });
+                                  setShowLinkModal(true);
+                                }}
+                                title="Link to Finance Record"
+                              >
+                                <LinkIcon size={15} />
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="mobile-card-view doc-mobile-card-list">
+              {documents.map((doc) => (
+                <div key={doc.documentId} className="doc-mobile-card">
+                  <div className="doc-mobile-card-header">
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <span className={`doc-type-badge doc-type--${(doc.documentType || '').toLowerCase().replace(/[^a-z]/g, '')}`}>
+                        {doc.documentType}
+                      </span>
+                      <span style={{ fontSize: '0.75rem', color: 'var(--warm-gray)' }}>{doc.documentDate || '—'}</span>
+                    </div>
+                    <span className={`doc-status-badge status--${(doc.status || 'unlinked').toLowerCase().replace(/\s+/g, '-')}`}>
+                      {doc.status || 'Unlinked'}
+                    </span>
+                  </div>
+
+                  <div>
+                    <div className="doc-mobile-card-title">{doc.title || doc.storedFileName}</div>
+                    {doc.notes && <div className="doc-mobile-card-sub">{doc.notes}</div>}
+                  </div>
+
+                  <div className="doc-mobile-card-meta">
+                    <div>
+                      {doc.relatedEntityId || doc.relatedTransactionId ? (
+                        <span className="doc-entity-badge" style={{ fontSize: '0.72rem' }}>
+                          <LinkIcon size={11} />
+                          {doc.relatedEntityType || 'RECORD'}: {doc.relatedEntityId || doc.relatedTransactionId}
+                        </span>
+                      ) : (
+                        <span className="doc-unlinked-tag" style={{ fontSize: '0.72rem' }}>Unlinked</span>
+                      )}
+                    </div>
+                    <span style={{ color: 'var(--warm-gray)', fontSize: '0.72rem' }}>
+                      {formatFileSize(doc.fileSize)} • {(doc.mimeType || 'pdf').split('/').pop()?.toUpperCase()}
+                    </span>
+                  </div>
+
+                  <div className="doc-mobile-card-actions">
+                    <button
+                      type="button"
+                      className="btn btn-outline btn-sm"
+                      onClick={() => setViewingDoc(doc)}
+                    >
+                      <Eye size={14} />
+                      <span>Details</span>
+                    </button>
+
+                    {doc.driveFileUrl && (
+                      <a
+                        href={doc.driveFileUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="btn btn-outline btn-sm"
+                      >
+                        <ExternalLink size={14} />
+                        <span>Open Drive</span>
+                      </a>
+                    )}
+
+                    {canUpload && (
+                      <button
+                        type="button"
+                        className="btn btn-primary btn-sm"
+                        onClick={() => {
+                          setSelectedDocForLink(doc);
+                          setLinkForm({
+                            relatedEntityType: doc.relatedEntityType || 'TRANSACTION',
+                            relatedEntityId: doc.relatedEntityId || doc.relatedTransactionId || ''
+                          });
+                          setShowLinkModal(true);
+                        }}
+                      >
+                        <LinkIcon size={14} />
+                        <span>Link</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
         )}
       </section>
       )}

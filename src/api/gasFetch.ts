@@ -8,6 +8,40 @@
 
 import { GasRequestEnvelope, GasResponseEnvelope } from './types';
 import { apiBaseUrl } from '../config/env';
+import { isMobileTestAllowed } from '../auth/mobileTestGuard';
+import { getMockFixture } from './mockFixtures';
+
+const WRITE_ACTIONS = new Set([
+  'addTransaction',
+  'addIncome',
+  'addExpense',
+  'addContribution',
+  'addMember',
+  'addReimbursement',
+  'addReimbursementAllocation',
+  'addReceipt',
+  'addCheckDetail',
+  'addCapitalProject',
+  'updateCapitalProject',
+  'uploadDocument',
+  'linkDocumentToEntity',
+  'updateDocumentStatus',
+  'reconcileTransactionRecord',
+  'autoReconcilePeriod',
+  'closeMonthlyPeriod',
+  'reopenMonthlyPeriod',
+  'resolveAuditIssue',
+  'reopenAuditIssue',
+  'assignAuditIssue',
+  'stageBankStatementLines',
+  'matchReconciliationLine',
+  'initializeSandboxSchema'
+]);
+
+export function isWriteAction(action: string): boolean {
+  if (WRITE_ACTIONS.has(action)) return true;
+  return /^(add|create|record|save|update|delete|reconcile|upload|close|reopen|resolve|assign|stage|match|init)/i.test(action);
+}
 
 // In-memory token storage for current active session
 let currentIdToken: string | null = null;
@@ -30,6 +64,14 @@ export async function gasFetch<T = Record<string, unknown>>(
   payload: Record<string, unknown> = {},
   idTokenOverride?: string
 ): Promise<GasResponseEnvelope<T>> {
+  if (isMobileTestAllowed()) {
+    if (isWriteAction(action)) {
+      throw new Error('Local Mobile UI Test Mode — changes are not saved.');
+    }
+    const mockData = getMockFixture(action, payload);
+    return mockData as unknown as GasResponseEnvelope<T>;
+  }
+
   const GAS_URL = apiBaseUrl;
   const isDev = import.meta.env.DEV;
 

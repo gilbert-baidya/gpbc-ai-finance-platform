@@ -123,8 +123,8 @@ describe('DocumentCenter Component', () => {
     expect(screen.getByRole('heading', { level: 1, name: /Document Center/i })).toBeInTheDocument();
 
     await waitFor(() => {
-      expect(screen.getByText('Office Max Desk Supplies')).toBeInTheDocument();
-      expect(screen.getByText('HVAC Air Filter Replacement')).toBeInTheDocument();
+      expect(screen.getAllByText('Office Max Desk Supplies').length).toBeGreaterThan(0);
+      expect(screen.getAllByText('HVAC Air Filter Replacement').length).toBeGreaterThan(0);
     });
 
     expect(screen.getByText('Total Documents')).toBeInTheDocument();

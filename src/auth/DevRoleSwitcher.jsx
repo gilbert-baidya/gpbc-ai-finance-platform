@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from './AuthContext';
+import { isMobileTestAllowed } from './mobileTestGuard';
 import { Shield } from 'lucide-react';
 
 export function DevRoleSwitcher() {
@@ -7,7 +8,7 @@ export function DevRoleSwitcher() {
   const [isOpen, setIsOpen] = useState(false);
 
   // Exclude from production builds entirely
-  if (!import.meta.env.DEV || !devSignIn || idToken) {
+  if ((!import.meta.env.DEV && !isMobileTestAllowed()) || !devSignIn || idToken) {
     return null;
   }
 

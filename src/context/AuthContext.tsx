@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import { AuthUser, AuthContextType, UserRole } from '../types/auth';
 import { gasFetch, setActiveIdToken, setOnUnauthorizedCallback } from '../api/gasFetch';
+import { isMobileTestAllowed, getMobileTestUser } from '../auth/mobileTestGuard';
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
@@ -54,7 +55,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const restoreSession = async () => {
       try {
-      const storedToken = sessionStorage.getItem(SESSION_TOKEN_KEY);
+        if (isMobileTestAllowed()) {
+          const testUser = getMobileTestUser();
+          if (!cancelled) {
+            setUser(testUser);
+            setIdTokenState(null);
+            setActiveIdToken(null);
+          }
+          return;
+        }
+
+        const storedToken = sessionStorage.getItem(SESSION_TOKEN_KEY);
 
         if (storedToken) {
           const response = await verifySessionToken(storedToken);
@@ -137,6 +148,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const signOut = useCallback(() => {
+    if (isMobileTestAllowed()) {
+      setUser(getMobileTestUser());
+      return;
+    }
     setUser(null);
     setIdTokenState(null);
     setError(null);
@@ -145,9 +160,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     sessionStorage.removeItem(SESSION_TOKEN_KEY);
   }, []);
 
-  // Development-only role switcher for local UI preview
+  // Development / Local Mobile Test role switcher
   const devSignIn = useCallback((mockRole: UserRole) => {
-    if (!import.meta.env.DEV) return;
+    if (!import.meta.env.DEV && !isMobileTestAllowed()) return;
 
     const mockUser: AuthUser = {
       email: `dev-${mockRole.toLowerCase().replace(/\s+/g, '-')}@gracepraise.church`,
@@ -177,7 +192,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     isAuthorized,
     signInWithGoogleCredential,
     signOut,
-    devSignIn: import.meta.env.DEV ? devSignIn : undefined
+    devSignIn: (import.meta.env.DEV || isMobileTestAllowed()) ? devSignIn : undefined
   }), [user, idToken, loading, error, isAuthorized, signInWithGoogleCredential, signOut, devSignIn]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

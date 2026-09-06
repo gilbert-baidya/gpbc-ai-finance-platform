@@ -284,13 +284,37 @@ const FinanceDashboard = () => {
         <SectionHeading kicker="Recent Transactions" title="Latest ledger activity" link="/transactions" linkText="View all transactions" />
         <article className="fd-panel fd-table-panel">
           {recentTransactions.length === 0 ? <EmptyState icon={Inbox} title={data.transactions === null ? 'Transaction data is not available yet.' : 'No transactions available yet.'} description={data.transactions === null ? undefined : 'Connect the GPBC finance sandbox or add your first transaction to begin.'} /> : (
-            <div className="fd-table-scroll"><table className="fd-table"><thead><tr><th>Date</th><th>Type</th><th>Payee / Donor</th><th>Category</th><th>Amount</th><th>Status</th></tr></thead>
-              <tbody>{recentTransactions.map((record) => <tr key={record.transactionId}>
-                <td>{transactionDate(record) || '—'}</td><td>{transactionType(record)}</td><td>{record.payeeOrPayer || '—'}</td>
-                <td>{record.category || transactionFund(record)}</td><td className={isIncome(record) ? 'is-positive' : 'is-negative'}>{isIncome(record) ? '+' : '−'}{money(record.amount, true)}</td>
-                <td><Status>{record.reconciliationStatus || 'Unreconciled'}</Status></td>
-              </tr>)}</tbody>
-            </table></div>
+            <>
+              <div className="fd-table-scroll desktop-table-view">
+                <table className="fd-table">
+                  <thead><tr><th>Date</th><th>Type</th><th>Payee / Donor</th><th>Category</th><th>Amount</th><th>Status</th></tr></thead>
+                  <tbody>{recentTransactions.map((record) => <tr key={record.transactionId}>
+                    <td>{transactionDate(record) || '—'}</td><td>{transactionType(record)}</td><td>{record.payeeOrPayer || '—'}</td>
+                    <td>{record.category || transactionFund(record)}</td><td className={isIncome(record) ? 'is-positive' : 'is-negative'}>{isIncome(record) ? '+' : '−'}{money(record.amount, true)}</td>
+                    <td><Status>{record.reconciliationStatus || 'Unreconciled'}</Status></td>
+                  </tr>)}</tbody>
+                </table>
+              </div>
+              <div className="mobile-card-view fd-mobile-tx-cards">
+                {recentTransactions.map((record) => (
+                  <div key={record.transactionId} className="fd-mobile-tx-card">
+                    <div className="fd-mobile-tx-header">
+                      <div className="fd-mobile-tx-payee">
+                        <strong>{record.payeeOrPayer || '—'}</strong>
+                        <small>{transactionType(record)} • {transactionDate(record) || '—'}</small>
+                      </div>
+                      <div className={`fd-mobile-tx-amt ${isIncome(record) ? 'is-positive' : 'is-negative'}`}>
+                        {isIncome(record) ? '+' : '−'}{money(record.amount, true)}
+                      </div>
+                    </div>
+                    <div className="fd-mobile-tx-footer">
+                      <span className="fd-mobile-tx-cat">{record.category || transactionFund(record)}</span>
+                      <Status>{record.reconciliationStatus || 'Unreconciled'}</Status>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
           )}
         </article>
       </section>
