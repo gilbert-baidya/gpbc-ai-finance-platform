@@ -52,6 +52,8 @@ export interface PacketExpenseItem {
   receiptStatus: string;
   receiptId?: string;
   reconciliationStatus: string;
+  status?: string;
+  isPending?: boolean | string;
   isUncategorized?: boolean;
   isVaguePurpose?: boolean;
   accountingImpact: string;

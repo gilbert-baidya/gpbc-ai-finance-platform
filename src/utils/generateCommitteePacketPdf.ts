@@ -12,6 +12,13 @@ export interface CommitteePacketPdfOptions {
 
 export function generateCommitteePacketPdf(options: CommitteePacketPdfOptions) {
   const { summary, expenses, reimbursementSettlements = [], approval, decisions = [] } = options;
+  const recognizedExpenses = expenses.filter((expense) => !(
+    expense.status === 'PENDING' ||
+    expense.status === 'Pending' ||
+    expense.isPending === true ||
+    expense.isPending === 'TRUE' ||
+    /^pending$/i.test(expense.reconciliationStatus || '')
+  ));
   const isDraft = !approval || (approval.status !== 'APPROVED' && approval.status !== 'APPROVED_WITH_EXCEPTIONS');
   const doc = new jsPDF();
   const pageWidth = doc.internal.pageSize.getWidth();
@@ -183,7 +190,7 @@ export function generateCommitteePacketPdf(options: CommitteePacketPdfOptions) {
 
   renderTableHeader();
 
-  expenses.forEach((e) => {
+  recognizedExpenses.forEach((e) => {
     checkPageBreak(8);
 
     doc.setFontSize(8);

@@ -136,7 +136,16 @@ describe('generateCommitteePacketPdf', () => {
   it('keeps reimbursement payouts as settlement references and excludes pending lines', () => {
     const text = pdfText({
       summary,
-      expenses: [expense],
+      expenses: [
+        expense,
+        {
+          ...expense,
+          transactionId: 'BANK-PENDING-1',
+          payeeOrPayer: 'Pending Bank Import',
+          amount: 80,
+          status: 'PENDING'
+        }
+      ],
       reimbursementSettlements: [settlement]
     });
 
@@ -144,6 +153,8 @@ describe('generateCommitteePacketPdf', () => {
     expect(text).toContain('REIMBURSEMENT PAYOUTS');
     expect(text).toContain('Settlement only (not double-counted)');
     expect(text).toContain('Payout to Sarah Treasurer');
+    expect(text).not.toContain('Pending Bank Import');
+    expect(text).not.toContain('$80.00');
     expect(text).not.toContain('Pending bank line');
     expect(text).not.toContain('PENDING');
   });
