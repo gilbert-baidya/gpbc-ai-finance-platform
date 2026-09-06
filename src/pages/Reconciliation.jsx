@@ -31,6 +31,8 @@ import { useAuth } from '../context/AuthContext';
 import { usePeriod } from '../context/PeriodContext';
 import FinanceDataState from '../components/FinanceDataState';
 import { EvidenceDrawerModal } from '../components/EvidenceDrawerModal';
+import SmartStatementImportModal from '../components/statement/SmartStatementImportModal';
+import StatementReviewQueue from '../components/statement/StatementReviewQueue';
 
 export default function Reconciliation() {
   const { user } = useAuth();
@@ -45,6 +47,7 @@ export default function Reconciliation() {
   const [activeTab, setActiveTab] = useState('ALL');
   const [searchQuery, setSearchQuery] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
+  const [showStatementImportModal, setShowStatementImportModal] = useState(false);
 
   // Selected Record Modal / Drawer State
   const [selectedRecord, setSelectedRecord] = useState(null);
@@ -201,15 +204,28 @@ export default function Reconciliation() {
           </button>
 
           {isEditor && (
-            <button
-              onClick={handleAutoReconcile}
-              className="btn btn-primary"
-              disabled={actionLoading || loading}
-              style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'var(--forest-green)' }}
-            >
-              <Zap size={15} />
-              Auto-Reconcile Rules
-            </button>
+            <>
+              <button
+                onClick={() => setShowStatementImportModal(true)}
+                className="btn btn-outline"
+                disabled={actionLoading || loading}
+                style={{ display: 'flex', alignItems: 'center', gap: '6px', borderColor: '#C5A880', color: '#8B6B38' }}
+                title="Zero-Input Smart Statement Import"
+              >
+                <FileText size={15} />
+                Import Statement
+              </button>
+
+              <button
+                onClick={handleAutoReconcile}
+                className="btn btn-primary"
+                disabled={actionLoading || loading}
+                style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'var(--forest-green)' }}
+              >
+                <Zap size={15} />
+                Auto-Reconcile Rules
+              </button>
+            </>
           )}
         </div>
       </div>
@@ -281,7 +297,8 @@ export default function Reconciliation() {
             { id: 'MATCHED', label: 'Matched' },
             { id: 'PARTIALLY_MATCHED', label: 'Partial' },
             { id: 'NEEDS_REVIEW', label: 'Needs Review' },
-            { id: 'RECONCILED', label: 'Reconciled' }
+            { id: 'RECONCILED', label: 'Reconciled' },
+            { id: 'STATEMENT_QUEUE', label: 'Statement Queue' }
           ].map(tab => (
             <button
               key={tab.id}
@@ -315,8 +332,11 @@ export default function Reconciliation() {
         </div>
       </div>
 
-      {/* Main Reconciliation Table */}
-      <div className="glass-panel" style={{ padding: '1.5rem', borderRadius: '10px' }}>
+      {/* Main Reconciliation Table or Statement Review Queue */}
+      {activeTab === 'STATEMENT_QUEUE' ? (
+        <StatementReviewQueue onQueueUpdated={() => loadData(periodKey)} />
+      ) : (
+        <div className="glass-panel" style={{ padding: '1.5rem', borderRadius: '10px' }}>
         {loading ? (
           <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--warm-gray)' }}>Loading reconciliation records...</div>
         ) : filteredRecords.length === 0 ? (
@@ -500,6 +520,7 @@ export default function Reconciliation() {
           </>
         )}
       </div>
+      )}
 
       {/* Record Review Modal */}
       {reviewModalOpen && selectedRecord && (
@@ -623,6 +644,14 @@ export default function Reconciliation() {
           recordTitle={`Evidence for ${selectedRecord.transactionId} (${selectedRecord.payeeOrPayer})`}
         />
       )}
+
+      {/* Zero-Input Smart Statement Import Modal */}
+      <SmartStatementImportModal
+        isOpen={showStatementImportModal}
+        onClose={() => setShowStatementImportModal(false)}
+        onSuccess={() => loadData(periodKey)}
+        onViewReviewQueue={() => setActiveTab('STATEMENT_QUEUE')}
+      />
     </div>
   );
 }

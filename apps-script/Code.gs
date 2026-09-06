@@ -193,6 +193,12 @@ function doPost(e) {
         return jsonResponse(assignAuditIssue(p, userEmail));
       case "stageBankStatementLines":
         return jsonResponse(stageBankStatementLines(p, userEmail));
+      case "getStagedStatementLines":
+        return jsonResponse(getStagedStatementLines(p, userEmail));
+      case "saveStagedStatementLines":
+        return jsonResponse(saveStagedStatementLines(p, userEmail));
+      case "processStatementImport":
+        return jsonResponse(processStatementImport(p, userEmail));
       case "getReconciliationCandidates":
         return jsonResponse(getReconciliationCandidates());
       case "matchReconciliationLine":

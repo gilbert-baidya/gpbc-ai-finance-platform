@@ -6,6 +6,7 @@
  */
 
 import { MOBILE_TEST_USER } from '../auth/mobileTestGuard';
+import { processStatementContent } from '../services/statement/statementPipeline';
 
 export const MOCK_TRANSACTIONS = [
   {
@@ -500,6 +501,81 @@ export function getMockFixture(action: string, payload: Record<string, unknown> 
         success: true,
         count: 0,
         candidates: []
+      };
+
+    case 'processStatementImport': {
+      const rawContent = String(payload.rawContent || `Sep 3, 2026\nZELLE PAYMENT TO JAMES TRUPEST\nJPM99CVMEAAN\n-$80.00\n\nORIG CO NAME:Churchwest\nORIG ID:3464699697\nENTRY DESCR:ACH PAYMENT\nSEC:WEB\nTRACE#:104000019610307\nIND NAME:Grace and Praise Bangl...\n-$2,567.50\n\nSAN BERNARDINO ALARM\nSANBERNARDINO CA 09/02\n-$31.21`);
+      return processStatementContent(rawContent, {
+        sourceDocumentId: String(payload.sourceDocumentId || 'DOC-STMT-001'),
+        sourceFileName: String(payload.fileName || 'BankStatement_Sep2026.pdf')
+      }) as unknown as Record<string, unknown>;
+    }
+
+    case 'getStagedStatementLines':
+      return {
+        success: true,
+        lines: [
+          {
+            tempId: 'STG-001',
+            transactionDate: '2026-03-03',
+            amount: 80.00,
+            direction: 'EXPENSE',
+            merchantOrPayee: 'James Trupest',
+            cleanDescription: 'ZELLE PAYMENT TO JAMES TRUPEST',
+            rawDescription: 'ZELLE PAYMENT TO JAMES TRUPEST JPM99CVMEAAN -$80.00',
+            category: 'Needs Classification',
+            classificationSource: 'FALLBACK',
+            classificationStatus: 'NEEDS_REVIEW',
+            businessPurpose: 'Zelle Payment to James Trupest',
+            purposeConfidence: 'MEDIUM',
+            paymentChannel: 'ZELLE',
+            routingDestination: 'RECONCILIATION_STAGING',
+            autoReconciled: false,
+            isRefund: false,
+            isDuplicate: false,
+            isClosedPeriod: false,
+            confidence: {
+              merchantConfidence: 'HIGH',
+              amountConfidence: 'HIGH',
+              dateConfidence: 'HIGH',
+              categoryConfidence: 'LOW',
+              purposeConfidence: 'MEDIUM',
+              overallConfidence: 'LOW'
+            },
+            auditMetadata: {
+              processedAt: '2026-03-03T10:00:00Z',
+              modelOrEngine: 'GPBC_Deterministic_Extraction_Engine_v1',
+              rawText: 'ZELLE PAYMENT TO JAMES TRUPEST JPM99CVMEAAN -$80.00'
+            }
+          }
+        ],
+        count: 1
+      };
+
+    case 'getVendorLearningRules':
+      return {
+        success: true,
+        rules: [
+          {
+            merchantPattern: 'churchwest',
+            canonicalMerchant: 'Churchwest',
+            defaultCategory: 'Insurance',
+            defaultPurpose: 'Insurance / Administrative Expense',
+            confidence: 'HIGH',
+            source: 'SYSTEM_DEFAULT',
+            lastUsedAt: '2026-03-01T00:00:00Z'
+          },
+          {
+            merchantPattern: 'san bernardino alarm',
+            canonicalMerchant: 'San Bernardino Alarm',
+            defaultCategory: 'Facility & Security',
+            defaultPurpose: 'Security / Alarm Monitoring',
+            confidence: 'HIGH',
+            source: 'SYSTEM_DEFAULT',
+            lastUsedAt: '2026-03-01T00:00:00Z'
+          }
+        ],
+        count: 2
       };
 
     default:
