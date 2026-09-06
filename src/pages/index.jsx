@@ -93,6 +93,7 @@ const PhaseCard = ({ icon: IconComponent, title, phase, subtitle, features }) =>
 // Audit and reporting pages
 export { default as AuditCenter } from './AuditCenter';
 export { default as MonthlyClose } from './MonthlyClose';
+export { default as MonthlyCommitteeApproval } from './MonthlyCommitteeApproval';
 export { default as PresbyterReports } from './PresbyterReports';
 export { default as Settings } from './Settings';
 

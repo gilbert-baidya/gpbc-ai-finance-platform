@@ -272,6 +272,17 @@ function authorizeAction(action, role) {
     "getPresbyterReports": ALL_READERS,
     "sendPresbyterReport": ALL_ADMINS.concat(["Finance Editor"]),
 
+    // Governance: Monthly Committee Approval & Directory
+    "getCommitteeMembers": ALL_READERS,
+    "addCommitteeMember": ALL_ADMINS,
+    "updateCommitteeMember": ALL_ADMINS,
+    "deactivateCommitteeMember": ALL_ADMINS,
+    "getMonthlyExpensePacket": OPERATIONAL_READERS,
+    "getMonthlyCommitteeApproval": ALL_READERS,
+    "recordCommitteeApproval": FINANCE_WRITERS,
+    "overrideCommitteeApproval": ["Primary Admin"],
+    "createCommitteeApprovalAmendment": ALL_ADMINS,
+
     // Intelligence & Automation
     "detectDonorRisk": FINANCE_WRITERS,
     "forecastGivingML": FINANCE_WRITERS,

@@ -237,6 +237,26 @@ function doPost(e) {
       case "sendPresbyterReport":
         return jsonResponse(sendPresbyterReport(p, userEmail));
 
+      // GOVERNANCE: MONTHLY COMMITTEE APPROVAL & DIRECTORY
+      case "getCommitteeMembers":
+        return jsonResponse(getCommitteeMembers());
+      case "addCommitteeMember":
+        return jsonResponse(addCommitteeMember(p, userEmail));
+      case "updateCommitteeMember":
+        return jsonResponse(updateCommitteeMember(p, userEmail));
+      case "deactivateCommitteeMember":
+        return jsonResponse(deactivateCommitteeMember(p, userEmail));
+      case "getMonthlyExpensePacket":
+        return jsonResponse(getMonthlyExpensePacket(p));
+      case "getMonthlyCommitteeApproval":
+        return jsonResponse(getMonthlyCommitteeApproval(p));
+      case "recordCommitteeApproval":
+        return jsonResponse(recordCommitteeApproval(p, userEmail));
+      case "overrideCommitteeApproval":
+        return jsonResponse(recordCommitteeApproval(Object.assign({}, p, { overrideApplied: true }), userEmail));
+      case "createCommitteeApprovalAmendment":
+        return jsonResponse(createCommitteeApprovalAmendment(p, userEmail));
+
       // MEMBERS
       case "addMember":
         return jsonResponse(addMember(p));
