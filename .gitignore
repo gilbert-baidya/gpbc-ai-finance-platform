@@ -42,3 +42,6 @@ SECURITY_HARDENING_REPORT.md
 *.sln
 *.sw?
 .vercel
+
+# Local Netlify folder
+.netlify
