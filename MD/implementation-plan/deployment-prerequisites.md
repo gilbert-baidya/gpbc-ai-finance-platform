@@ -37,7 +37,7 @@ In Google Apps Script (under **Project Settings** > **Script Properties**):
 
 | Property Name | Description | Example / Production Value |
 |---|---|---|
-| `GPBC_SHEET_ID` | Master Google Spreadsheet ID | `1zLercJPwPvdl7YEU31Hbu4zcmakulOYrNrpnddxNC6s` (or sandbox ID) |
+| `GPBC_SHEET_ID` | Master Google Spreadsheet ID | Production: `1QW6DA3vBiY08qJXw-XRK71-q21kWMLVnnMaQBPnX8fE`; Sandbox: `1y3kTt5MTMvi4XTEDL6ZgydIX4NDMYGFdHx5w4QCQAwA` |
 | `GOOGLE_CLIENT_ID` | Google OAuth Web Client ID for audience verification | Matching `VITE_GOOGLE_CLIENT_ID` |
 | `GPBC_APPROVED_USERS` | JSON array of approved user objects with roles | `[{"email":"admin@gracepraise.church","role":"Primary Admin","name":"Pastor Gilbert"},{"email":"backup@gmail.com","role":"Backup Admin","name":"Backup Admin"},{"email":"finance@gracepraise.church","role":"Finance Editor","name":"Finance Team"},{"email":"presbyter@socalnetwork.org","role":"Presbyter Read-Only","name":"Presbyter"}]` |
 | `GPBC_ENVIRONMENT` | Environment guard (`production` or `sandbox`) | `sandbox` (for testing) / `production` |
@@ -47,11 +47,13 @@ In Google Apps Script (under **Project Settings** > **Script Properties**):
 
 ## 4. Master Sheet Sandbox & Backup Procedure
 
-1. Open the production Sheet: `https://docs.google.com/spreadsheets/d/1zLercJPwPvdl7YEU31Hbu4zcmakulOYrNrpnddxNC6s/edit`
+1. Open the authoritative production Sheet: `https://docs.google.com/spreadsheets/d/1QW6DA3vBiY08qJXw-XRK71-q21kWMLVnnMaQBPnX8fE/edit`
 2. Make a private backup: **File** > **Make a copy** > Name: `GPBC_Finance_Master_BACKUP_YYYYMMDD`
 3. Make a sandbox development copy: **File** > **Make a copy** > Name: `GPBC_Finance_Master_SANDBOX`
 4. Use the sandbox Sheet ID in Script Properties during development and schema migration testing.
 5. Never perform test write operations or schema alterations directly on the production spreadsheet.
+
+The former workbook ID `1zLercJPwPvdl7YEU31Hbu4zcmakulOYrNrpnddxNC6s` is the **LEGACY / READ-ONLY / NOT PRODUCTION TARGET** historical source workbook.
 
 ---
 
