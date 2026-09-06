@@ -7,11 +7,13 @@ Production remains unchanged. Google authentication, Apps Script deployment, Net
 ## Authoritative Release References
 
 - Production Script ID: `1BgtzueL8xAfkMX_OtVdjhwUF5XmAw3-zvqsUK74uPsv0TJFre00zupvS`
+- Verified active deployment ID: `AKfycbzDMKjMowjTPOpqvvPIiv7YjWNrCs-orCgUhRKlnD7iutv8zif7GcyUFYrVPlrZ8_51pQ`
+- Verification source: Manual Google Apps Script, Deploy > Manage deployments, verified by Gilbert
 - Production workbook: `1QW6DA3vBiY08qJXw-XRK71-q21kWMLVnnMaQBPnX8fE`
 - Sandbox workbook: `1y3kTt5MTMvi4XTEDL6ZgydIX4NDMYGFdHx5w4QCQAwA`
 - Expected production schema after controlled migration: 19 tabs
 
-**MANUAL GATE:** PRODUCTION DEPLOYMENT ID — MANUAL VERIFICATION REQUIRED BEFORE RELEASE. The deployment ID must be verified against the Production Script ID before Phase D. Do not infer it from a source URL or historical version label.
+**MANUAL GATE:** PRODUCTION DEPLOYMENT ID — VERIFIED. The active deployment ID above is the verified production deployment for the Production Script ID. The old deployment ID `AKfycbwx3CYYFDu_wUIepfOuY3rVu9OE9lC5woV1X01lcDYFz_QMMx25wsyviSamIKkhILG5` is OLD / RETIRED / NOT CURRENT.
 
 ## Phases
 
@@ -21,7 +23,7 @@ Create and independently verify a timestamped production workbook and Drive evid
 
 ### Phase B — Verify production deployment identity
 
-Manually verify the Apps Script production deployment ID, deployment version, web-app access policy, and Netlify upstream mapping. Record the evidence and approve the gate.
+The production deployment identity was verified manually in Google Apps Script through Deploy > Manage deployments. Confirm the web-app access policy and Netlify upstream mapping as part of release execution.
 
 ### Phase C — Production schema migration to 19 tabs
 
