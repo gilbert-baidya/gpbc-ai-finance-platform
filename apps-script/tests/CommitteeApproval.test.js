@@ -631,5 +631,50 @@ describe('Monthly Committee Expense Approval Service', () => {
       expect(mockDb.getSheetByName('Monthly_Committee_Approval').getLastRow()).toBe(1);
       expect(mockDb.getSheetByName('Committee_Approval_Decisions').getLastRow()).toBe(1);
     });
+
+    it('rejects invalid decision enums and missing decisions', () => {
+      const memRes = addCommitteeMember({ fullName: 'Valid Member', roleTitle: 'Secretary', effectiveFrom: '2026-01-01' }, 'primary.admin@gracepraise.church');
+      const memId = memRes.member.memberId;
+
+      // Invalid decision value
+      expect(() => recordCommitteeApproval({
+        periodKey: '2026-08',
+        decisions: [{ memberId: memId, decision: 'INVALID_ENUM' }]
+      }, 'primary.admin@gracepraise.church')).toThrow(/Must be one of: APPROVED/);
+
+      // Missing/empty decision
+      expect(() => recordCommitteeApproval({
+        periodKey: '2026-08',
+        decisions: [{ memberId: memId, decision: '' }]
+      }, 'primary.admin@gracepraise.church')).toThrow(/Must be one of: APPROVED/);
+    });
+
+    it('enforces server-side Primary Admin role check for administrative override', () => {
+      // Add 2 members
+      const m1 = addCommitteeMember({ fullName: 'Member Alpha', roleTitle: 'Trustee', effectiveFrom: '2026-01-01' }, 'primary.admin@gracepraise.church').member.memberId;
+      const m2 = addCommitteeMember({ fullName: 'Member Beta', roleTitle: 'Trustee', effectiveFrom: '2026-01-01' }, 'primary.admin@gracepraise.church').member.memberId;
+
+      // Finance Editor attempts override when quorum not met (both returned)
+      expect(() => recordCommitteeApproval({
+        periodKey: '2026-08',
+        overrideApplied: true,
+        overrideReason: 'Unauthorized override attempt',
+        decisions: [
+          { memberId: m1, decision: 'RETURNED_FOR_CLARIFICATION' },
+          { memberId: m2, decision: 'RETURNED_FOR_CLARIFICATION' }
+        ]
+      }, 'finance.editor@gracepraise.church')).toThrow(/Unauthorized/);
+
+      // Primary Admin fails if overrideReason is empty
+      expect(() => recordCommitteeApproval({
+        periodKey: '2026-08',
+        overrideApplied: true,
+        overrideReason: '   ',
+        decisions: [
+          { memberId: m1, decision: 'RETURNED_FOR_CLARIFICATION' },
+          { memberId: m2, decision: 'RETURNED_FOR_CLARIFICATION' }
+        ]
+      }, 'primary.admin@gracepraise.church')).toThrow(/Override requires a mandatory reason/);
+    });
   });
 });

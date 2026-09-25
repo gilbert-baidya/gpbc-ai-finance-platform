@@ -253,4 +253,21 @@ describe('MonthlyCommitteeApproval Page', () => {
     expect(await screen.findByText(/Amendment Required: Expenses altered after approval/i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Create Ratification Amendment/i })).toBeInTheDocument();
   });
+
+  it('initializes modal with 0 approved, all UNRECORDED, and blocks submission when decisions are unrecorded', async () => {
+    render(<MonthlyCommitteeApproval />);
+
+    const recordBtn = await screen.findByRole('button', { name: /Record Committee Approval/i });
+    fireEvent.click(recordBtn);
+
+    expect(await screen.findByRole('heading', { name: 'Record Committee Approval' })).toBeInTheDocument();
+
+    // Verify all active members start unrecorded and the decision is pending
+    expect(screen.getByText(/Decisions Pending \(5 unrecorded\)/i)).toBeInTheDocument();
+    expect(screen.getAllByText('Decision not recorded')).toHaveLength(5);
+
+    // Verify submit button is disabled while unrecorded
+    const submitBtn = screen.getByRole('button', { name: 'Record Approval' });
+    expect(submitBtn).toBeDisabled();
+  });
 });
