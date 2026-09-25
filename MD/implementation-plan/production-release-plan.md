@@ -7,13 +7,14 @@ Production remains unchanged. Google authentication, Apps Script deployment, Net
 ## Authoritative Release References
 
 - Production Script ID: `1BgtzueL8xAfkMX_OtVdjhwUF5XmAw3-zvqsUK74uPsv0TJFre00zupvS`
-- Verified active deployment ID: `AKfycbzDMKjMowjTPOpqvvPIiv7YjWNrCs-orCgUhRKlnD7iutv8zif7GcyUFYrVPlrZ8_51pQ`
+- Verified active deployment ID: `AKfycbwx3CYYFDu_wUIepfOuY3rVu9OE9lC5woV1X01lcDYFz_QMMx25wsyviSamIKkhILG5`
+- Verified deployment: Version 8, Web app, Execute as `gilbert.baidya@gmail.com`, access `Anyone`
 - Verification source: Manual Google Apps Script, Deploy > Manage deployments, verified by Gilbert
 - Production workbook: `1QW6DA3vBiY08qJXw-XRK71-q21kWMLVnnMaQBPnX8fE`
 - Sandbox workbook: `1y3kTt5MTMvi4XTEDL6ZgydIX4NDMYGFdHx5w4QCQAwA`
 - Expected production schema after controlled migration: 19 tabs
 
-**MANUAL GATE:** PRODUCTION DEPLOYMENT ID — VERIFIED. The active deployment ID above is the verified production deployment for the Production Script ID. The old deployment ID `AKfycbwx3CYYFDu_wUIepfOuY3rVu9OE9lC5woV1X01lcDYFz_QMMx25wsyviSamIKkhILG5` is OLD / RETIRED / NOT CURRENT.
+**MANUAL GATE:** PRODUCTION DEPLOYMENT ID — VERIFIED. The active deployment ID above is the verified Version 8 production deployment for the Production Script ID. The newer deployment ID `AKfycbzDMKjMowjTPOpqvvPIiv7YjWNrCs-orCgUhRKlnD7iutv8zif7GcyUFYrVPlrZ8_51pQ` is NOT ACTIVE PRODUCTION WEB APP and must not be used for production runtime configuration.
 
 ## Phases
 
