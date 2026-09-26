@@ -49,6 +49,17 @@ vi.mock('recharts', () => {
 
 const renderDashboard = () => render(<MemoryRouter><FinanceDashboard /></MemoryRouter>);
 
+vi.mock('../context/PeriodContext', () => ({
+  usePeriod: () => ({
+    periodKey: '2026-09',
+    year: 2026,
+    month: 9,
+    startDate: '2026-09-01',
+    endDate: '2026-09-30'
+  }),
+  PeriodProvider: ({ children }) => <>{children}</>
+}));
+
 describe('FinanceDashboard', () => {
   beforeEach(() => {
     vi.clearAllMocks();

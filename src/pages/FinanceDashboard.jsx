@@ -13,6 +13,7 @@ import {
 import { financeApi } from '../api/financeApi';
 import { auditApi } from '../api/auditApi';
 import { committeeApi } from '../api/committeeApi';
+import { usePeriod } from '../context/PeriodContext';
 import './FinanceDashboard.css';
 
 const RESOLVED_STATUSES = new Set(['Reviewed', 'Cleared', 'Reconciled', 'Resolved']);
@@ -39,8 +40,26 @@ const money = (value, exact = false) => {
 const count = (value) => value === null || value === undefined ? '—' : String(value);
 const asDate = (value) => {
   if (!value) return null;
-  const parsed = new Date(value);
+  const str = String(value).trim();
+  const ymdMatch = str.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (ymdMatch) {
+    return new Date(parseInt(ymdMatch[1], 10), parseInt(ymdMatch[2], 10) - 1, parseInt(ymdMatch[3], 10));
+  }
+  const parsed = new Date(str);
   return Number.isNaN(parsed.getTime()) ? null : parsed;
+};
+
+const isInPeriod = (dateStr, periodKey) => {
+  if (!dateStr || !periodKey) return false;
+  const d = asDate(dateStr);
+  if (!d) return false;
+
+  const [yearStr, monthStr] = periodKey.split('-');
+  const y = parseInt(yearStr, 10);
+  const m = parseInt(monthStr, 10) - 1;
+  const start = new Date(y, m, 1);
+  const end = new Date(y, m + 1, 1);
+  return d >= start && d < end;
 };
 
 const monthlyActivity = (transactions) => {
@@ -130,6 +149,7 @@ const initialData = {
 };
 
 const FinanceDashboard = () => {
+  const { periodKey } = usePeriod();
   const [data, setData] = useState(initialData);
   const [loading, setLoading] = useState(true);
   const [failedSources, setFailedSources] = useState([]);
@@ -143,7 +163,7 @@ const FinanceDashboard = () => {
       ['projects', financeApi.getCapitalProjects()],
       ['auditIssues', auditApi.getAuditIssues()],
       ['auditHealthScore', auditApi.getAuditSummary()],
-      ['committeeApproval', committeeApi?.getMonthlyCommitteeApproval ? committeeApi.getMonthlyCommitteeApproval('2026-09').catch(() => null) : Promise.resolve(null)]
+      ['committeeApproval', committeeApi?.getMonthlyCommitteeApproval ? committeeApi.getMonthlyCommitteeApproval(periodKey).catch(() => null) : Promise.resolve(null)]
     ];
     const results = await Promise.allSettled(requests.map(([, request]) => request));
     const next = { ...initialData };
@@ -163,43 +183,61 @@ const FinanceDashboard = () => {
     setData(next);
     setFailedSources(failures);
     setLoading(false);
-  }, []);
+  }, [periodKey]);
 
   useEffect(() => {
     const timeoutId = window.setTimeout(loadDashboard, 0);
     return () => window.clearTimeout(timeoutId);
   }, [loadDashboard]);
 
+  // Derived filtered data for the selected period
+  const currentTransactions = React.useMemo(() =>
+    data.transactions ? data.transactions.filter(t => isInPeriod(transactionDate(t), periodKey)) : null
+  , [data.transactions, periodKey]);
+
+  const currentReimbursements = React.useMemo(() =>
+    data.reimbursements ? data.reimbursements.filter(r => isInPeriod(r.reimbursementDate, periodKey)) : null
+  , [data.reimbursements, periodKey]);
+
+  const currentReceipts = React.useMemo(() =>
+    data.receipts ? data.receipts.filter(r => isInPeriod(r.date || r.transactionDate, periodKey)) : null
+  , [data.receipts, periodKey]);
+
   const openIssues = data.auditIssues?.filter((issue) => !RESOLVED_STATUSES.has(issue.status)) ?? null;
-  const totalIncome = data.transactions ? sum(data.transactions, isIncome) : null;
-  const recognizedExpenses = data.transactions ? sum(data.transactions, isRecognizedExpense) : null;
+  const totalIncome = currentTransactions ? sum(currentTransactions, isIncome) : null;
+  const recognizedExpenses = currentTransactions ? sum(currentTransactions, isRecognizedExpense) : null;
   const netPosition = totalIncome === null ? null : totalIncome - recognizedExpenses;
-  const sundayOffering = data.transactions ? sum(data.transactions, (record) => isIncome(record) && /sunday offering|offering/i.test(transactionType(record))) : null;
-  const designatedDonations = data.transactions ? sum(data.transactions, (record) => isIncome(record) && (
+  const sundayOffering = currentTransactions ? sum(currentTransactions, (record) => isIncome(record) && /sunday offering|offering/i.test(transactionType(record))) : null;
+  const designatedDonations = currentTransactions ? sum(currentTransactions, (record) => isIncome(record) && (
     /designated|capital project donation/i.test(transactionType(record)) || transactionFund(record) !== 'General'
   )) : null;
-  const pendingReimbursements = pendingReimbursementAmount(data.reimbursements);
-  const partialReimbursements = data.reimbursements ? data.reimbursements.filter((record) => /partial/i.test(record.status || '')).length : null;
+
+  const pendingReimbursements = pendingReimbursementAmount(data.reimbursements); // pending is all-time
+  const partialReimbursements = currentReimbursements ? currentReimbursements.filter((record) => /partial/i.test(record.status || '')).length : null;
+
   const missingReceipts = openIssues ? openIssues.filter((issue) => issue.ruleId === 'RULE-RCP-001' || /missing receipt/i.test(`${issue.title || ''} ${issue.description || ''}`)).length :
-    data.transactions ? data.transactions.filter((record) => record.receiptStatus === 'Needs Receipt').length : null;
+    currentTransactions ? currentTransactions.filter((record) => record.receiptStatus === 'Needs Receipt').length : null;
+
   const documentationIssues = openIssues ? openIssues.filter((issue) => /receipt|documentation|evidence|payee|explanation/i.test(`${issue.title || ''} ${issue.description || ''}`)).length :
-    data.receipts ? data.receipts.filter((receipt) => receipt.matchStatus !== 'Matched').length : null;
-  const activity = monthlyActivity(data.transactions);
-  const incomeSources = breakdown(data.transactions, isIncome, transactionType);
-  const expenseCategories = breakdown(data.transactions, isRecognizedExpense, (record) => record.category || 'Uncategorized');
-  const recentTransactions = data.transactions ? [...data.transactions].sort((a, b) => (asDate(transactionDate(b))?.getTime() || 0) - (asDate(transactionDate(a))?.getTime() || 0)).slice(0, 7) : [];
+    currentReceipts ? currentReceipts.filter((receipt) => receipt.matchStatus !== 'Matched').length : null;
+
+  const activity = monthlyActivity(data.transactions); // needs all transactions
+  const incomeSources = breakdown(currentTransactions, isIncome, transactionType);
+  const expenseCategories = breakdown(currentTransactions, isRecognizedExpense, (record) => record.category || 'Uncategorized');
+  const recentTransactions = currentTransactions ? [...currentTransactions].sort((a, b) => (asDate(transactionDate(b))?.getTime() || 0) - (asDate(transactionDate(a))?.getTime() || 0)).slice(0, 7) : [];
+
   const projects = data.projects?.filter((project) => !['Completed', 'Closed'].includes(project.status)).slice(0, 4) ?? [];
   const priorityIssues = openIssues ? [...openIssues].sort((a, b) => ({ CRITICAL: 0, HIGH: 1, MEDIUM: 2, LOW: 3 }[a.severity] ?? 4) - ({ CRITICAL: 0, HIGH: 1, MEDIUM: 2, LOW: 3 }[b.severity] ?? 4)).slice(0, 5) : [];
   const auditScore = typeof data.auditHealthScore?.score === 'number' ? data.auditHealthScore.score : null;
 
   const committeeApproval = data.committeeApproval;
   let committeeValue = 'Pending Review';
-  let committeeDetail = 'September 2026 packet awaiting review';
+  let committeeDetail = `${periodKey || ''} packet awaiting review`;
   let committeeTone = 'neutral';
   if (committeeApproval) {
     if (committeeApproval.approvalStatus === 'APPROVED') {
       committeeValue = 'Approved';
-      committeeDetail = `${committeeApproval.approvalCount || 0} of ${committeeApproval.totalMembers || 0} approved · Sep 2026`;
+      committeeDetail = `${committeeApproval.approvalCount || 0} of ${committeeApproval.totalMembers || 0} approved · ${periodKey}`;
       committeeTone = 'positive';
     } else if (committeeApproval.approvalStatus === 'APPROVED_WITH_EXCEPTIONS') {
       committeeValue = 'Exceptions';
@@ -249,7 +287,7 @@ const FinanceDashboard = () => {
           <Link to="/committee-approval" style={{ textDecoration: 'none', color: 'inherit', display: 'block' }}>
             <Metric icon={ShieldCheck} label="Committee Approval" value={committeeValue} detail={committeeDetail} tone={committeeTone} />
           </Link>
-          <Metric icon={BadgeDollarSign} label="Pending Reimbursements" value={money(pendingReimbursements)} detail={pendingReimbursements === null ? 'Not available yet' : 'Remaining eligible amount'} tone="warning" unavailable={pendingReimbursements === null} />
+          <Metric icon={BadgeDollarSign} label="Total Currently Owed" value={money(pendingReimbursements)} detail={pendingReimbursements === null ? 'Not available yet' : 'Remaining eligible amount'} tone="warning" unavailable={pendingReimbursements === null} />
         </div>
       </section>
 
@@ -285,8 +323,8 @@ const FinanceDashboard = () => {
         <div className="fd-control-grid">
           <Metric icon={BadgeDollarSign} label="Pending Reimbursements" value={money(pendingReimbursements)} detail="Remaining eligible amount" unavailable={pendingReimbursements === null} />
           <Metric icon={ClipboardCheck} label="Partial Reimbursements" value={count(partialReimbursements)} detail="Partially settled records" unavailable={partialReimbursements === null} />
-          <Metric icon={ReceiptText} label="Missing Receipts" value={count(missingReceipts)} detail="Evidence still required" unavailable={missingReceipts === null} />
-          <Metric icon={FileWarning} label="Documentation Issues" value={count(documentationIssues)} detail="Open support gaps" unavailable={documentationIssues === null} />
+          <Metric icon={ReceiptText} label="Outstanding Missing Receipts" value={count(missingReceipts)} detail="Evidence still required" unavailable={missingReceipts === null} />
+          <Metric icon={FileWarning} label="Outstanding Documentation Issues" value={count(documentationIssues)} detail="Open support gaps" unavailable={documentationIssues === null} />
         </div>
       </section>
 
@@ -301,9 +339,9 @@ const FinanceDashboard = () => {
               const remaining = Number(project.remainingDesignatedBalance ?? donations - expenses);
               return <div className="fd-project-row" key={project.projectId || name}>
                 <div className="fd-project-name"><strong>{name}</strong><Status>{project.status || 'Active'}</Status></div>
-                <ProjectValue label="Donations received" value={money(donations, true)} />
-                <ProjectValue label="Expenses paid" value={money(expenses, true)} />
-                <ProjectValue label="Remaining designated" value={money(remaining, true)} />
+                <ProjectValue label="Project-to-Date Donations" value={money(donations, true)} />
+                <ProjectValue label="Project-to-Date Expenses" value={money(expenses, true)} />
+                <ProjectValue label="Current Remaining Balance" value={money(remaining, true)} />
               </div>;
             })}</div>
           )}
@@ -350,7 +388,7 @@ const FinanceDashboard = () => {
       </section>
 
       <section className="fd-section fd-section--last">
-        <SectionHeading kicker="Audit Attention" title="Issues requiring review" link="/audit" linkText="View Audit Center" action />
+        <SectionHeading kicker="Current Outstanding Issues" title="Issues requiring review" link="/audit" linkText="View Audit Center" action />
         <div className="fd-audit-layout">
           <div className="fd-audit-counts">
             {[
